@@ -1,0 +1,40 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.positive {
+    color: #28a745;
+}
+
+.negative {
+    color: #dc3545;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+#portfolio-summary h6 {
+    color: #6c757d;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+#portfolio-summary p {
+    margin-bottom: 0;
+}
+
+.btn-delete {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
