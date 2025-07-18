@@ -170,3 +170,63 @@ function formatDateTime(dateTimeStr) {
         String(date.getHours()).padStart(2, '0') + ':' +
         String(date.getMinutes()).padStart(2, '0');
 }
+
+function exportData(format) {
+    const url = `${API_BASE_URL}/data/export/${format}`;
+    window.location.href = url;
+}
+
+function downloadTemplate() {
+    const url = `${API_BASE_URL}/data/template/csv`;
+    window.location.href = url;
+}
+
+function importData() {
+    const fileInput = $('#import-file')[0];
+    const fileType = $('#import-file-type').val();
+    
+    if (!fileInput.files.length) {
+        alert('파일을 선택해주세요.');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    $.ajax({
+        url: `${API_BASE_URL}/data/import/${fileType}`,
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(result) {
+            displayImportResult(result);
+            if (result.successCount > 0) {
+                loadPortfolioSummary();
+                loadTransactions();
+            }
+        },
+        error: function(xhr) {
+            alert('파일 가져오기 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
+        }
+    });
+}
+
+function displayImportResult(result) {
+    let html = '<div class="alert ' + (result.failureCount > 0 ? 'alert-warning' : 'alert-success') + '">';
+    html += `<strong>가져오기 완료</strong><br>`;
+    html += `전체: ${result.totalRows}건, 성공: ${result.successCount}건, 실패: ${result.failureCount}건`;
+    
+    if (result.errors && result.errors.length > 0) {
+        html += '<hr><strong>오류 내역:</strong><ul>';
+        result.errors.forEach(error => {
+            html += `<li>행 ${error.rowNumber}: ${error.message}</li>`;
+        });
+        html += '</ul>';
+    }
+    
+    html += '</div>';
+    
+    $('#import-result').html(html).show();
+}
