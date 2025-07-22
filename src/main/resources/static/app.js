@@ -230,3 +230,176 @@ function displayImportResult(result) {
     
     $('#import-result').html(html).show();
 }
+
+// Analysis functions
+function analyzePeriod() {
+    const startDate = $('#analysis-start-date').val();
+    const endDate = $('#analysis-end-date').val();
+    
+    if (!startDate || !endDate) {
+        alert('기간을 선택해주세요.');
+        return;
+    }
+    
+    $.ajax({
+        url: `${API_BASE_URL}/analysis/period?startDate=${startDate}&endDate=${endDate}`,
+        method: 'GET',
+        success: function(data) {
+            displayPeriodAnalysis(data);
+        },
+        error: function(xhr) {
+            alert('분석 실패: ' + (xhr.responseJSON?.error || '알 수 없는 오류'));
+        }
+    });
+}
+
+function displayPeriodAnalysis(analysis) {
+    let html = '<div class="row">';
+    html += '<div class="col-md-6">';
+    html += '<h6>기간 요약</h6>';
+    html += '<table class="table table-sm">';
+    html += `<tr><td>총 매수금액</td><td>${formatCurrency(analysis.totalBuyAmount)}</td></tr>`;
+    html += `<tr><td>총 매도금액</td><td>${formatCurrency(analysis.totalSellAmount)}</td></tr>`;
+    html += `<tr><td>실현손익</td><td class="${analysis.realizedProfit >= 0 ? 'positive' : 'negative'}">${formatCurrency(analysis.realizedProfit)} (${formatPercent(analysis.realizedProfitRate)})</td></tr>`;
+    html += `<tr><td>미실현손익</td><td class="${analysis.unrealizedProfit >= 0 ? 'positive' : 'negative'}">${formatCurrency(analysis.unrealizedProfit)} (${formatPercent(analysis.unrealizedProfitRate)})</td></tr>`;
+    html += `<tr><td>총손익</td><td class="${analysis.totalProfit >= 0 ? 'positive' : 'negative'}">${formatCurrency(analysis.totalProfit)} (${formatPercent(analysis.totalProfitRate)})</td></tr>`;
+    html += `<tr><td>총거래횟수</td><td>${analysis.totalTransactions}회 (매수: ${analysis.buyTransactions}, 매도: ${analysis.sellTransactions})</td></tr>`;
+    html += '</table>';
+    html += '</div>';
+    
+    if (analysis.monthlyAnalysis && analysis.monthlyAnalysis.length > 0) {
+        html += '<div class="col-md-6">';
+        html += '<h6>월별 분석</h6>';
+        html += '<table class="table table-sm">';
+        html += '<thead><tr><th>월</th><th>매수</th><th>매도</th><th>손익</th></tr></thead>';
+        html += '<tbody>';
+        analysis.monthlyAnalysis.forEach(month => {
+            html += '<tr>';
+            html += `<td>${month.yearMonth}</td>`;
+            html += `<td>${formatCurrency(month.buyAmount)}</td>`;
+            html += `<td>${formatCurrency(month.sellAmount)}</td>`;
+            html += `<td class="${month.profit >= 0 ? 'positive' : 'negative'}">${formatCurrency(month.profit)}</td>`;
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        html += '</div>';
+    }
+    
+    html += '</div>';
+    $('#period-analysis-result').html(html);
+}
+
+function analyzeStock() {
+    const symbol = $('#analysis-stock-symbol').val();
+    
+    if (!symbol) {
+        alert('종목 코드를 입력해주세요.');
+        return;
+    }
+    
+    $.ajax({
+        url: `${API_BASE_URL}/analysis/stock/${symbol}`,
+        method: 'GET',
+        success: function(data) {
+            displayStockAnalysis(data);
+        },
+        error: function(xhr) {
+            alert('분석 실패: ' + (xhr.responseJSON?.error || '알 수 없는 오류'));
+        }
+    });
+}
+
+function displayStockAnalysis(analysis) {
+    let html = '<div class="row">';
+    html += '<div class="col-md-6">';
+    html += `<h6>${analysis.stockName} (${analysis.stockSymbol})</h6>`;
+    html += '<table class="table table-sm">';
+    html += `<tr><td>총 매수</td><td>${analysis.totalBuyCount}회 / ${formatNumber(analysis.totalBuyQuantity)}주</td></tr>`;
+    html += `<tr><td>총 매도</td><td>${analysis.totalSellCount}회 / ${formatNumber(analysis.totalSellQuantity)}주</td></tr>`;
+    html += `<tr><td>평균 매수가</td><td>${formatCurrency(analysis.averageBuyPrice)}</td></tr>`;
+    html += `<tr><td>평균 매도가</td><td>${formatCurrency(analysis.averageSellPrice)}</td></tr>`;
+    html += `<tr><td>실현손익</td><td class="${analysis.realizedProfit >= 0 ? 'positive' : 'negative'}">${formatCurrency(analysis.realizedProfit)} (${formatPercent(analysis.realizedProfitRate)})</td></tr>`;
+    html += `<tr><td>현재보유</td><td>${formatNumber(analysis.currentHolding)}주</td></tr>`;
+    html += `<tr><td>미실현손익</td><td class="${analysis.unrealizedProfit >= 0 ? 'positive' : 'negative'}">${formatCurrency(analysis.unrealizedProfit)} (${formatPercent(analysis.unrealizedProfitRate)})</td></tr>`;
+    html += `<tr><td>보유기간</td><td>${analysis.holdingDays}일</td></tr>`;
+    html += '</table>';
+    html += '</div>';
+    
+    if (analysis.tradingPatterns && analysis.tradingPatterns.length > 0) {
+        html += '<div class="col-md-6">';
+        html += '<h6>매매 패턴</h6>';
+        html += '<table class="table table-sm">';
+        analysis.tradingPatterns.forEach(pattern => {
+            html += '<tr>';
+            html += `<td>${pattern.pattern}</td>`;
+            html += `<td>${pattern.value}</td>`;
+            html += '</tr>';
+        });
+        html += '</table>';
+        html += '</div>';
+    }
+    
+    html += '</div>';
+    $('#stock-analysis-result').html(html);
+}
+
+function calculateTax() {
+    const year = $('#tax-year').val();
+    
+    $.ajax({
+        url: `${API_BASE_URL}/analysis/tax/${year}`,
+        method: 'GET',
+        success: function(data) {
+            displayTaxCalculation(data);
+        },
+        error: function(xhr) {
+            alert('세금 계산 실패: ' + (xhr.responseJSON?.error || '알 수 없는 오류'));
+        }
+    });
+}
+
+function displayTaxCalculation(tax) {
+    let html = `<h6>${tax.taxYear}년 양도소득세 계산</h6>`;
+    html += '<div class="alert alert-info">';
+    html += '<table class="table table-sm mb-0">';
+    html += `<tr><td>총 매도금액</td><td>${formatCurrency(tax.totalSellAmount)}</td></tr>`;
+    html += `<tr><td>총 매수금액</td><td>${formatCurrency(tax.totalBuyAmount)}</td></tr>`;
+    html += `<tr><td>총 이익</td><td class="positive">${formatCurrency(tax.totalProfit)}</td></tr>`;
+    html += `<tr><td>총 손실</td><td class="negative">${formatCurrency(tax.totalLoss)}</td></tr>`;
+    html += `<tr><td>순손익</td><td class="${tax.netProfit >= 0 ? 'positive' : 'negative'}">${formatCurrency(tax.netProfit)}</td></tr>`;
+    html += `<tr><td>기본공제</td><td>₩2,500,000</td></tr>`;
+    html += `<tr><td>과세표준</td><td>${formatCurrency(tax.taxableAmount)}</td></tr>`;
+    html += `<tr><td>세율</td><td>${formatPercent(tax.taxRate)}</td></tr>`;
+    html += `<tr><td><strong>예상 세금</strong></td><td><strong>${formatCurrency(tax.estimatedTax)}</strong></td></tr>`;
+    html += '</table>';
+    html += '</div>';
+    
+    if (tax.taxDetails && tax.taxDetails.length > 0) {
+        html += '<h6>거래 상세</h6>';
+        html += '<table class="table table-sm">';
+        html += '<thead><tr><th>종목</th><th>매수일</th><th>매도일</th><th>매수금액</th><th>매도금액</th><th>손익</th></tr></thead>';
+        html += '<tbody>';
+        tax.taxDetails.forEach(detail => {
+            html += '<tr>';
+            html += `<td>${detail.stockSymbol}</td>`;
+            html += `<td>${detail.buyDate}</td>`;
+            html += `<td>${detail.sellDate}</td>`;
+            html += `<td>${formatCurrency(detail.buyAmount)}</td>`;
+            html += `<td>${formatCurrency(detail.sellAmount)}</td>`;
+            html += `<td class="${detail.profit > 0 ? 'positive' : 'negative'}">${formatCurrency(detail.profit || -detail.loss)}</td>`;
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+    }
+    
+    $('#tax-calculation-result').html(html);
+}
+
+// Set default dates
+$(document).ready(function() {
+    const today = new Date();
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    
+    $('#analysis-start-date').val(lastMonth.toISOString().split('T')[0]);
+    $('#analysis-end-date').val(today.toISOString().split('T')[0]);
+});
