@@ -185,6 +185,117 @@
                     </div>
                 </div>
 
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">공시 정보</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h6 class="card-subtitle mb-2 text-muted">전체 공시</h6>
+                                        <h4 class="card-title" id="total-disclosures">0</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h6 class="card-subtitle mb-2 text-muted">읽지 않은 공시</h6>
+                                        <h4 class="card-title text-warning" id="unread-disclosures">0</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h6 class="card-subtitle mb-2 text-muted">중요 공시</h6>
+                                        <h4 class="card-title text-danger" id="important-disclosures">0</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <button class="btn btn-sm btn-primary" onclick="syncDisclosures()">
+                                            <i class="bi bi-arrow-clockwise"></i> 공시 동기화
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <ul class="nav nav-tabs" id="disclosureTab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="recent-disclosures-tab" data-bs-toggle="tab" data-bs-target="#recent-disclosures" type="button">최근 공시</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="unread-disclosures-tab" data-bs-toggle="tab" data-bs-target="#unread-disclosures-list" type="button">읽지 않은 공시</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="important-disclosures-tab" data-bs-toggle="tab" data-bs-target="#important-disclosures-list" type="button">중요 공시</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content" id="disclosureTabContent">
+                            <div class="tab-pane fade show active" id="recent-disclosures" role="tabpanel">
+                                <div class="table-responsive mt-3">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>접수일</th>
+                                                <th>종목</th>
+                                                <th>보고서명</th>
+                                                <th>제출인</th>
+                                                <th>구분</th>
+                                                <th>작업</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recent-disclosures-body">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="unread-disclosures-list" role="tabpanel">
+                                <div class="table-responsive mt-3">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>접수일</th>
+                                                <th>종목</th>
+                                                <th>보고서명</th>
+                                                <th>제출인</th>
+                                                <th>구분</th>
+                                                <th>작업</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="unread-disclosures-body">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="important-disclosures-list" role="tabpanel">
+                                <div class="table-responsive mt-3">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>접수일</th>
+                                                <th>종목</th>
+                                                <th>보고서명</th>
+                                                <th>제출인</th>
+                                                <th>구분</th>
+                                                <th>작업</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="important-disclosures-body">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">거래 내역</h5>

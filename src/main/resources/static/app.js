@@ -395,11 +395,150 @@ function displayTaxCalculation(tax) {
     $('#tax-calculation-result').html(html);
 }
 
-// Set default dates
+// Disclosure functions
+function loadDisclosureSummary() {
+    $.ajax({
+        url: `${API_BASE_URL}/disclosures/summary`,
+        method: 'GET',
+        success: function(data) {
+            updateDisclosureSummary(data);
+        },
+        error: function(xhr) {
+            console.error('Failed to load disclosure summary:', xhr);
+        }
+    });
+}
+
+function updateDisclosureSummary(summary) {
+    $('#total-disclosures').text(summary.totalCount || 0);
+    $('#unread-disclosures').text(summary.unreadCount || 0);
+    $('#important-disclosures').text(summary.importantCount || 0);
+    
+    // Update recent disclosures
+    if (summary.recentDisclosures) {
+        updateDisclosureTable('recent-disclosures-body', summary.recentDisclosures);
+    }
+    
+    // Update unread disclosures
+    if (summary.unreadDisclosures) {
+        updateDisclosureTable('unread-disclosures-body', summary.unreadDisclosures);
+    }
+    
+    // Update important disclosures
+    if (summary.importantDisclosures) {
+        updateDisclosureTable('important-disclosures-body', summary.importantDisclosures);
+    }
+}
+
+function updateDisclosureTable(tableId, disclosures) {
+    const tbody = $(`#${tableId}`);
+    tbody.empty();
+    
+    if (disclosures.length === 0) {
+        tbody.append('<tr><td colspan="6" class="text-center">공시 정보가 없습니다.</td></tr>');
+        return;
+    }
+    
+    disclosures.forEach(disclosure => {
+        const row = $('<tr>');
+        if (!disclosure.isRead) {
+            row.addClass('table-warning');
+        }
+        
+        row.append(`<td>${formatDateTime(disclosure.receivedDate)}</td>`);
+        row.append(`<td>${disclosure.stockName} (${disclosure.stockSymbol})</td>`);
+        row.append(`<td>${disclosure.reportName}</td>`);
+        row.append(`<td>${disclosure.submitter}</td>`);
+        row.append(`<td><span class="badge ${getReportTypeBadge(disclosure.reportType)}">${disclosure.reportType}</span></td>`);
+        
+        const actions = $('<td>');
+        if (!disclosure.isRead) {
+            actions.append(`<button class="btn btn-sm btn-outline-primary me-1" onclick="markAsRead(${disclosure.id})">읽음</button>`);
+        }
+        actions.append(`<button class="btn btn-sm ${disclosure.isImportant ? 'btn-warning' : 'btn-outline-warning'} me-1" onclick="toggleImportant(${disclosure.id})">
+            <i class="bi ${disclosure.isImportant ? 'bi-star-fill' : 'bi-star'}"></i>
+        </button>`);
+        if (disclosure.viewUrl) {
+            actions.append(`<a href="${disclosure.viewUrl}" target="_blank" class="btn btn-sm btn-outline-info">보기</a>`);
+        }
+        row.append(actions);
+        
+        tbody.append(row);
+    });
+}
+
+function getReportTypeBadge(reportType) {
+    switch(reportType) {
+        case '정기공시':
+            return 'bg-primary';
+        case '주요사항보고':
+            return 'bg-danger';
+        case '자본시장법':
+            return 'bg-warning';
+        default:
+            return 'bg-secondary';
+    }
+}
+
+function markAsRead(disclosureId) {
+    $.ajax({
+        url: `${API_BASE_URL}/disclosures/${disclosureId}/read`,
+        method: 'PUT',
+        success: function() {
+            loadDisclosureSummary();
+        },
+        error: function(xhr) {
+            alert('공시 읽음 처리 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
+        }
+    });
+}
+
+function toggleImportant(disclosureId) {
+    $.ajax({
+        url: `${API_BASE_URL}/disclosures/${disclosureId}/important`,
+        method: 'PUT',
+        success: function() {
+            loadDisclosureSummary();
+        },
+        error: function(xhr) {
+            alert('중요 표시 변경 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
+        }
+    });
+}
+
+function syncDisclosures() {
+    const btn = event.target;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 동기화 중...';
+    btn.disabled = true;
+    
+    $.ajax({
+        url: `${API_BASE_URL}/disclosures/sync`,
+        method: 'POST',
+        success: function() {
+            setTimeout(() => {
+                loadDisclosureSummary();
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                alert('공시 정보가 동기화되었습니다.');
+            }, 1000);
+        },
+        error: function(xhr) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            alert('공시 동기화 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
+        }
+    });
+}
+
+// Set default dates and load disclosure summary
 $(document).ready(function() {
     const today = new Date();
     const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     
     $('#analysis-start-date').val(lastMonth.toISOString().split('T')[0]);
     $('#analysis-end-date').val(today.toISOString().split('T')[0]);
+    
+    // Load disclosure summary
+    loadDisclosureSummary();
 });
