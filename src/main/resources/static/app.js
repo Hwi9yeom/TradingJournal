@@ -5,6 +5,7 @@ $(document).ready(function() {
     loadTransactions();
     setupEventHandlers();
     setDefaultDateTime();
+    initializeCharts();
 });
 
 function setupEventHandlers() {
