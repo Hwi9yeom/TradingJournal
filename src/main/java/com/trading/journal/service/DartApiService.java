@@ -3,6 +3,7 @@ package com.trading.journal.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trading.journal.dto.DisclosureDto;
+import com.trading.journal.service.CorpCodeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,7 @@ public class DartApiService {
     
     private final WebClient dartWebClient;
     private final ObjectMapper objectMapper;
+    private final CorpCodeService corpCodeService;
     
     @Value("${dart.api.key:}")
     private String apiKey;
@@ -60,16 +62,10 @@ public class DartApiService {
      * @return 회사 코드
      */
     public Mono<String> getCorpCodeByName(String corpName) {
-        // DART API는 별도의 회사 코드 조회 API를 제공하지 않으므로
-        // 사전에 다운로드한 회사 코드 맵핑 파일을 사용하거나
-        // 별도의 DB 테이블에 저장해서 사용해야 합니다.
-        // 여기서는 간단히 하드코딩된 주요 종목만 처리합니다.
-        
-        String corpCode = getHardcodedCorpCode(corpName);
+        String corpCode = corpCodeService.findCorpCode(corpName);
         if (corpCode != null) {
             return Mono.just(corpCode);
         }
-        
         return Mono.error(new RuntimeException("회사 코드를 찾을 수 없습니다: " + corpName));
     }
     
@@ -203,20 +199,4 @@ public class DartApiService {
         return false;
     }
     
-    private String getHardcodedCorpCode(String corpName) {
-        // 주요 종목의 DART 회사 코드 (실제로는 DB나 파일에서 관리해야 함)
-        return switch (corpName) {
-            case "삼성전자" -> "00126380";
-            case "SK하이닉스" -> "00164779";
-            case "NAVER", "네이버" -> "00187038";
-            case "카카오" -> "00258801";
-            case "LG화학" -> "00356361";
-            case "삼성바이오로직스" -> "00808511";
-            case "셀트리온" -> "00421045";
-            case "현대차", "현대자동차" -> "00401731";
-            case "기아", "기아자동차" -> "00190980";
-            case "삼성SDI" -> "00100840";
-            default -> null;
-        };
-    }
 }
