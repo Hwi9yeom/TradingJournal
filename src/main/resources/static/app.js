@@ -5,7 +5,7 @@ $(document).ready(function() {
     loadTransactions();
     setupEventHandlers();
     setDefaultDateTime();
-    initializeCharts();
+    // initializeCharts(); // TODO: charts.js 파일 생성 후 활성화
 });
 
 function setupEventHandlers() {

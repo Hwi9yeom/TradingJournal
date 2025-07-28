@@ -102,12 +102,24 @@ public class TransactionService {
     private Stock createNewStock(String symbol) {
         try {
             yahoofinance.Stock yahooStock = stockPriceService.getStockInfo(symbol);
-            Stock stock = Stock.builder()
-                    .symbol(symbol.toUpperCase())
-                    .name(yahooStock.getName())
-                    .exchange(yahooStock.getStockExchange())
-                    .build();
-            return stockRepository.save(stock);
+            Stock.StockBuilder stockBuilder = Stock.builder()
+                    .symbol(symbol.toUpperCase());
+            
+            if (yahooStock != null) {
+                if (yahooStock.getName() != null) {
+                    stockBuilder.name(yahooStock.getName());
+                } else {
+                    stockBuilder.name(symbol.toUpperCase());
+                }
+                
+                if (yahooStock.getStockExchange() != null) {
+                    stockBuilder.exchange(yahooStock.getStockExchange());
+                }
+            } else {
+                stockBuilder.name(symbol.toUpperCase());
+            }
+            
+            return stockRepository.save(stockBuilder.build());
         } catch (Exception e) {
             log.error("Failed to fetch stock info for symbol: {}", symbol, e);
             Stock stock = Stock.builder()
