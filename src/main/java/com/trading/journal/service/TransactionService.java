@@ -8,6 +8,8 @@ import com.trading.journal.repository.StockRepository;
 import com.trading.journal.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,15 +49,21 @@ public class TransactionService {
     }
     
     @Transactional(readOnly = true)
+    public Page<TransactionDto> getAllTransactions(Pageable pageable) {
+        return transactionRepository.findAll(pageable)
+                .map(this::convertToDto);
+    }
+    
+    @Transactional(readOnly = true)
     public List<TransactionDto> getAllTransactions() {
-        return transactionRepository.findAll().stream()
+        return transactionRepository.findAllWithStock().stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
     
     @Transactional(readOnly = true)
     public List<TransactionDto> getTransactionsBySymbol(String symbol) {
-        return transactionRepository.findByStockSymbol(symbol).stream()
+        return transactionRepository.findBySymbolWithStock(symbol).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }

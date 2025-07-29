@@ -4,6 +4,10 @@ import com.trading.journal.dto.TransactionDto;
 import com.trading.journal.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +31,23 @@ public class TransactionController {
     }
     
     @GetMapping
-    public ResponseEntity<List<TransactionDto>> getAllTransactions() {
+    public ResponseEntity<Page<TransactionDto>> getAllTransactions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "transactionDate") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        
+        Sort sort = sortDir.equalsIgnoreCase("desc") 
+            ? Sort.by(sortBy).descending() 
+            : Sort.by(sortBy).ascending();
+        
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<TransactionDto> transactions = transactionService.getAllTransactions(pageable);
+        return ResponseEntity.ok(transactions);
+    }
+    
+    @GetMapping("/all")
+    public ResponseEntity<List<TransactionDto>> getAllTransactionsAsList() {
         List<TransactionDto> transactions = transactionService.getAllTransactions();
         return ResponseEntity.ok(transactions);
     }

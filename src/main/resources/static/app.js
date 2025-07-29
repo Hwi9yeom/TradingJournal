@@ -5,6 +5,7 @@ $(document).ready(function() {
     loadTransactions();
     setupEventHandlers();
     setDefaultDateTime();
+    setupInfiniteScroll();
     // initializeCharts(); // TODO: charts.js 파일 생성 후 활성화
 });
 
@@ -74,22 +75,68 @@ function updatePortfolioHoldings(holdings) {
     });
 }
 
-function loadTransactions() {
+let currentPage = 0;
+const pageSize = 20;
+let isLoading = false;
+let hasMoreData = true;
+
+function loadTransactions(reset = false) {
+    if (isLoading) return;
+    
+    if (reset) {
+        currentPage = 0;
+        hasMoreData = true;
+        $('#transaction-list').empty();
+    }
+    
+    if (!hasMoreData) return;
+    
+    isLoading = true;
+    showLoadingIndicator();
+    
     $.ajax({
-        url: `${API_BASE_URL}/transactions`,
+        url: `${API_BASE_URL}/transactions?page=${currentPage}&size=${pageSize}`,
         method: 'GET',
         success: function(data) {
-            updateTransactionList(data);
+            updateTransactionList(data.content, reset);
+            hasMoreData = !data.last;
+            currentPage++;
+            hideLoadingIndicator();
+            isLoading = false;
         },
         error: function(xhr) {
             console.error('Failed to load transactions:', xhr);
+            hideLoadingIndicator();
+            isLoading = false;
         }
     });
 }
 
-function updateTransactionList(transactions) {
+function showLoadingIndicator() {
+    if ($('#loading-indicator').length === 0) {
+        $('#transaction-list').after(`
+            <tr id="loading-indicator">
+                <td colspan="7" class="text-center p-3">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    데이터를 불러오는 중...
+                </td>
+            </tr>
+        `);
+    }
+}
+
+function hideLoadingIndicator() {
+    $('#loading-indicator').remove();
+}
+
+function updateTransactionList(transactions, reset = false) {
     const tbody = $('#transaction-list');
-    tbody.empty();
+    
+    if (reset) {
+        tbody.empty();
+    }
     
     transactions.forEach(transaction => {
         const row = $('<tr>');
@@ -123,7 +170,7 @@ function addTransaction() {
             $('#transaction-form')[0].reset();
             setDefaultDateTime();
             loadPortfolioSummary();
-            loadTransactions();
+            loadTransactions(true); // reset and reload
             alert('거래가 추가되었습니다.');
         },
         error: function(xhr) {
@@ -142,7 +189,7 @@ function deleteTransaction(id) {
         method: 'DELETE',
         success: function() {
             loadPortfolioSummary();
-            loadTransactions();
+            loadTransactions(true); // reset and reload
             alert('거래가 삭제되었습니다.');
         },
         error: function(xhr) {
@@ -528,6 +575,18 @@ function syncDisclosures() {
             btn.innerHTML = originalHtml;
             btn.disabled = false;
             alert('공시 동기화 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
+        }
+    });
+}
+
+// Infinite scroll setup
+function setupInfiniteScroll() {
+    $(window).scroll(function() {
+        // 화면 하단에서 300px 위까지 스크롤했을 때 더 불러오기
+        if ($(window).scrollTop() + $(window).height() > $(document).height() - 300) {
+            if (hasMoreData && !isLoading) {
+                loadTransactions();
+            }
         }
     });
 }

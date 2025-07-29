@@ -11,7 +11,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "dividends")
+@Table(name = "dividends", indexes = {
+    @Index(name = "idx_dividend_payment_date", columnList = "paymentDate"),
+    @Index(name = "idx_dividend_stock_id", columnList = "stock_id"),
+    @Index(name = "idx_dividend_ex_date", columnList = "exDividendDate")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

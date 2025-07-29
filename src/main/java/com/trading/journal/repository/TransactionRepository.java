@@ -15,8 +15,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     
     List<Transaction> findByTypeOrderByTransactionDateDesc(TransactionType type);
     
-    @Query("SELECT t FROM Transaction t WHERE t.transactionDate BETWEEN :startDate AND :endDate ORDER BY t.transactionDate DESC")
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock WHERE t.transactionDate BETWEEN :startDate AND :endDate ORDER BY t.transactionDate DESC")
     List<Transaction> findByDateRange(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock ORDER BY t.transactionDate DESC")
+    List<Transaction> findAllWithStock();
+    
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock WHERE t.stock.symbol = :symbol ORDER BY t.transactionDate DESC")
+    List<Transaction> findBySymbolWithStock(@Param("symbol") String symbol);
     
     @Query("SELECT t FROM Transaction t WHERE t.stock.symbol = :symbol ORDER BY t.transactionDate DESC")
     List<Transaction> findByStockSymbol(@Param("symbol") String symbol);
