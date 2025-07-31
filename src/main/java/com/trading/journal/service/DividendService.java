@@ -8,6 +8,8 @@ import com.trading.journal.repository.DividendRepository;
 import com.trading.journal.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,8 +28,9 @@ public class DividendService {
     
     private final DividendRepository dividendRepository;
     private final StockRepository stockRepository;
-    private final PortfolioService portfolioService;
+    private final PortfolioAnalysisService portfolioAnalysisService;
     
+    @CacheEvict(value = "dividend", allEntries = true)
     public DividendDto createDividend(DividendDto dto) {
         Stock stock = stockRepository.findById(dto.getStockId())
                 .orElseThrow(() -> new RuntimeException("Stock not found: " + dto.getStockId()));
@@ -56,6 +59,7 @@ public class DividendService {
         return convertToDto(dividend);
     }
     
+    @CacheEvict(value = "dividend", allEntries = true)
     public DividendDto updateDividend(Long id, DividendDto dto) {
         Dividend dividend = dividendRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Dividend not found: " + id));
@@ -88,6 +92,7 @@ public class DividendService {
         return convertToDto(dividend);
     }
     
+    @CacheEvict(value = "dividend", allEntries = true)
     public void deleteDividend(Long id) {
         dividendRepository.deleteById(id);
         log.info("Deleted dividend: {}", id);
@@ -101,6 +106,7 @@ public class DividendService {
     }
     
     @Transactional(readOnly = true)
+    @Cacheable(value = "dividend", key = "#symbol")
     public List<DividendDto> getDividendsByStock(String symbol) {
         return dividendRepository.findByStockSymbol(symbol).stream()
                 .map(this::convertToDto)
@@ -115,6 +121,7 @@ public class DividendService {
     }
     
     @Transactional(readOnly = true)
+    @Cacheable(value = "dividend", key = "'summary'")
     public DividendSummaryDto getDividendSummary() {
         LocalDate now = LocalDate.now();
         LocalDate yearStart = LocalDate.of(now.getYear(), 1, 1);
@@ -142,7 +149,7 @@ public class DividendService {
                 : BigDecimal.ZERO;
         
         // 배당 수익률 계산 (연간 배당금 / 현재 포트폴리오 가치)
-        BigDecimal currentPortfolioValue = portfolioService.getPortfolioSummary().getTotalCurrentValue();
+        BigDecimal currentPortfolioValue = portfolioAnalysisService.getPortfolioSummary().getTotalCurrentValue();
         BigDecimal dividendYield = currentPortfolioValue.compareTo(BigDecimal.ZERO) > 0
                 ? yearlyDividends.divide(currentPortfolioValue, 4, RoundingMode.HALF_UP).multiply(new BigDecimal("100"))
                 : BigDecimal.ZERO;

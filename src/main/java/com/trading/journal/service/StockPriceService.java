@@ -24,6 +24,7 @@ public class StockPriceService {
     private static final int MAX_RETRIES = 3;
     private static final long RETRY_DELAY_MS = 1000; // 1 second
     
+    @Cacheable(value = "stockPrice", key = "#symbol")
     public BigDecimal getCurrentPrice(String symbol) {
         try {
             Stock stock = YahooFinance.get(symbol);
@@ -110,6 +111,7 @@ public class StockPriceService {
         }
     }
     
+    @Cacheable(value = "stockPrice", key = "#symbol + '_prev'")
     public BigDecimal getPreviousClose(String symbol) {
         try {
             Stock stock = YahooFinance.get(symbol);

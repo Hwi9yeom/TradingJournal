@@ -8,6 +8,7 @@ import com.trading.journal.entity.TransactionType;
 import com.trading.journal.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +32,7 @@ public class AnalysisService {
     private final TransactionRepository transactionRepository;
     private final PortfolioAnalysisService portfolioAnalysisService;
     
+    @Cacheable(value = "analysis", key = "#startDate + '_' + #endDate")
     public PeriodAnalysisDto analyzePeriod(LocalDate startDate, LocalDate endDate) {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);

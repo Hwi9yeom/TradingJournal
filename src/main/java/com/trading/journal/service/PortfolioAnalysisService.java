@@ -6,6 +6,8 @@ import com.trading.journal.entity.Portfolio;
 import com.trading.journal.repository.PortfolioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,7 @@ public class PortfolioAnalysisService {
     private final PortfolioRepository portfolioRepository;
     private final StockPriceService stockPriceService;
     
+    @Cacheable(value = "portfolio", key = "'summary'")
     public PortfolioSummaryDto getPortfolioSummary() {
         List<Portfolio> portfolios = portfolioRepository.findAll();
         List<PortfolioDto> holdings = new ArrayList<>();
@@ -69,6 +72,7 @@ public class PortfolioAnalysisService {
                 .build();
     }
     
+    @Cacheable(value = "portfolio", key = "#symbol")
     public PortfolioDto getPortfolioBySymbol(String symbol) {
         Portfolio portfolio = portfolioRepository.findByStockSymbol(symbol)
                 .orElseThrow(() -> new RuntimeException("Portfolio not found for symbol: " + symbol));
