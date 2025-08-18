@@ -5,7 +5,16 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "disclosures")
+@Table(name = "disclosures", indexes = {
+    @Index(name = "idx_disclosure_stock_id", columnList = "stock_id"),
+    @Index(name = "idx_disclosure_received_date", columnList = "receivedDate"),
+    @Index(name = "idx_disclosure_is_important", columnList = "isImportant"),
+    @Index(name = "idx_disclosure_is_read", columnList = "isRead"),
+    @Index(name = "idx_disclosure_report_number", columnList = "reportNumber"),
+    @Index(name = "idx_stock_received_date", columnList = "stock_id, receivedDate"),
+    @Index(name = "idx_important_received_date", columnList = "isImportant, receivedDate"),
+    @Index(name = "idx_read_received_date", columnList = "isRead, receivedDate")
+})
 @Getter
 @Setter
 @NoArgsConstructor
