@@ -15,7 +15,7 @@ To update or add a new mapping:
    corresponding code.
 3. Restart the application so the updated mappings are loaded.
 
-
+ 
 Example snippet:
 
 ```yaml
