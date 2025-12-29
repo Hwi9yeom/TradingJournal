@@ -10,6 +10,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -113,16 +116,17 @@ class TransactionControllerTest {
     void getAllTransactions() throws Exception {
         // Given
         List<TransactionDto> transactions = Arrays.asList(mockTransactionDto);
-        when(transactionService.getAllTransactions()).thenReturn(transactions);
+        Page<TransactionDto> transactionPage = new PageImpl<>(transactions);
+        when(transactionService.getAllTransactions(any(Pageable.class))).thenReturn(transactionPage);
 
         // When & Then
         mockMvc.perform(get("/api/transactions"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].stockSymbol").value("AAPL"));
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].stockSymbol").value("AAPL"));
 
-        verify(transactionService).getAllTransactions();
+        verify(transactionService).getAllTransactions(any(Pageable.class));
     }
 
     @Test

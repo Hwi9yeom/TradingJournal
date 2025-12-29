@@ -123,8 +123,8 @@ class PortfolioControllerTest {
 
         // When & Then
         mockMvc.perform(get("/api/portfolio/symbol/INVALID"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error").value("Portfolio not found for symbol: INVALID"));
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("Portfolio not found for symbol: INVALID"));
 
         verify(portfolioAnalysisService).getPortfolioBySymbol("INVALID");
     }

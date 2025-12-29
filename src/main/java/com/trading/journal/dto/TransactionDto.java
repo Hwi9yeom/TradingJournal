@@ -16,10 +16,14 @@ import java.time.LocalDateTime;
 @Builder
 public class TransactionDto {
     private Long id;
-    
+
+    // Account 정보
+    private Long accountId;
+    private String accountName;
+
     @NotBlank(message = "Stock symbol is required")
     private String stockSymbol;
-    
+
     private String stockName;
     
     @NotNull(message = "Transaction type is required")

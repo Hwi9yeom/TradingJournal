@@ -13,7 +13,10 @@ import java.time.LocalDateTime;
     @Index(name = "idx_stock_date", columnList = "stock_id, transactionDate"),
     @Index(name = "idx_type_date", columnList = "type, transactionDate"),
     @Index(name = "idx_created_at", columnList = "createdAt"),
-    @Index(name = "idx_updated_at", columnList = "updatedAt")
+    @Index(name = "idx_updated_at", columnList = "updatedAt"),
+    @Index(name = "idx_transaction_account_id", columnList = "account_id"),
+    @Index(name = "idx_transaction_account_stock", columnList = "account_id, stock_id"),
+    @Index(name = "idx_transaction_account_date", columnList = "account_id, transactionDate")
 })
 @Getter
 @Setter
@@ -24,7 +27,11 @@ public class Transaction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_id")
+    private Account account;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stock_id", nullable = false)
     private Stock stock;

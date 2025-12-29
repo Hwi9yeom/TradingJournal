@@ -6,10 +6,16 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "portfolios", indexes = {
-    @Index(name = "idx_portfolio_stock_id", columnList = "stock_id"),
-    @Index(name = "idx_portfolio_updated_at", columnList = "updatedAt")
-})
+@Table(name = "portfolios",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_portfolio_account_stock", columnNames = {"account_id", "stock_id"})
+    },
+    indexes = {
+        @Index(name = "idx_portfolio_stock_id", columnList = "stock_id"),
+        @Index(name = "idx_portfolio_account_id", columnList = "account_id"),
+        @Index(name = "idx_portfolio_account_stock", columnList = "account_id, stock_id"),
+        @Index(name = "idx_portfolio_updated_at", columnList = "updatedAt")
+    })
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,7 +25,11 @@ public class Portfolio {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_id")
+    private Account account;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stock_id", nullable = false)
     private Stock stock;

@@ -14,7 +14,9 @@ import java.time.LocalDateTime;
 @Table(name = "dividends", indexes = {
     @Index(name = "idx_dividend_payment_date", columnList = "paymentDate"),
     @Index(name = "idx_dividend_stock_id", columnList = "stock_id"),
-    @Index(name = "idx_dividend_ex_date", columnList = "exDividendDate")
+    @Index(name = "idx_dividend_ex_date", columnList = "exDividendDate"),
+    @Index(name = "idx_dividend_account_id", columnList = "account_id"),
+    @Index(name = "idx_dividend_account_stock", columnList = "account_id, stock_id")
 })
 @Data
 @NoArgsConstructor
@@ -24,6 +26,10 @@ public class Dividend {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_id")
+    private Account account;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stock_id", nullable = false)

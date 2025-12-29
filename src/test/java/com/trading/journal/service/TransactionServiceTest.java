@@ -1,6 +1,8 @@
 package com.trading.journal.service;
 
 import com.trading.journal.dto.TransactionDto;
+import com.trading.journal.entity.Account;
+import com.trading.journal.entity.AccountType;
 import com.trading.journal.entity.Stock;
 import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
@@ -23,7 +25,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,15 +43,26 @@ class TransactionServiceTest {
     @Mock
     private StockPriceService stockPriceService;
 
+    @Mock
+    private AccountService accountService;
+
     @InjectMocks
     private TransactionService transactionService;
 
+    private Account mockAccount;
     private Stock mockStock;
     private Transaction mockTransaction;
     private TransactionDto mockTransactionDto;
 
     @BeforeEach
     void setUp() {
+        mockAccount = Account.builder()
+                .id(1L)
+                .name("기본 계좌")
+                .accountType(AccountType.GENERAL)
+                .isDefault(true)
+                .build();
+
         mockStock = Stock.builder()
                 .id(1L)
                 .symbol("AAPL")
@@ -59,6 +72,7 @@ class TransactionServiceTest {
 
         mockTransaction = Transaction.builder()
                 .id(1L)
+                .account(mockAccount)
                 .stock(mockStock)
                 .type(TransactionType.BUY)
                 .quantity(new BigDecimal("10"))
@@ -83,6 +97,7 @@ class TransactionServiceTest {
     @DisplayName("매수 거래 생성 - 기존 종목")
     void createTransaction_ExistingStock_Buy() {
         // Given
+        when(accountService.getDefaultAccount()).thenReturn(mockAccount);
         when(stockRepository.findBySymbol("AAPL")).thenReturn(Optional.of(mockStock));
         when(transactionRepository.save(any(Transaction.class))).thenReturn(mockTransaction);
 
@@ -96,6 +111,7 @@ class TransactionServiceTest {
         assertThat(result.getQuantity()).isEqualByComparingTo(new BigDecimal("10"));
         assertThat(result.getTotalAmount()).isEqualByComparingTo(new BigDecimal("1505.00"));
 
+        verify(accountService).getDefaultAccount();
         verify(stockRepository).findBySymbol("AAPL");
         verify(transactionRepository).save(any(Transaction.class));
         verify(portfolioService).updatePortfolio(any(Transaction.class));
@@ -122,6 +138,7 @@ class TransactionServiceTest {
 
         Transaction sellTransaction = Transaction.builder()
                 .id(2L)
+                .account(mockAccount)
                 .stock(newStock)
                 .type(TransactionType.SELL)
                 .quantity(new BigDecimal("5"))
@@ -130,6 +147,7 @@ class TransactionServiceTest {
                 .transactionDate(sellDto.getTransactionDate())
                 .build();
 
+        when(accountService.getDefaultAccount()).thenReturn(mockAccount);
         when(stockRepository.findBySymbol("TSLA")).thenReturn(Optional.empty());
         when(stockRepository.save(any(Stock.class))).thenReturn(newStock);
         when(transactionRepository.save(any(Transaction.class))).thenReturn(sellTransaction);
@@ -143,6 +161,7 @@ class TransactionServiceTest {
         assertThat(result.getType()).isEqualTo(TransactionType.SELL);
         assertThat(result.getTotalAmount()).isEqualByComparingTo(new BigDecimal("997.00"));
 
+        verify(accountService).getDefaultAccount();
         verify(stockRepository).findBySymbol("TSLA");
         verify(stockRepository).save(any(Stock.class));
         verify(transactionRepository).save(any(Transaction.class));
@@ -154,7 +173,7 @@ class TransactionServiceTest {
     void getAllTransactions() {
         // Given
         List<Transaction> transactions = Arrays.asList(mockTransaction);
-        when(transactionRepository.findAll()).thenReturn(transactions);
+        when(transactionRepository.findAllWithStock()).thenReturn(transactions);
 
         // When
         List<TransactionDto> result = transactionService.getAllTransactions();
@@ -162,7 +181,7 @@ class TransactionServiceTest {
         // Then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStockSymbol()).isEqualTo("AAPL");
-        verify(transactionRepository).findAll();
+        verify(transactionRepository).findAllWithStock();
     }
 
     @Test
@@ -170,7 +189,7 @@ class TransactionServiceTest {
     void getTransactionsBySymbol() {
         // Given
         List<Transaction> transactions = Arrays.asList(mockTransaction);
-        when(transactionRepository.findByStockSymbol("AAPL")).thenReturn(transactions);
+        when(transactionRepository.findBySymbolWithStock("AAPL")).thenReturn(transactions);
 
         // When
         List<TransactionDto> result = transactionService.getTransactionsBySymbol("AAPL");
@@ -178,7 +197,7 @@ class TransactionServiceTest {
         // Then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStockSymbol()).isEqualTo("AAPL");
-        verify(transactionRepository).findByStockSymbol("AAPL");
+        verify(transactionRepository).findBySymbolWithStock("AAPL");
     }
 
     @Test
@@ -230,7 +249,7 @@ class TransactionServiceTest {
         assertThat(result).isNotNull();
         verify(transactionRepository).findById(1L);
         verify(transactionRepository).save(any(Transaction.class));
-        verify(portfolioService).recalculatePortfolio(1L);
+        verify(portfolioService).recalculatePortfolio(1L, 1L);  // accountId, stockId
     }
 
     @Test
@@ -245,7 +264,7 @@ class TransactionServiceTest {
         // Then
         verify(transactionRepository).findById(1L);
         verify(transactionRepository).delete(mockTransaction);
-        verify(portfolioService).recalculatePortfolio(1L);
+        verify(portfolioService).recalculatePortfolio(1L, 1L);  // accountId, stockId
     }
 
     @Test
@@ -264,5 +283,22 @@ class TransactionServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStockSymbol()).isEqualTo("AAPL");
         verify(transactionRepository).findByDateRange(startDate, endDate);
+    }
+
+    @Test
+    @DisplayName("계좌별 거래 조회")
+    void getTransactionsByAccount() {
+        // Given
+        List<Transaction> transactions = Arrays.asList(mockTransaction);
+        when(transactionRepository.findByAccountIdWithStock(1L)).thenReturn(transactions);
+
+        // When
+        List<TransactionDto> result = transactionService.getTransactionsByAccount(1L);
+
+        // Then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStockSymbol()).isEqualTo("AAPL");
+        assertThat(result.get(0).getAccountId()).isEqualTo(1L);
+        verify(transactionRepository).findByAccountIdWithStock(1L);
     }
 }

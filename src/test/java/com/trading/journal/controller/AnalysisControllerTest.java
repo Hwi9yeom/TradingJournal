@@ -3,6 +3,7 @@ package com.trading.journal.controller;
 import com.trading.journal.dto.PeriodAnalysisDto;
 import com.trading.journal.dto.StockAnalysisDto;
 import com.trading.journal.dto.TaxCalculationDto;
+import com.trading.journal.repository.TransactionRepository;
 import com.trading.journal.service.AnalysisService;
 import com.trading.journal.service.StockAnalysisService;
 import com.trading.journal.service.TaxCalculationService;
@@ -25,18 +26,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(AnalysisController.class)
 class AnalysisControllerTest {
-    
+
     @Autowired
     private MockMvc mockMvc;
-    
+
     @MockitoBean
     private AnalysisService analysisService;
-    
+
     @MockitoBean
     private StockAnalysisService stockAnalysisService;
-    
+
     @MockitoBean
     private TaxCalculationService taxCalculationService;
+
+    @MockitoBean
+    private TransactionRepository transactionRepository;
     
     @Test
     void analyzePeriod_ShouldReturnPeriodAnalysis() throws Exception {
