@@ -12,9 +12,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.concurrent.ConcurrentMapCache;
+import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+
+import java.util.Arrays;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -79,9 +83,31 @@ public class RedisConfig {
         return template;
     }
 
-    @Bean
+    /**
+     * Redis가 비활성화되었을 때 사용되는 기본 CacheManager
+     */
+    @Bean("cacheManager")
+    @Primary
+    @ConditionalOnProperty(name = "spring.data.redis.enabled", havingValue = "false", matchIfMissing = true)
+    public CacheManager simpleCacheManager() {
+        log.info("Configuring Simple (In-Memory) Cache Manager");
+        SimpleCacheManager cacheManager = new SimpleCacheManager();
+        cacheManager.setCaches(Arrays.asList(
+                new ConcurrentMapCache("portfolio"),
+                new ConcurrentMapCache("stockPrice"),
+                new ConcurrentMapCache("stockInfo"),
+                new ConcurrentMapCache("portfolioAnalysis"),
+                new ConcurrentMapCache("analysis"),
+                new ConcurrentMapCache("dividend"),
+                new ConcurrentMapCache("disclosure")
+        ));
+        return cacheManager;
+    }
+
+    @Bean("cacheManager")
+    @Primary
     @ConditionalOnProperty(name = "spring.data.redis.enabled", havingValue = "true")
-    public CacheManager cacheManager(RedisConnectionFactory redisConnectionFactory) {
+    public CacheManager redisCacheManager(RedisConnectionFactory redisConnectionFactory) {
         log.info("Configuring Redis Cache Manager");
         
         // 기본 캐시 설정
@@ -94,19 +120,21 @@ public class RedisConfig {
 
         // 캐시별 커스텀 설정
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
-        
+
         // 포트폴리오 데이터 - 5분 캐시
         cacheConfigurations.put("portfolio", defaultConfig.entryTtl(Duration.ofMinutes(5)));
-        
+        cacheConfigurations.put("portfolioAnalysis", defaultConfig.entryTtl(Duration.ofMinutes(5)));
+
         // 주식 가격 데이터 - 1분 캐시 (실시간성이 중요)
         cacheConfigurations.put("stockPrice", defaultConfig.entryTtl(Duration.ofMinutes(1)));
-        
+        cacheConfigurations.put("stockInfo", defaultConfig.entryTtl(Duration.ofMinutes(10)));
+
         // 거래 분석 데이터 - 30분 캐시
         cacheConfigurations.put("analysis", defaultConfig.entryTtl(Duration.ofMinutes(30)));
-        
+
         // 배당금 데이터 - 10분 캐시
         cacheConfigurations.put("dividend", defaultConfig.entryTtl(Duration.ofMinutes(10)));
-        
+
         // 공시 정보 - 30분 캐시
         cacheConfigurations.put("disclosure", defaultConfig.entryTtl(Duration.ofMinutes(30)));
 
