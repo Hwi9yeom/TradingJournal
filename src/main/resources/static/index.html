@@ -28,6 +28,9 @@
                     <li class="nav-item">
                         <a class="nav-link" href="dividend.html">배당금관리</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="accounts.html">계좌관리</a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -37,8 +40,14 @@
         <div class="row">
             <div class="col-md-12">
                 <div class="card mb-4">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">포트폴리오 요약</h5>
+                        <div class="d-flex align-items-center">
+                            <label class="me-2 mb-0 text-muted">계좌:</label>
+                            <select class="form-select form-select-sm" id="account-selector" style="width: auto;">
+                                <option value="">전체 계좌</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="row" id="portfolio-summary">
@@ -84,11 +93,17 @@
                         <form id="transaction-form">
                             <div class="row">
                                 <div class="col-md-2">
+                                    <label>계좌</label>
+                                    <select class="form-control" id="transaction-account" required>
+                                        <!-- 동적으로 채워짐 -->
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
                                     <label>종목 코드</label>
                                     <input type="text" class="form-control" id="stock-symbol" required>
                                 </div>
-                                <div class="col-md-2">
-                                    <label>거래 유형</label>
+                                <div class="col-md-1">
+                                    <label>유형</label>
                                     <select class="form-control" id="transaction-type" required>
                                         <option value="BUY">매수</option>
                                         <option value="SELL">매도</option>
@@ -102,7 +117,7 @@
                                     <label>가격</label>
                                     <input type="number" class="form-control" id="price" step="0.01" required>
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-1">
                                     <label>수수료</label>
                                     <input type="number" class="form-control" id="commission" step="0.01" value="0">
                                 </div>

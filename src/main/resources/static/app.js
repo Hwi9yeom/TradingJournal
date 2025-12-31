@@ -1,6 +1,14 @@
 const API_BASE_URL = '/api';
 
+// 현재 선택된 계좌 ID (null = 전체)
+let currentAccountId = null;
+
 $(document).ready(function() {
+    // URL에서 accountId 파라미터 확인
+    const urlParams = new URLSearchParams(window.location.search);
+    currentAccountId = urlParams.get('accountId') || null;
+
+    loadAccounts();
     loadPortfolioSummary();
     loadTransactions();
     setupEventHandlers();
@@ -8,6 +16,51 @@ $(document).ready(function() {
     setupInfiniteScroll();
     // initializeCharts(); // TODO: charts.js 파일 생성 후 활성화
 });
+
+// 계좌 목록 로드
+function loadAccounts() {
+    $.ajax({
+        url: `${API_BASE_URL}/accounts`,
+        method: 'GET',
+        success: function(accounts) {
+            populateAccountSelectors(accounts);
+        },
+        error: function(xhr) {
+            console.error('Failed to load accounts:', xhr);
+        }
+    });
+}
+
+// 계좌 선택 드롭다운 채우기
+function populateAccountSelectors(accounts) {
+    const accountSelector = $('#account-selector');
+    const transactionAccount = $('#transaction-account');
+
+    // 계좌 필터 드롭다운
+    if (accountSelector.length) {
+        accountSelector.find('option:not(:first)').remove();
+        accounts.forEach(account => {
+            const selected = currentAccountId == account.id ? 'selected' : '';
+            accountSelector.append(`<option value="${account.id}" ${selected}>${account.name}</option>`);
+        });
+
+        // 계좌 선택 변경 이벤트
+        accountSelector.off('change').on('change', function() {
+            currentAccountId = $(this).val() || null;
+            loadPortfolioSummary();
+            loadTransactions(true);
+        });
+    }
+
+    // 거래 추가 폼의 계좌 드롭다운
+    if (transactionAccount.length) {
+        transactionAccount.empty();
+        accounts.forEach(account => {
+            const selected = account.isDefault ? 'selected' : '';
+            transactionAccount.append(`<option value="${account.id}" ${selected}>${account.name}</option>`);
+        });
+    }
+}
 
 function setupEventHandlers() {
     $('#transaction-form').on('submit', function(e) {
@@ -27,12 +80,17 @@ function setDefaultDateTime() {
 }
 
 function loadPortfolioSummary() {
+    let url = `${API_BASE_URL}/portfolio/summary`;
+    if (currentAccountId) {
+        url += `?accountId=${currentAccountId}`;
+    }
+
     $.ajax({
-        url: `${API_BASE_URL}/portfolio/summary`,
+        url: url,
         method: 'GET',
         success: function(data) {
             updatePortfolioSummary(data);
-            updatePortfolioHoldings(data.holdings);
+            updatePortfolioHoldings(data.holdings || []);
         },
         error: function(xhr) {
             console.error('Failed to load portfolio summary:', xhr);
@@ -82,20 +140,25 @@ let hasMoreData = true;
 
 function loadTransactions(reset = false) {
     if (isLoading) return;
-    
+
     if (reset) {
         currentPage = 0;
         hasMoreData = true;
         $('#transaction-list').empty();
     }
-    
+
     if (!hasMoreData) return;
-    
+
     isLoading = true;
     showLoadingIndicator();
-    
+
+    let url = `${API_BASE_URL}/transactions?page=${currentPage}&size=${pageSize}`;
+    if (currentAccountId) {
+        url += `&accountId=${currentAccountId}`;
+    }
+
     $.ajax({
-        url: `${API_BASE_URL}/transactions?page=${currentPage}&size=${pageSize}`,
+        url: url,
         method: 'GET',
         success: function(data) {
             updateTransactionList(data.content, reset);
@@ -152,7 +215,10 @@ function updateTransactionList(transactions, reset = false) {
 }
 
 function addTransaction() {
+    const accountId = $('#transaction-account').val();
+
     const transaction = {
+        accountId: accountId ? parseInt(accountId) : null,
         stockSymbol: $('#stock-symbol').val().toUpperCase(),
         type: $('#transaction-type').val(),
         quantity: parseFloat($('#quantity').val()),
@@ -160,7 +226,7 @@ function addTransaction() {
         commission: parseFloat($('#commission').val()) || 0,
         transactionDate: $('#transaction-date').val()
     };
-    
+
     $.ajax({
         url: `${API_BASE_URL}/transactions`,
         method: 'POST',
@@ -169,6 +235,7 @@ function addTransaction() {
         success: function() {
             $('#transaction-form')[0].reset();
             setDefaultDateTime();
+            loadAccounts(); // 계좌 선택기 다시 로드
             loadPortfolioSummary();
             loadTransactions(true); // reset and reload
             alert('거래가 추가되었습니다.');
