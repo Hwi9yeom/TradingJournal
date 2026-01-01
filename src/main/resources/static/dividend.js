@@ -3,6 +3,11 @@ let monthlyDividendChart;
 let dividends = [];
 
 $(document).ready(function() {
+    // Check authentication first
+    if (!checkAuth()) {
+        return; // Will be redirected to login
+    }
+
     loadStockOptions();
     loadDividendSummary();
     loadDividends();

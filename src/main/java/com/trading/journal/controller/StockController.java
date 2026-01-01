@@ -12,7 +12,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/stocks")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Slf4j
 public class StockController {
     

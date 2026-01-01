@@ -26,7 +26,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/transactions")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "거래 관리", description = "주식 거래 내역을 관리하는 API")
 public class TransactionController {
     

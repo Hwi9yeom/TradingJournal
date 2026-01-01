@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/portfolio")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class PortfolioController {
     
     private final PortfolioAnalysisService portfolioAnalysisService;

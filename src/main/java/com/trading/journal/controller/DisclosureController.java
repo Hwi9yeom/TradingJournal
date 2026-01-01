@@ -12,7 +12,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/disclosures")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class DisclosureController {
     
     private final DisclosureService disclosureService;

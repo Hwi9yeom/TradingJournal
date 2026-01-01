@@ -4,6 +4,11 @@ const API_BASE_URL = '/api';
 let currentAccountId = null;
 
 $(document).ready(function() {
+    // Check authentication first
+    if (!checkAuth()) {
+        return; // Will be redirected to login
+    }
+
     // URL에서 accountId 파라미터 확인
     const urlParams = new URLSearchParams(window.location.search);
     currentAccountId = urlParams.get('accountId') || null;

@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 @RestController
 @RequestMapping("/api/stocks")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class StockPriceController {
     
     private final StockPriceService stockPriceService;

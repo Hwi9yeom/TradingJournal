@@ -2,6 +2,11 @@ const API_BASE_URL = '/api';
 let assetValueChart, portfolioCompositionChart, monthlyReturnChart;
 
 $(document).ready(function() {
+    // Check authentication first
+    if (!checkAuth()) {
+        return; // Will be redirected to login
+    }
+
     loadDashboardData();
     initializeCharts();
 });

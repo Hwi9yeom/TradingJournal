@@ -16,7 +16,6 @@ import java.time.format.DateTimeFormatter;
 @RestController
 @RequestMapping("/api/data")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class DataController {
     
     private final DataImportService dataImportService;

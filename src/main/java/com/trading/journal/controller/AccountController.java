@@ -20,7 +20,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/accounts")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "계좌 관리", description = "투자 계좌를 관리하는 API")
 public class AccountController {
 
