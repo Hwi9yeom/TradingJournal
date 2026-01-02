@@ -1,5 +1,6 @@
 package com.trading.journal.service;
 
+import com.trading.journal.dto.FifoResult;
 import com.trading.journal.dto.TransactionDto;
 import com.trading.journal.entity.Account;
 import com.trading.journal.entity.AccountType;
@@ -45,6 +46,9 @@ class TransactionServiceTest {
 
     @Mock
     private AccountService accountService;
+
+    @Mock
+    private FifoCalculationService fifoCalculationService;
 
     @InjectMocks
     private TransactionService transactionService;
@@ -147,10 +151,17 @@ class TransactionServiceTest {
                 .transactionDate(sellDto.getTransactionDate())
                 .build();
 
+        FifoResult fifoResult = FifoResult.builder()
+                .realizedPnl(new BigDecimal("100.00"))
+                .costBasis(new BigDecimal("897.00"))
+                .consumptions(new java.util.ArrayList<>())
+                .build();
+
         when(accountService.getDefaultAccount()).thenReturn(mockAccount);
         when(stockRepository.findBySymbol("TSLA")).thenReturn(Optional.empty());
         when(stockRepository.save(any(Stock.class))).thenReturn(newStock);
         when(transactionRepository.save(any(Transaction.class))).thenReturn(sellTransaction);
+        when(fifoCalculationService.calculateFifoProfit(any(Transaction.class))).thenReturn(fifoResult);
 
         // When
         TransactionDto result = transactionService.createTransaction(sellDto);
@@ -165,6 +176,8 @@ class TransactionServiceTest {
         verify(stockRepository).findBySymbol("TSLA");
         verify(stockRepository).save(any(Stock.class));
         verify(transactionRepository).save(any(Transaction.class));
+        verify(fifoCalculationService).calculateFifoProfit(any(Transaction.class));
+        verify(fifoCalculationService).applyFifoResult(any(Transaction.class), any(FifoResult.class));
         verify(portfolioService).updatePortfolio(any(Transaction.class));
     }
 
@@ -241,6 +254,7 @@ class TransactionServiceTest {
 
         when(transactionRepository.findById(1L)).thenReturn(Optional.of(mockTransaction));
         when(transactionRepository.save(any(Transaction.class))).thenReturn(mockTransaction);
+        doNothing().when(fifoCalculationService).recalculateFifoForAccountStock(anyLong(), anyLong());
 
         // When
         TransactionDto result = transactionService.updateTransaction(1L, updateDto);
@@ -249,6 +263,7 @@ class TransactionServiceTest {
         assertThat(result).isNotNull();
         verify(transactionRepository).findById(1L);
         verify(transactionRepository).save(any(Transaction.class));
+        verify(fifoCalculationService).recalculateFifoForAccountStock(1L, 1L);
         verify(portfolioService).recalculatePortfolio(1L, 1L);  // accountId, stockId
     }
 
@@ -257,6 +272,7 @@ class TransactionServiceTest {
     void deleteTransaction() {
         // Given
         when(transactionRepository.findById(1L)).thenReturn(Optional.of(mockTransaction));
+        doNothing().when(fifoCalculationService).recalculateFifoForAccountStock(anyLong(), anyLong());
 
         // When
         transactionService.deleteTransaction(1L);
@@ -264,6 +280,7 @@ class TransactionServiceTest {
         // Then
         verify(transactionRepository).findById(1L);
         verify(transactionRepository).delete(mockTransaction);
+        verify(fifoCalculationService).recalculateFifoForAccountStock(1L, 1L);
         verify(portfolioService).recalculatePortfolio(1L, 1L);  // accountId, stockId
     }
 

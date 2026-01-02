@@ -99,46 +99,12 @@ public class AnalysisService {
     }
     
     private BigDecimal calculateRealizedProfit(List<Transaction> transactions) {
-        // 간단한 실현 손익 계산 (FIFO 방식)
-        // TODO: 더 정확한 계산을 위해 매수/매도 매칭 알고리즘 구현 필요
-        BigDecimal totalSellAmount = transactions.stream()
+        // FIFO 방식으로 계산된 realizedPnl 합계 사용
+        return transactions.stream()
                 .filter(t -> t.getType() == TransactionType.SELL)
-                .map(Transaction::getTotalAmount)
+                .map(Transaction::getRealizedPnl)
+                .filter(pnl -> pnl != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-                
-        BigDecimal totalSellQuantity = transactions.stream()
-                .filter(t -> t.getType() == TransactionType.SELL)
-                .map(Transaction::getQuantity)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-                
-        BigDecimal averageBuyPrice = calculateAverageBuyPrice(transactions);
-        BigDecimal totalBuyCost = averageBuyPrice.multiply(totalSellQuantity);
-        
-        return totalSellAmount.subtract(totalBuyCost);
-    }
-    
-    private BigDecimal calculateAverageBuyPrice(List<Transaction> transactions) {
-        List<Transaction> buyTransactions = transactions.stream()
-                .filter(t -> t.getType() == TransactionType.BUY)
-                .collect(Collectors.toList());
-                
-        if (buyTransactions.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-        
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        BigDecimal totalQuantity = BigDecimal.ZERO;
-        
-        for (Transaction t : buyTransactions) {
-            totalAmount = totalAmount.add(t.getTotalAmount());
-            totalQuantity = totalQuantity.add(t.getQuantity());
-        }
-        
-        if (totalQuantity.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO;
-        }
-        
-        return totalAmount.divide(totalQuantity, 2, RoundingMode.HALF_UP);
     }
     
     private List<PeriodAnalysisDto.MonthlyAnalysisDto> analyzeMonthly(
@@ -160,17 +126,28 @@ public class AnalysisService {
                     .filter(t -> t.getType() == TransactionType.BUY)
                     .map(Transaction::getTotalAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-                    
+
             BigDecimal sellAmount = monthTransactions.stream()
                     .filter(t -> t.getType() == TransactionType.SELL)
                     .map(Transaction::getTotalAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            
-            BigDecimal profit = sellAmount.subtract(buyAmount);
+
+            // FIFO 기반 실현 손익 사용
+            BigDecimal profit = monthTransactions.stream()
+                    .filter(t -> t.getType() == TransactionType.SELL)
+                    .map(Transaction::getRealizedPnl)
+                    .filter(pnl -> pnl != null)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
             BigDecimal profitRate = BigDecimal.ZERO;
-            
-            if (buyAmount.compareTo(BigDecimal.ZERO) > 0) {
-                profitRate = profit.divide(buyAmount, 4, RoundingMode.HALF_UP)
+            BigDecimal costBasis = monthTransactions.stream()
+                    .filter(t -> t.getType() == TransactionType.SELL)
+                    .map(Transaction::getCostBasis)
+                    .filter(cb -> cb != null)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            if (costBasis.compareTo(BigDecimal.ZERO) > 0) {
+                profitRate = profit.divide(costBasis, 4, RoundingMode.HALF_UP)
                         .multiply(new BigDecimal("100"));
             }
             

@@ -46,8 +46,15 @@ public class TransactionDto {
     private String notes;
     
     private BigDecimal totalAmount;
-    
+
+    // FIFO 계산 결과 (매도 거래에서만 의미 있음)
+    /** 실현 손익 */
+    private BigDecimal realizedPnl;
+
+    /** FIFO 기반 매도 원가 */
+    private BigDecimal costBasis;
+
     private LocalDateTime createdAt;
-    
+
     private LocalDateTime updatedAt;
 }

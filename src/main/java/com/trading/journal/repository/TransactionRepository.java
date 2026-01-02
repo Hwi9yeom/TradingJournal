@@ -50,4 +50,51 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     // account_id가 NULL인 거래 (마이그레이션용)
     @Query("SELECT t FROM Transaction t WHERE t.account IS NULL")
     List<Transaction> findByAccountIsNull();
+
+    // ===== FIFO 계산용 쿼리 =====
+
+    /**
+     * FIFO용: 잔여 수량이 있는 매수 거래 조회 (날짜 오름차순)
+     * 매도 날짜 이전의 매수 거래만 조회
+     */
+    @Query("SELECT t FROM Transaction t WHERE " +
+           "((:accountId IS NULL AND t.account IS NULL) OR t.account.id = :accountId) " +
+           "AND t.stock.id = :stockId " +
+           "AND t.type = 'BUY' " +
+           "AND t.remainingQuantity > 0 " +
+           "AND t.transactionDate <= :beforeDate " +
+           "ORDER BY t.transactionDate ASC")
+    List<Transaction> findAvailableBuyTransactionsForFifo(
+            @Param("accountId") Long accountId,
+            @Param("stockId") Long stockId,
+            @Param("beforeDate") LocalDateTime beforeDate);
+
+    /**
+     * 계좌-종목 쌍 조회 (FIFO 마이그레이션용)
+     */
+    @Query("SELECT DISTINCT t.account.id, t.stock.id FROM Transaction t")
+    List<Object[]> findDistinctAccountStockPairs();
+
+    /**
+     * 계좌/종목별 거래 조회 (날짜 오름차순) - FIFO 재계산용
+     */
+    @Query("SELECT t FROM Transaction t WHERE " +
+           "((:accountId IS NULL AND t.account IS NULL) OR t.account.id = :accountId) " +
+           "AND t.stock.id = :stockId " +
+           "ORDER BY t.transactionDate ASC")
+    List<Transaction> findByAccountIdAndStockIdOrderByTransactionDateAsc(
+            @Param("accountId") Long accountId,
+            @Param("stockId") Long stockId);
+
+    /**
+     * 실현 손익 합계 조회 (계좌별/기간별)
+     */
+    @Query("SELECT COALESCE(SUM(t.realizedPnl), 0) FROM Transaction t WHERE " +
+           "t.type = 'SELL' " +
+           "AND (:accountId IS NULL OR t.account.id = :accountId) " +
+           "AND t.transactionDate BETWEEN :startDate AND :endDate")
+    java.math.BigDecimal sumRealizedPnlByAccountAndDateRange(
+            @Param("accountId") Long accountId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 }

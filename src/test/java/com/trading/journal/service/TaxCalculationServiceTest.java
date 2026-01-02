@@ -54,22 +54,27 @@ class TaxCalculationServiceTest {
     void calculateTax_WithProfitOverDeduction_ShouldCalculateTax() {
         Integer year = 2024;
         
+        // FIFO 계산:
+        // 삼성전자: 100주@80000 매도, 원가 100주@50000 -> 이익 = 100*(80000-50000) = 3,000,000
+        // SK하이닉스: 50주@110000 매도, 원가 50주@120000 -> 손실 = 50*(110000-120000) = -500,000
         List<Transaction> transactions = Arrays.asList(
             // 삼성전자 매수/매도 - 이익 300만원
-            createTransaction(1L, stock1, TransactionType.BUY, 
-                new BigDecimal("100"), new BigDecimal("50000"), 
+            createTransaction(1L, stock1, TransactionType.BUY,
+                new BigDecimal("100"), new BigDecimal("50000"),
                 LocalDateTime.of(2024, 1, 10, 9, 0)),
-            createTransaction(2L, stock1, TransactionType.SELL, 
-                new BigDecimal("100"), new BigDecimal("80000"), 
-                LocalDateTime.of(2024, 3, 15, 14, 30)),
-            
+            createTransaction(2L, stock1, TransactionType.SELL,
+                new BigDecimal("100"), new BigDecimal("80000"),
+                LocalDateTime.of(2024, 3, 15, 14, 30),
+                new BigDecimal("3000000"), new BigDecimal("5000000")),  // realizedPnl, costBasis
+
             // SK하이닉스 매수/매도 - 손실 50만원
-            createTransaction(3L, stock2, TransactionType.BUY, 
-                new BigDecimal("50"), new BigDecimal("120000"), 
+            createTransaction(3L, stock2, TransactionType.BUY,
+                new BigDecimal("50"), new BigDecimal("120000"),
                 LocalDateTime.of(2024, 2, 5, 10, 0)),
-            createTransaction(4L, stock2, TransactionType.SELL, 
-                new BigDecimal("50"), new BigDecimal("110000"), 
-                LocalDateTime.of(2024, 4, 20, 15, 0))
+            createTransaction(4L, stock2, TransactionType.SELL,
+                new BigDecimal("50"), new BigDecimal("110000"),
+                LocalDateTime.of(2024, 4, 20, 15, 0),
+                new BigDecimal("-500000"), new BigDecimal("6000000"))  // realizedPnl, costBasis
         );
         
         when(transactionRepository.findByDateRange(any(), any()))
@@ -114,14 +119,17 @@ class TaxCalculationServiceTest {
     void calculateTax_WithHighProfit_ShouldCalculateTax() {
         Integer year = 2024;
         
+        // FIFO 계산:
+        // 1000주@60000 매도, 원가 1000주@50000 -> 이익 = 1000*(60000-50000) = 10,000,000
         List<Transaction> transactions = Arrays.asList(
             // 큰 이익 발생 - 1000만원
-            createTransaction(1L, stock1, TransactionType.BUY, 
-                new BigDecimal("1000"), new BigDecimal("50000"), 
+            createTransaction(1L, stock1, TransactionType.BUY,
+                new BigDecimal("1000"), new BigDecimal("50000"),
                 LocalDateTime.of(2024, 1, 10, 9, 0)),
-            createTransaction(2L, stock1, TransactionType.SELL, 
-                new BigDecimal("1000"), new BigDecimal("60000"), 
-                LocalDateTime.of(2024, 6, 15, 14, 30))
+            createTransaction(2L, stock1, TransactionType.SELL,
+                new BigDecimal("1000"), new BigDecimal("60000"),
+                LocalDateTime.of(2024, 6, 15, 14, 30),
+                new BigDecimal("10000000"), new BigDecimal("50000000"))  // realizedPnl, costBasis
         );
         
         when(transactionRepository.findByDateRange(any(), any()))
@@ -169,14 +177,17 @@ class TaxCalculationServiceTest {
     void calculateTax_WithLoss_ShouldNotCalculateTax() {
         Integer year = 2024;
         
+        // FIFO 계산:
+        // 100주@50000 매도, 원가 100주@60000 -> 손실 = 100*(50000-60000) = -1,000,000
         List<Transaction> transactions = Arrays.asList(
             // 손실만 발생
-            createTransaction(1L, stock1, TransactionType.BUY, 
-                new BigDecimal("100"), new BigDecimal("60000"), 
+            createTransaction(1L, stock1, TransactionType.BUY,
+                new BigDecimal("100"), new BigDecimal("60000"),
                 LocalDateTime.of(2024, 1, 10, 9, 0)),
-            createTransaction(2L, stock1, TransactionType.SELL, 
-                new BigDecimal("100"), new BigDecimal("50000"), 
-                LocalDateTime.of(2024, 3, 15, 14, 30))
+            createTransaction(2L, stock1, TransactionType.SELL,
+                new BigDecimal("100"), new BigDecimal("50000"),
+                LocalDateTime.of(2024, 3, 15, 14, 30),
+                new BigDecimal("-1000000"), new BigDecimal("6000000"))  // realizedPnl, costBasis
         );
         
         when(transactionRepository.findByDateRange(any(), any()))
@@ -201,22 +212,27 @@ class TaxCalculationServiceTest {
     void calculateTaxDetail_ShouldDetermineIsLongTerm() {
         Integer year = 2024;
         
+        // FIFO 계산:
+        // 삼성전자: 100주@60000 매도, 원가 100주@50000 -> 이익 = 100*(60000-50000) = 1,000,000
+        // SK하이닉스: 50주@110000 매도, 원가 50주@100000 -> 이익 = 50*(110000-100000) = 500,000
         List<Transaction> transactions = Arrays.asList(
             // 1년 이상 보유
-            createTransaction(1L, stock1, TransactionType.BUY, 
-                new BigDecimal("100"), new BigDecimal("50000"), 
+            createTransaction(1L, stock1, TransactionType.BUY,
+                new BigDecimal("100"), new BigDecimal("50000"),
                 LocalDateTime.of(2023, 1, 10, 9, 0)),
-            createTransaction(2L, stock1, TransactionType.SELL, 
-                new BigDecimal("100"), new BigDecimal("60000"), 
-                LocalDateTime.of(2024, 3, 15, 14, 30)),
-            
+            createTransaction(2L, stock1, TransactionType.SELL,
+                new BigDecimal("100"), new BigDecimal("60000"),
+                LocalDateTime.of(2024, 3, 15, 14, 30),
+                new BigDecimal("1000000"), new BigDecimal("5000000")),  // realizedPnl, costBasis
+
             // 1년 미만 보유
-            createTransaction(3L, stock2, TransactionType.BUY, 
-                new BigDecimal("50"), new BigDecimal("100000"), 
+            createTransaction(3L, stock2, TransactionType.BUY,
+                new BigDecimal("50"), new BigDecimal("100000"),
                 LocalDateTime.of(2024, 1, 5, 10, 0)),
-            createTransaction(4L, stock2, TransactionType.SELL, 
-                new BigDecimal("50"), new BigDecimal("110000"), 
-                LocalDateTime.of(2024, 6, 20, 15, 0))
+            createTransaction(4L, stock2, TransactionType.SELL,
+                new BigDecimal("50"), new BigDecimal("110000"),
+                LocalDateTime.of(2024, 6, 20, 15, 0),
+                new BigDecimal("500000"), new BigDecimal("5000000"))  // realizedPnl, costBasis
         );
         
         when(transactionRepository.findByDateRange(any(), any()))
@@ -238,8 +254,15 @@ class TaxCalculationServiceTest {
     }
     
     private Transaction createTransaction(Long id, Stock stock, TransactionType type,
-                                        BigDecimal quantity, BigDecimal price, 
+                                        BigDecimal quantity, BigDecimal price,
                                         LocalDateTime transactionDate) {
+        return createTransaction(id, stock, type, quantity, price, transactionDate, null, null);
+    }
+
+    private Transaction createTransaction(Long id, Stock stock, TransactionType type,
+                                        BigDecimal quantity, BigDecimal price,
+                                        LocalDateTime transactionDate,
+                                        BigDecimal realizedPnl, BigDecimal costBasis) {
         Transaction transaction = new Transaction();
         transaction.setId(id);
         transaction.setStock(stock);
@@ -248,6 +271,10 @@ class TaxCalculationServiceTest {
         transaction.setPrice(price);
         // TotalAmount is calculated automatically by getTotalAmount() method
         transaction.setTransactionDate(transactionDate);
+        if (type == TransactionType.SELL) {
+            transaction.setRealizedPnl(realizedPnl);
+            transaction.setCostBasis(costBasis);
+        }
         return transaction;
     }
 }

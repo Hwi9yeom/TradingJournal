@@ -3,6 +3,7 @@ package com.trading.journal.controller;
 import com.trading.journal.dto.ImportResultDto;
 import com.trading.journal.service.DataExportService;
 import com.trading.journal.service.DataImportService;
+import com.trading.journal.service.FifoCalculationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,9 @@ class DataControllerTest {
 
     @MockitoBean
     private DataExportService dataExportService;
+
+    @MockitoBean
+    private FifoCalculationService fifoCalculationService;
 
     private ImportResultDto mockImportResult;
 

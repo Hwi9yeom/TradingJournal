@@ -64,16 +64,21 @@ class StockAnalysisServiceTest {
         String symbol = "005930";
         LocalDateTime baseDate = LocalDateTime.now().minusDays(30);
         
+        // FIFO 계산:
+        // SELL 2: 50주@55000 (매수원가 50주@50000) -> 손익 = 50 * (55000-50000) = 250,000
+        // SELL 4: 30주@58000 (매수원가 30주@52000 - 새로 매수한 것) -> 손익 = 30 * (58000-52000) = 180,000
         when(stockRepository.findBySymbol(symbol)).thenReturn(Optional.of(stock));
         when(transactionRepository.findByStockSymbol(symbol)).thenReturn(Arrays.asList(
-            createTransaction(1L, stock, TransactionType.BUY, 
+            createTransaction(1L, stock, TransactionType.BUY,
                 new BigDecimal("100"), new BigDecimal("50000"), baseDate),
-            createTransaction(2L, stock, TransactionType.SELL, 
-                new BigDecimal("50"), new BigDecimal("55000"), baseDate.plusDays(10)),
-            createTransaction(3L, stock, TransactionType.BUY, 
+            createTransaction(2L, stock, TransactionType.SELL,
+                new BigDecimal("50"), new BigDecimal("55000"), baseDate.plusDays(10),
+                new BigDecimal("250000"), new BigDecimal("2500000")),  // realizedPnl, costBasis
+            createTransaction(3L, stock, TransactionType.BUY,
                 new BigDecimal("30"), new BigDecimal("52000"), baseDate.plusDays(15)),
-            createTransaction(4L, stock, TransactionType.SELL, 
-                new BigDecimal("30"), new BigDecimal("58000"), baseDate.plusDays(20))
+            createTransaction(4L, stock, TransactionType.SELL,
+                new BigDecimal("30"), new BigDecimal("58000"), baseDate.plusDays(20),
+                new BigDecimal("180000"), new BigDecimal("1560000"))  // realizedPnl, costBasis
         ));
         when(portfolioRepository.findByStockId(stock.getId()))
             .thenReturn(Optional.of(portfolio));
@@ -150,16 +155,21 @@ class StockAnalysisServiceTest {
         String symbol = "005930";
         LocalDateTime baseDate = LocalDateTime.now().minusDays(60);
         
+        // FIFO 계산 (승률 테스트용):
+        // SELL 2: 100주@55000 (매수원가 100주@50000) -> 손익 = 100 * (55000-50000) = 500,000 (WIN)
+        // SELL 4: 50주@48000 (매수원가 50주@52000) -> 손익 = 50 * (48000-52000) = -200,000 (LOSS)
         when(stockRepository.findBySymbol(symbol)).thenReturn(Optional.of(stock));
         when(transactionRepository.findByStockSymbol(symbol)).thenReturn(Arrays.asList(
-            createTransaction(1L, stock, TransactionType.BUY, 
+            createTransaction(1L, stock, TransactionType.BUY,
                 new BigDecimal("100"), new BigDecimal("50000"), baseDate),
-            createTransaction(2L, stock, TransactionType.SELL, 
-                new BigDecimal("100"), new BigDecimal("55000"), baseDate.plusDays(30)),
-            createTransaction(3L, stock, TransactionType.BUY, 
+            createTransaction(2L, stock, TransactionType.SELL,
+                new BigDecimal("100"), new BigDecimal("55000"), baseDate.plusDays(30),
+                new BigDecimal("500000"), new BigDecimal("5000000")),  // WIN
+            createTransaction(3L, stock, TransactionType.BUY,
                 new BigDecimal("50"), new BigDecimal("52000"), baseDate.plusDays(35)),
-            createTransaction(4L, stock, TransactionType.SELL, 
-                new BigDecimal("50"), new BigDecimal("48000"), baseDate.plusDays(45))
+            createTransaction(4L, stock, TransactionType.SELL,
+                new BigDecimal("50"), new BigDecimal("48000"), baseDate.plusDays(45),
+                new BigDecimal("-200000"), new BigDecimal("2600000"))  // LOSS
         ));
         when(portfolioRepository.findByStockId(stock.getId()))
             .thenReturn(Optional.empty());
@@ -207,8 +217,15 @@ class StockAnalysisServiceTest {
     }
     
     private Transaction createTransaction(Long id, Stock stock, TransactionType type,
-                                        BigDecimal quantity, BigDecimal price, 
+                                        BigDecimal quantity, BigDecimal price,
                                         LocalDateTime transactionDate) {
+        return createTransaction(id, stock, type, quantity, price, transactionDate, null, null);
+    }
+
+    private Transaction createTransaction(Long id, Stock stock, TransactionType type,
+                                        BigDecimal quantity, BigDecimal price,
+                                        LocalDateTime transactionDate,
+                                        BigDecimal realizedPnl, BigDecimal costBasis) {
         Transaction transaction = new Transaction();
         transaction.setId(id);
         transaction.setStock(stock);
@@ -217,6 +234,10 @@ class StockAnalysisServiceTest {
         transaction.setPrice(price);
         // TotalAmount is calculated automatically by getTotalAmount() method
         transaction.setTransactionDate(transactionDate);
+        if (type == TransactionType.SELL) {
+            transaction.setRealizedPnl(realizedPnl);
+            transaction.setCostBasis(costBasis);
+        }
         return transaction;
     }
 }

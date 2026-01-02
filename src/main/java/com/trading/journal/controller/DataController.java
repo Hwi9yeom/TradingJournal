@@ -3,7 +3,9 @@ package com.trading.journal.controller;
 import com.trading.journal.dto.ImportResultDto;
 import com.trading.journal.service.DataExportService;
 import com.trading.journal.service.DataImportService;
+import com.trading.journal.service.FifoCalculationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -16,10 +18,12 @@ import java.time.format.DateTimeFormatter;
 @RestController
 @RequestMapping("/api/data")
 @RequiredArgsConstructor
+@Slf4j
 public class DataController {
-    
+
     private final DataImportService dataImportService;
     private final DataExportService dataExportService;
+    private final FifoCalculationService fifoCalculationService;
     
     @PostMapping("/import/csv")
     public ResponseEntity<ImportResultDto> importCsv(@RequestParam("file") MultipartFile file) {
@@ -82,5 +86,24 @@ public class DataController {
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(csvTemplate.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @PostMapping("/migrate/fifo")
+    public ResponseEntity<java.util.Map<String, Object>> migrateFifoData() {
+        log.info("Starting FIFO migration for all existing transactions");
+        try {
+            fifoCalculationService.migrateAllExistingSellTransactions();
+            log.info("FIFO migration completed successfully");
+            return ResponseEntity.ok(java.util.Map.of(
+                    "success", true,
+                    "message", "FIFO 마이그레이션이 완료되었습니다"
+            ));
+        } catch (Exception e) {
+            log.error("FIFO migration failed", e);
+            return ResponseEntity.internalServerError().body(java.util.Map.of(
+                    "success", false,
+                    "message", "FIFO 마이그레이션 실패: " + e.getMessage()
+            ));
+        }
     }
 }

@@ -61,19 +61,25 @@ class AnalysisServiceTest {
         
         LocalDateTime startDate = LocalDateTime.of(2024, 1, 1, 0, 0);
         
+        // FIFO 계산:
+        // stock1: 매수 100주@50000, 매도 50주@55000 -> 손익 = 50 * (55000-50000) = 250,000
+        // stock2: 매수 200주@100000, 매도 100주@110000 -> 손익 = 100 * (110000-100000) = 1,000,000
+        // 총 실현손익 = 1,250,000
         transactions = Arrays.asList(
-            createTransaction(1L, stock1, TransactionType.BUY, 
-                new BigDecimal("100"), new BigDecimal("50000"), 
+            createTransaction(1L, stock1, TransactionType.BUY,
+                new BigDecimal("100"), new BigDecimal("50000"),
                 startDate.plusDays(10)),
-            createTransaction(2L, stock1, TransactionType.SELL, 
-                new BigDecimal("50"), new BigDecimal("55000"), 
-                startDate.plusDays(30)),
-            createTransaction(3L, stock2, TransactionType.BUY, 
-                new BigDecimal("200"), new BigDecimal("100000"), 
+            createTransaction(2L, stock1, TransactionType.SELL,
+                new BigDecimal("50"), new BigDecimal("55000"),
+                startDate.plusDays(30),
+                new BigDecimal("250000"), new BigDecimal("2500000")),  // realizedPnl, costBasis
+            createTransaction(3L, stock2, TransactionType.BUY,
+                new BigDecimal("200"), new BigDecimal("100000"),
                 startDate.plusDays(15)),
-            createTransaction(4L, stock2, TransactionType.SELL, 
-                new BigDecimal("100"), new BigDecimal("110000"), 
-                startDate.plusDays(45))
+            createTransaction(4L, stock2, TransactionType.SELL,
+                new BigDecimal("100"), new BigDecimal("110000"),
+                startDate.plusDays(45),
+                new BigDecimal("1000000"), new BigDecimal("10000000"))  // realizedPnl, costBasis
         );
         
         portfolios = Arrays.asList(
@@ -114,10 +120,9 @@ class AnalysisServiceTest {
         assertThat(result.getBuyTransactions()).isEqualTo(2);
         assertThat(result.getSellTransactions()).isEqualTo(2);
         
-        // 실현손익 검증 (소수점 포함)
+        // 실현손익 검증 (FIFO 기반)
         assertThat(result.getRealizedProfit())
-            .isGreaterThan(new BigDecimal("1250000"))
-            .isLessThan(new BigDecimal("1250001"));
+            .isEqualByComparingTo(new BigDecimal("1250000"));
         
         // 미실현손익 검증 (현재가 기준)
         assertThat(result.getUnrealizedProfit()).isNotNull();
@@ -185,8 +190,15 @@ class AnalysisServiceTest {
     }
     
     private Transaction createTransaction(Long id, Stock stock, TransactionType type,
-                                        BigDecimal quantity, BigDecimal price, 
+                                        BigDecimal quantity, BigDecimal price,
                                         LocalDateTime transactionDate) {
+        return createTransaction(id, stock, type, quantity, price, transactionDate, null, null);
+    }
+
+    private Transaction createTransaction(Long id, Stock stock, TransactionType type,
+                                        BigDecimal quantity, BigDecimal price,
+                                        LocalDateTime transactionDate,
+                                        BigDecimal realizedPnl, BigDecimal costBasis) {
         Transaction transaction = new Transaction();
         transaction.setId(id);
         transaction.setStock(stock);
@@ -195,6 +207,10 @@ class AnalysisServiceTest {
         transaction.setPrice(price);
         // TotalAmount is calculated automatically by getTotalAmount() method
         transaction.setTransactionDate(transactionDate);
+        if (type == TransactionType.SELL) {
+            transaction.setRealizedPnl(realizedPnl);
+            transaction.setCostBasis(costBasis);
+        }
         return transaction;
     }
     

@@ -1,9 +1,11 @@
 package com.trading.journal.service;
 
+import com.trading.journal.dto.FifoResult;
 import com.trading.journal.dto.TransactionDto;
 import com.trading.journal.entity.Account;
 import com.trading.journal.entity.Stock;
 import com.trading.journal.entity.Transaction;
+import com.trading.journal.entity.TransactionType;
 import com.trading.journal.repository.StockRepository;
 import com.trading.journal.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class TransactionService {
     private final PortfolioService portfolioService;
     private final StockPriceService stockPriceService;
     private final AccountService accountService;
+    private final FifoCalculationService fifoCalculationService;
 
     public TransactionDto createTransaction(TransactionDto dto) {
         // Account 처리: accountId가 없으면 기본 계좌 사용
@@ -50,9 +53,18 @@ public class TransactionService {
                 .commission(dto.getCommission())
                 .transactionDate(dto.getTransactionDate())
                 .notes(dto.getNotes())
+                // 매수인 경우 remainingQuantity 초기화
+                .remainingQuantity(dto.getType() == TransactionType.BUY ? dto.getQuantity() : null)
                 .build();
 
         transaction = transactionRepository.save(transaction);
+
+        // 매도인 경우 FIFO 계산
+        if (dto.getType() == TransactionType.SELL) {
+            FifoResult fifoResult = fifoCalculationService.calculateFifoProfit(transaction);
+            fifoCalculationService.applyFifoResult(transaction, fifoResult);
+        }
+
         portfolioService.updatePortfolio(transaction);
 
         return convertToDto(transaction);
@@ -138,9 +150,12 @@ public class TransactionService {
 
         transaction = transactionRepository.save(transaction);
 
-        // Account 기반으로 포트폴리오 재계산
+        // Account 기반으로 포트폴리오 및 FIFO 재계산
         Long accountId = transaction.getAccount() != null ? transaction.getAccount().getId() : null;
-        portfolioService.recalculatePortfolio(accountId, transaction.getStock().getId());
+        Long stockId = transaction.getStock().getId();
+
+        fifoCalculationService.recalculateFifoForAccountStock(accountId, stockId);
+        portfolioService.recalculatePortfolio(accountId, stockId);
 
         return convertToDto(transaction);
     }
@@ -153,6 +168,9 @@ public class TransactionService {
         Long accountId = transaction.getAccount() != null ? transaction.getAccount().getId() : null;
 
         transactionRepository.delete(transaction);
+
+        // FIFO 및 포트폴리오 재계산
+        fifoCalculationService.recalculateFifoForAccountStock(accountId, stockId);
         portfolioService.recalculatePortfolio(accountId, stockId);
     }
 
@@ -199,6 +217,8 @@ public class TransactionService {
                 .transactionDate(transaction.getTransactionDate())
                 .notes(transaction.getNotes())
                 .totalAmount(transaction.getTotalAmount())
+                .realizedPnl(transaction.getRealizedPnl())
+                .costBasis(transaction.getCostBasis())
                 .createdAt(transaction.getCreatedAt())
                 .updatedAt(transaction.getUpdatedAt());
 

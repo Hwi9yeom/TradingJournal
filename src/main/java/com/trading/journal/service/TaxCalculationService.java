@@ -105,56 +105,42 @@ public class TaxCalculationService {
     
     private TaxCalculationDto.TaxDetailDto calculateTaxDetail(
             Transaction sellTransaction, List<Transaction> stockTransactions) {
-        
-        // FIFO 방식으로 매수 거래 매칭
+
+        // FIFO 방식으로 계산된 realizedPnl과 costBasis 사용
+        BigDecimal realizedPnl = sellTransaction.getRealizedPnl();
+        BigDecimal costBasis = sellTransaction.getCostBasis();
+
+        if (realizedPnl == null || costBasis == null) {
+            log.warn("Missing FIFO data for transaction: {}. Skipping.", sellTransaction.getId());
+            return null;
+        }
+
+        BigDecimal sellAmount = sellTransaction.getTotalAmount();
+        LocalDate sellDate = sellTransaction.getTransactionDate().toLocalDate();
+
+        // 첫 매수일 찾기 (보유 기간 계산용)
         List<Transaction> buyTransactions = stockTransactions.stream()
                 .filter(t -> t.getType() == TransactionType.BUY)
                 .filter(t -> t.getTransactionDate().isBefore(sellTransaction.getTransactionDate()))
                 .sorted(Comparator.comparing(Transaction::getTransactionDate))
                 .collect(Collectors.toList());
-        
-        if (buyTransactions.isEmpty()) {
-            log.warn("No matching buy transaction found for sell transaction: {}", 
-                    sellTransaction.getId());
-            return null;
-        }
-        
-        // 간단한 구현: 평균 매수가 사용
-        BigDecimal totalBuyQuantity = buyTransactions.stream()
-                .map(Transaction::getQuantity)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-                
-        BigDecimal totalBuyAmount = buyTransactions.stream()
-                .map(Transaction::getTotalAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-                
-        if (totalBuyQuantity.compareTo(BigDecimal.ZERO) == 0) {
-            return null;
-        }
-        
-        BigDecimal avgBuyPrice = totalBuyAmount.divide(totalBuyQuantity, 2, RoundingMode.HALF_UP);
-        BigDecimal buyAmount = avgBuyPrice.multiply(sellTransaction.getQuantity());
-        BigDecimal sellAmount = sellTransaction.getTotalAmount();
-        
-        BigDecimal profitLoss = sellAmount.subtract(buyAmount);
-        
-        // 첫 매수일로부터 보유 기간 계산
-        LocalDate firstBuyDate = buyTransactions.get(0).getTransactionDate().toLocalDate();
-        LocalDate sellDate = sellTransaction.getTransactionDate().toLocalDate();
+
+        LocalDate firstBuyDate = buyTransactions.isEmpty() ?
+                sellDate : buyTransactions.get(0).getTransactionDate().toLocalDate();
         long holdingDays = ChronoUnit.DAYS.between(firstBuyDate, sellDate);
         boolean isLongTerm = holdingDays >= 365;
-        
+
         return TaxCalculationDto.TaxDetailDto.builder()
                 .stockSymbol(sellTransaction.getStock().getSymbol())
                 .stockName(sellTransaction.getStock().getName())
                 .buyDate(firstBuyDate)
                 .sellDate(sellDate)
-                .buyAmount(buyAmount)
+                .buyAmount(costBasis)
                 .sellAmount(sellAmount)
-                .profit(profitLoss.compareTo(BigDecimal.ZERO) > 0 ? profitLoss : BigDecimal.ZERO)
-                .loss(profitLoss.compareTo(BigDecimal.ZERO) < 0 ? profitLoss.abs() : BigDecimal.ZERO)
+                .profit(realizedPnl.compareTo(BigDecimal.ZERO) > 0 ? realizedPnl : BigDecimal.ZERO)
+                .loss(realizedPnl.compareTo(BigDecimal.ZERO) < 0 ? realizedPnl.abs() : BigDecimal.ZERO)
                 .isLongTerm(isLongTerm)
-                .taxAmount(calculateIndividualTax(profitLoss))
+                .taxAmount(calculateIndividualTax(realizedPnl))
                 .build();
     }
     

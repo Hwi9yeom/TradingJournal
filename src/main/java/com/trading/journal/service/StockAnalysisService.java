@@ -184,31 +184,30 @@ public class StockAnalysisService {
     private StockAnalysisDto.TradingPatternDto analyzeProfitLossPattern(List<Transaction> transactions) {
         int profitCount = 0;
         int lossCount = 0;
-        
-        // 간단한 분석: 평균 매도가가 평균 매수가보다 높으면 익절로 간주
-        BigDecimal avgBuyPrice = calculateAveragePrice(transactions.stream()
-                .filter(t -> t.getType() == TransactionType.BUY)
-                .collect(Collectors.toList()));
-                
+
+        // FIFO 기반 realizedPnl로 익절/손절 분석
         List<Transaction> sells = transactions.stream()
                 .filter(t -> t.getType() == TransactionType.SELL)
                 .collect(Collectors.toList());
-                
+
         for (Transaction sell : sells) {
-            if (sell.getPrice().compareTo(avgBuyPrice) > 0) {
-                profitCount++;
-            } else {
-                lossCount++;
+            BigDecimal realizedPnl = sell.getRealizedPnl();
+            if (realizedPnl != null) {
+                if (realizedPnl.compareTo(BigDecimal.ZERO) > 0) {
+                    profitCount++;
+                } else if (realizedPnl.compareTo(BigDecimal.ZERO) < 0) {
+                    lossCount++;
+                }
             }
         }
-        
+
         int total = profitCount + lossCount;
         double winRate = total > 0 ? (double) profitCount / total * 100 : 0;
-        
+
         return StockAnalysisDto.TradingPatternDto.builder()
                 .pattern("승률")
                 .value(String.format("%.1f%% (%d승 %d패)", winRate, profitCount, lossCount))
-                .description("익절 vs 손절 비율")
+                .description("익절 vs 손절 비율 (FIFO 기반)")
                 .build();
     }
     
@@ -295,19 +294,13 @@ public class StockAnalysisService {
         return totalAmount.divide(totalQuantity, 2, RoundingMode.HALF_UP);
     }
     
-    private BigDecimal calculateRealizedProfit(List<Transaction> buyTransactions, 
+    private BigDecimal calculateRealizedProfit(List<Transaction> buyTransactions,
                                               List<Transaction> sellTransactions) {
-        BigDecimal totalSellAmount = sumAmount(sellTransactions);
-        BigDecimal totalSellQuantity = sumQuantity(sellTransactions);
-        
-        if (totalSellQuantity.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO;
-        }
-        
-        BigDecimal avgBuyPrice = calculateAveragePrice(buyTransactions);
-        BigDecimal totalBuyCost = avgBuyPrice.multiply(totalSellQuantity);
-        
-        return totalSellAmount.subtract(totalBuyCost);
+        // FIFO 방식으로 계산된 realizedPnl 합계 사용
+        return sellTransactions.stream()
+                .map(Transaction::getRealizedPnl)
+                .filter(pnl -> pnl != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
     
     private BigDecimal calculateProfitRate(BigDecimal cost, BigDecimal profit) {

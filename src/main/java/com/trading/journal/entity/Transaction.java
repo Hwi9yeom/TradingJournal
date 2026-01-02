@@ -16,7 +16,8 @@ import java.time.LocalDateTime;
     @Index(name = "idx_updated_at", columnList = "updatedAt"),
     @Index(name = "idx_transaction_account_id", columnList = "account_id"),
     @Index(name = "idx_transaction_account_stock", columnList = "account_id, stock_id"),
-    @Index(name = "idx_transaction_account_date", columnList = "account_id, transactionDate")
+    @Index(name = "idx_transaction_account_date", columnList = "account_id, transactionDate"),
+    @Index(name = "idx_transaction_fifo", columnList = "account_id, stock_id, type, transactionDate, remainingQuantity")
 })
 @Getter
 @Setter
@@ -52,9 +53,22 @@ public class Transaction {
     private LocalDateTime transactionDate;
     
     private String notes;
-    
+
+    // FIFO 계산 관련 필드
+    /** 실현 손익 (매도 거래에서만 값이 있음) */
+    @Column(precision = 19, scale = 4)
+    private BigDecimal realizedPnl;
+
+    /** FIFO 기반 매도 원가 (매도 거래에서 사용된 매수 원가 합계) */
+    @Column(precision = 19, scale = 4)
+    private BigDecimal costBasis;
+
+    /** 매수 거래의 잔여 수량 (FIFO 소진 추적용) */
+    @Column(precision = 19, scale = 4)
+    private BigDecimal remainingQuantity;
+
     private LocalDateTime createdAt;
-    
+
     private LocalDateTime updatedAt;
     
     @PrePersist
