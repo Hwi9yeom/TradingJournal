@@ -20,6 +20,8 @@ public class PortfolioSummaryDto {
     private BigDecimal totalProfitLossPercent;
     private BigDecimal totalDayChange;
     private BigDecimal totalDayChangePercent;
+    /** 실현 손익 (FIFO 기반 매도 거래의 손익 합계) */
+    private BigDecimal totalRealizedPnl;
     private List<PortfolioDto> holdings;
     private LocalDateTime lastUpdated;
 }

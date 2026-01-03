@@ -1,5 +1,8 @@
 package com.trading.journal.controller;
 
+import com.trading.journal.dto.CorrelationMatrixDto;
+import com.trading.journal.dto.DrawdownDto;
+import com.trading.journal.dto.EquityCurveDto;
 import com.trading.journal.dto.PeriodAnalysisDto;
 import com.trading.journal.dto.StockAnalysisDto;
 import com.trading.journal.dto.TaxCalculationDto;
@@ -255,10 +258,52 @@ public class AnalysisController {
         
         // 월별로 정렬
         result.sort((a, b) -> ((String) a.get("month")).compareTo((String) b.get("month")));
-        
+
         return ResponseEntity.ok(result);
     }
-    
+
+    @GetMapping("/equity-curve")
+    public ResponseEntity<EquityCurveDto> getEquityCurve(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        log.info("Getting equity curve from {} to {}", startDate, endDate);
+
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("시작일은 종료일보다 이전이어야 합니다");
+        }
+
+        EquityCurveDto equityCurve = analysisService.calculateEquityCurve(startDate, endDate);
+        return ResponseEntity.ok(equityCurve);
+    }
+
+    @GetMapping("/drawdown")
+    public ResponseEntity<DrawdownDto> getDrawdown(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        log.info("Getting drawdown from {} to {}", startDate, endDate);
+
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("시작일은 종료일보다 이전이어야 합니다");
+        }
+
+        DrawdownDto drawdown = analysisService.calculateDrawdown(startDate, endDate);
+        return ResponseEntity.ok(drawdown);
+    }
+
+    @GetMapping("/correlation")
+    public ResponseEntity<CorrelationMatrixDto> getCorrelation(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        log.info("Getting correlation matrix from {} to {}", startDate, endDate);
+
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("시작일은 종료일보다 이전이어야 합니다");
+        }
+
+        CorrelationMatrixDto correlation = analysisService.calculateCorrelationMatrix(startDate, endDate);
+        return ResponseEntity.ok(correlation);
+    }
+
     private double calculateAverageHoldingPeriod(List<Transaction> transactions) {
         Map<String, List<Transaction>> stockTransactions = transactions.stream()
                 .collect(Collectors.groupingBy(t -> t.getStock().getSymbol()));

@@ -3,7 +3,10 @@ package com.trading.journal.service;
 import com.trading.journal.dto.PortfolioDto;
 import com.trading.journal.dto.PortfolioSummaryDto;
 import com.trading.journal.entity.Portfolio;
+import com.trading.journal.entity.Transaction;
+import com.trading.journal.entity.TransactionType;
 import com.trading.journal.repository.PortfolioRepository;
+import com.trading.journal.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -22,8 +25,9 @@ import java.util.List;
 @Slf4j
 @Transactional(readOnly = true)
 public class PortfolioAnalysisService {
-    
+
     private final PortfolioRepository portfolioRepository;
+    private final TransactionRepository transactionRepository;
     private final StockPriceService stockPriceService;
     
     @Cacheable(value = "portfolio", key = "'summary'")
@@ -59,7 +63,13 @@ public class PortfolioAnalysisService {
                     .divide(totalCurrentValue.subtract(totalDayChange), 4, RoundingMode.HALF_UP)
                     .multiply(new BigDecimal("100"));
         }
-        
+
+        // 실현 손익 계산 (모든 매도 거래의 FIFO 기반 실현손익 합계)
+        BigDecimal totalRealizedPnl = transactionRepository.findAll().stream()
+                .filter(t -> t.getType() == TransactionType.SELL)
+                .map(t -> t.getRealizedPnl() != null ? t.getRealizedPnl() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return PortfolioSummaryDto.builder()
                 .totalInvestment(totalInvestment)
                 .totalCurrentValue(totalCurrentValue)
@@ -67,6 +77,7 @@ public class PortfolioAnalysisService {
                 .totalProfitLossPercent(totalProfitLossPercent)
                 .totalDayChange(totalDayChange)
                 .totalDayChangePercent(totalDayChangePercent)
+                .totalRealizedPnl(totalRealizedPnl)
                 .holdings(holdings)
                 .lastUpdated(LocalDateTime.now())
                 .build();

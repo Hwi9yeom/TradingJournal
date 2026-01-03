@@ -5,6 +5,7 @@ import com.trading.journal.dto.PortfolioSummaryDto;
 import com.trading.journal.entity.Portfolio;
 import com.trading.journal.entity.Stock;
 import com.trading.journal.repository.PortfolioRepository;
+import com.trading.journal.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,9 @@ class PortfolioAnalysisServiceTest {
 
     @Mock
     private PortfolioRepository portfolioRepository;
+
+    @Mock
+    private TransactionRepository transactionRepository;
 
     @Mock
     private StockPriceService stockPriceService;
@@ -62,6 +66,7 @@ class PortfolioAnalysisServiceTest {
         // Given
         List<Portfolio> portfolios = Arrays.asList(mockPortfolio);
         when(portfolioRepository.findAll()).thenReturn(portfolios);
+        when(transactionRepository.findAll()).thenReturn(Collections.emptyList());
         when(stockPriceService.getCurrentPrice("AAPL")).thenReturn(new BigDecimal("160.00"));
         when(stockPriceService.getPreviousClose("AAPL")).thenReturn(new BigDecimal("158.00"));
 
@@ -102,6 +107,7 @@ class PortfolioAnalysisServiceTest {
 
         List<Portfolio> portfolios = Arrays.asList(mockPortfolio, portfolio2);
         when(portfolioRepository.findAll()).thenReturn(portfolios);
+        when(transactionRepository.findAll()).thenReturn(Collections.emptyList());
         when(stockPriceService.getCurrentPrice("AAPL")).thenReturn(new BigDecimal("160.00"));
         when(stockPriceService.getPreviousClose("AAPL")).thenReturn(new BigDecimal("158.00"));
         when(stockPriceService.getCurrentPrice("GOOGL")).thenReturn(new BigDecimal("2100.00"));
@@ -122,6 +128,7 @@ class PortfolioAnalysisServiceTest {
     void getPortfolioSummary_EmptyPortfolio() {
         // Given
         when(portfolioRepository.findAll()).thenReturn(Collections.emptyList());
+        when(transactionRepository.findAll()).thenReturn(Collections.emptyList());
 
         // When
         PortfolioSummaryDto summary = portfolioAnalysisService.getPortfolioSummary();
@@ -171,6 +178,7 @@ class PortfolioAnalysisServiceTest {
     void calculatePortfolioMetrics_ApiError() {
         // Given
         when(portfolioRepository.findAll()).thenReturn(Arrays.asList(mockPortfolio));
+        when(transactionRepository.findAll()).thenReturn(Collections.emptyList());
         when(stockPriceService.getCurrentPrice("AAPL")).thenThrow(new RuntimeException("API Error"));
 
         // When
