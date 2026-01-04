@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>백테스팅 - 투자 기록 서비스</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        .metric-card {
+            transition: transform 0.2s;
+        }
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .trade-win { background-color: rgba(34, 197, 94, 0.1); }
+        .trade-loss { background-color: rgba(239, 68, 68, 0.1); }
+        .strategy-card {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .strategy-card:hover {
+            border-color: #0d6efd;
+        }
+        .strategy-card.selected {
+            border-color: #0d6efd;
+            background-color: rgba(13, 110, 253, 0.1);
+        }
+        .param-input {
+            width: 100px;
+        }
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">투자 기록 서비스</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard.html">대시보드</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="patterns.html">패턴분석</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="reviews.html">거래복기</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="sectors.html">섹터분석</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="backtest.html">백테스팅</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">거래관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="accounts.html">계좌관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="logout()">로그아웃</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 로딩 오버레이 -->
+    <div id="loadingOverlay">
+        <div class="text-center text-white">
+            <div class="spinner-border mb-3" style="width: 3rem; height: 3rem;"></div>
+            <h5>백테스트 실행 중...</h5>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+        <!-- 헤더 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-lightning-charge text-warning"></i> 백테스팅</h2>
+            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#historyModal">
+                <i class="bi bi-clock-history me-1"></i>히스토리
+            </button>
+        </div>
+
+        <div class="row">
+            <!-- 설정 패널 -->
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-gear text-primary"></i> 백테스트 설정</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="backtestForm">
+                            <!-- 종목 -->
+                            <div class="mb-3">
+                                <label class="form-label">종목 심볼</label>
+                                <input type="text" class="form-control" id="symbol" value="AAPL" required>
+                            </div>
+
+                            <!-- 기간 -->
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">시작일</label>
+                                    <input type="date" class="form-control" id="startDate" required>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">종료일</label>
+                                    <input type="date" class="form-control" id="endDate" required>
+                                </div>
+                            </div>
+
+                            <!-- 초기 자본금 -->
+                            <div class="mb-3">
+                                <label class="form-label">초기 자본금</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₩</span>
+                                    <input type="number" class="form-control" id="initialCapital" value="10000000" required>
+                                </div>
+                            </div>
+
+                            <!-- 포지션 크기 -->
+                            <div class="mb-3">
+                                <label class="form-label">포지션 크기 (%)</label>
+                                <input type="range" class="form-range" id="positionSize" min="10" max="100" value="100">
+                                <small class="text-muted">현재: <span id="positionSizeValue">100</span>%</small>
+                            </div>
+
+                            <!-- 수수료 및 슬리피지 -->
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">수수료 (%)</label>
+                                    <input type="number" class="form-control" id="commission" value="0.015" step="0.001">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">슬리피지 (%)</label>
+                                    <input type="number" class="form-control" id="slippage" value="0.1" step="0.01">
+                                </div>
+                            </div>
+
+                            <!-- 손절/익절 -->
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">손절 (%)</label>
+                                    <input type="number" class="form-control" id="stopLoss" placeholder="미설정" step="0.1">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">익절 (%)</label>
+                                    <input type="number" class="form-control" id="takeProfit" placeholder="미설정" step="0.1">
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 전략 선택 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-diagram-3 text-success"></i> 전략 선택</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="strategyList">
+                            <!-- 전략 카드들이 여기에 추가됨 -->
+                        </div>
+
+                        <!-- 전략 파라미터 -->
+                        <div id="strategyParams" class="mt-3" style="display: none;">
+                            <h6 class="border-bottom pb-2">파라미터 설정</h6>
+                            <div id="paramInputs"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 실행 버튼 -->
+                <button type="button" class="btn btn-primary btn-lg w-100 mb-4" onclick="runBacktest()">
+                    <i class="bi bi-play-fill me-2"></i>백테스트 실행
+                </button>
+            </div>
+
+            <!-- 결과 패널 -->
+            <div class="col-lg-8">
+                <!-- 결과가 없을 때 -->
+                <div id="noResultPanel" class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-graph-up-arrow fs-1 text-muted mb-3 d-block"></i>
+                        <h5 class="text-muted">백테스트를 실행하면 결과가 여기에 표시됩니다</h5>
+                        <p class="text-muted">왼쪽 패널에서 전략을 선택하고 설정을 완료한 후 실행 버튼을 클릭하세요.</p>
+                    </div>
+                </div>
+
+                <!-- 결과 패널 -->
+                <div id="resultPanel" style="display: none;">
+                    <!-- 성과 요약 카드 -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <div class="card metric-card h-100 text-center">
+                                <div class="card-body">
+                                    <small class="text-muted">총 수익률</small>
+                                    <h3 id="totalReturn" class="mb-0">-</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card metric-card h-100 text-center">
+                                <div class="card-body">
+                                    <small class="text-muted">CAGR</small>
+                                    <h3 id="cagr" class="mb-0">-</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card metric-card h-100 text-center">
+                                <div class="card-body">
+                                    <small class="text-muted">최대 낙폭</small>
+                                    <h3 id="maxDrawdown" class="text-danger mb-0">-</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card metric-card h-100 text-center">
+                                <div class="card-body">
+                                    <small class="text-muted">샤프 비율</small>
+                                    <h3 id="sharpeRatio" class="mb-0">-</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 자산 곡선 차트 -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-graph-up text-primary"></i> 자산 곡선</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="equityChart" height="250"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 낙폭 차트 -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-graph-down text-danger"></i> 낙폭 (Drawdown)</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="drawdownChart" height="150"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 상세 통계 -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="mb-0">수익성 지표</h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <table class="table table-sm mb-0">
+                                        <tbody id="profitabilityStats">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="mb-0">거래 통계</h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <table class="table table-sm mb-0">
+                                        <tbody id="tradeStats">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 월별 성과 -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-calendar3 text-info"></i> 월별 성과</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="monthlyChart" height="150"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 거래 목록 -->
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-list-ul text-secondary"></i> 거래 목록</h5>
+                            <span class="badge bg-primary" id="tradeCount">0건</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>진입일</th>
+                                            <th>청산일</th>
+                                            <th class="text-end">진입가</th>
+                                            <th class="text-end">청산가</th>
+                                            <th class="text-end">손익</th>
+                                            <th class="text-end">수익률</th>
+                                            <th class="text-end">보유일</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tradeList">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 히스토리 모달 -->
+    <div class="modal fade" id="historyModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">백테스트 히스토리</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>전략</th>
+                                    <th>종목</th>
+                                    <th>기간</th>
+                                    <th class="text-end">수익률</th>
+                                    <th class="text-end">MDD</th>
+                                    <th>실행일</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyList">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="auth.js"></script>
+    <script src="backtest.js"></script>
+</body>
+</html>

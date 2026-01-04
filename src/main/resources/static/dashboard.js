@@ -16,6 +16,7 @@ $(document).ready(function() {
     loadEquityCurve('1Y');
     loadDrawdown('1Y');
     loadCorrelation('1Y');
+    loadRiskMetrics('1Y');
 });
 
 function loadDashboardData() {
@@ -781,4 +782,393 @@ function updateCorrelation(period) {
     event.target.classList.add('active');
 
     loadCorrelation(period);
+}
+
+// ==================== 리스크 지표 ====================
+
+function loadRiskMetrics(period) {
+    const range = getDateRange(period);
+
+    $.ajax({
+        url: `${API_BASE_URL}/analysis/risk-metrics`,
+        method: 'GET',
+        data: {
+            startDate: range.startDate,
+            endDate: range.endDate
+        },
+        success: function(data) {
+            updateRiskMetricsDisplay(data);
+        },
+        error: function(xhr) {
+            console.error('Failed to load risk metrics:', xhr);
+            // 에러 시 기본값 표시
+            resetRiskMetricsDisplay();
+        }
+    });
+}
+
+function updateRiskMetricsDisplay(data) {
+    if (!data) {
+        resetRiskMetricsDisplay();
+        return;
+    }
+
+    // 리스크 등급 표시
+    const riskLevel = data.riskLevel || 'MEDIUM';
+    const $badge = $('#risk-level-badge');
+    const $text = $('#risk-level-text');
+
+    $badge.removeClass('bg-success bg-warning bg-danger');
+    switch(riskLevel) {
+        case 'LOW':
+            $badge.addClass('bg-success');
+            $text.text('낮은 리스크 - 안정적인 포트폴리오');
+            break;
+        case 'HIGH':
+            $badge.addClass('bg-danger');
+            $text.text('높은 리스크 - 공격적인 포트폴리오');
+            break;
+        default:
+            $badge.addClass('bg-warning');
+            $text.text('중간 리스크 - 적절한 리스크 수준');
+    }
+
+    // 주요 비율 지표
+    const sharpe = parseFloat(data.sharpeRatio || 0);
+    $('#sharpe-ratio')
+        .text(sharpe.toFixed(2))
+        .removeClass('text-success text-warning text-danger')
+        .addClass(sharpe >= 1 ? 'text-success' : (sharpe >= 0.5 ? 'text-warning' : 'text-danger'));
+
+    const sortino = parseFloat(data.sortinoRatio || 0);
+    $('#sortino-ratio')
+        .text(sortino.toFixed(2))
+        .removeClass('text-success text-warning text-danger')
+        .addClass(sortino >= 1.5 ? 'text-success' : (sortino >= 0.5 ? 'text-warning' : 'text-danger'));
+
+    const calmar = parseFloat(data.calmarRatio || 0);
+    $('#calmar-ratio')
+        .text(calmar.toFixed(2))
+        .removeClass('text-success text-warning text-danger')
+        .addClass(calmar >= 1 ? 'text-success' : (calmar >= 0.5 ? 'text-warning' : 'text-danger'));
+
+    const profitFactor = parseFloat(data.profitFactor || 0);
+    $('#profit-factor')
+        .text(profitFactor.toFixed(2))
+        .removeClass('text-success text-warning text-danger')
+        .addClass(profitFactor >= 1.5 ? 'text-success' : (profitFactor >= 1 ? 'text-warning' : 'text-danger'));
+
+    // VaR 지표
+    if (data.var95) {
+        $('#var95-daily').text(data.var95.dailyVaR + '%');
+        $('#var95-weekly').text(data.var95.weeklyVaR + '%');
+        $('#var95-monthly').text(data.var95.monthlyVaR + '%');
+        $('#var-amount').text(formatCurrency(data.var95.dailyVaRAmount || 0));
+    }
+
+    if (data.var99) {
+        $('#var99-daily').text(data.var99.dailyVaR + '%');
+        $('#var99-weekly').text(data.var99.weeklyVaR + '%');
+        $('#var99-monthly').text(data.var99.monthlyVaR + '%');
+    }
+
+    // 추가 지표
+    const volatility = parseFloat(data.volatility || 0);
+    $('#volatility').text(volatility.toFixed(2) + '%');
+
+    const downsideDev = parseFloat(data.downsideDeviation || 0);
+    $('#downside-deviation').text(downsideDev.toFixed(2) + '%');
+
+    const mdd = parseFloat(data.maxDrawdown || 0);
+    $('#risk-mdd').text(mdd.toFixed(2) + '%');
+
+    const cagr = parseFloat(data.cagr || 0);
+    $('#risk-cagr')
+        .text((cagr >= 0 ? '+' : '') + cagr.toFixed(2) + '%')
+        .removeClass('text-success text-danger')
+        .addClass(cagr >= 0 ? 'text-success' : 'text-danger');
+
+    const winRate = parseFloat(data.winRate || 0);
+    $('#risk-winrate')
+        .text(winRate.toFixed(1) + '%')
+        .removeClass('text-success text-warning text-danger')
+        .addClass(winRate >= 50 ? 'text-success' : 'text-danger');
+
+    $('#trading-days').text(data.tradingDays || 0);
+}
+
+function resetRiskMetricsDisplay() {
+    $('#risk-level-badge').removeClass('bg-success bg-warning bg-danger').addClass('bg-secondary');
+    $('#risk-level-text').text('데이터 없음');
+
+    $('#sharpe-ratio, #sortino-ratio, #calmar-ratio, #profit-factor').text('-');
+    $('#var95-daily, #var95-weekly, #var95-monthly').text('-');
+    $('#var99-daily, #var99-weekly, #var99-monthly').text('-');
+    $('#var-amount').text('-');
+    $('#volatility, #downside-deviation, #risk-mdd, #risk-cagr, #risk-winrate, #trading-days').text('-');
+}
+
+function updateRiskMetrics(period) {
+    // 버튼 활성화 상태 변경
+    $(event.target).closest('.btn-group').find('button').removeClass('active');
+    event.target.classList.add('active');
+
+    loadRiskMetrics(period);
+}
+
+// ==================== 벤치마크 비교 ====================
+
+let benchmarkComparisonChart;
+let currentBenchmarkPeriod = '1Y';
+
+// 페이지 로드 시 벤치마크 차트 초기화 및 데이터 로드
+$(document).ready(function() {
+    // 벤치마크 차트 초기화 (다른 차트 초기화 후 실행)
+    setTimeout(function() {
+        initializeBenchmarkChart();
+        loadBenchmarkComparison(currentBenchmarkPeriod);
+    }, 100);
+
+    // 벤치마크 선택 변경 이벤트
+    $('#benchmark-select').on('change', function() {
+        loadBenchmarkComparison(currentBenchmarkPeriod);
+    });
+});
+
+function initializeBenchmarkChart() {
+    const ctx = document.getElementById('benchmarkComparisonChart');
+    if (!ctx) return;
+
+    benchmarkComparisonChart = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: '포트폴리오',
+                    data: [],
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.1,
+                    fill: false,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    borderWidth: 2
+                },
+                {
+                    label: '벤치마크',
+                    data: [],
+                    borderColor: 'rgb(156, 163, 175)',
+                    backgroundColor: 'rgba(156, 163, 175, 0.1)',
+                    tension: 0.1,
+                    fill: false,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    borderWidth: 2,
+                    borderDash: [5, 5]
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        maxTicksLimit: 8
+                    }
+                },
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function loadBenchmarkComparison(period) {
+    currentBenchmarkPeriod = period;
+    const range = getDateRange(period);
+    const benchmark = $('#benchmark-select').val();
+
+    $.ajax({
+        url: `${API_BASE_URL}/analysis/benchmark/compare`,
+        method: 'GET',
+        data: {
+            benchmark: benchmark,
+            startDate: range.startDate,
+            endDate: range.endDate
+        },
+        success: function(data) {
+            updateBenchmarkDisplay(data);
+            $('#benchmark-empty').hide();
+        },
+        error: function(xhr) {
+            console.error('Failed to load benchmark comparison:', xhr);
+            if (xhr.status === 404 || (xhr.responseJSON && xhr.responseJSON.portfolioReturns && xhr.responseJSON.portfolioReturns.length === 0)) {
+                showBenchmarkEmpty();
+            } else {
+                resetBenchmarkDisplay();
+            }
+        }
+    });
+}
+
+function updateBenchmarkDisplay(data) {
+    if (!data || !data.labels || data.labels.length === 0) {
+        showBenchmarkEmpty();
+        return;
+    }
+
+    // 날짜 레이블 포맷팅
+    const formattedLabels = data.labels.map(label => {
+        const date = new Date(label);
+        return date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+    });
+
+    // 차트 업데이트
+    if (benchmarkComparisonChart) {
+        benchmarkComparisonChart.data.labels = formattedLabels;
+        benchmarkComparisonChart.data.datasets[0].data = data.portfolioReturns;
+        benchmarkComparisonChart.data.datasets[1].data = data.benchmarkReturns;
+        benchmarkComparisonChart.data.datasets[1].label = data.benchmarkLabel || '벤치마크';
+        benchmarkComparisonChart.update();
+    }
+
+    // 요약 지표 업데이트
+    const portfolioReturn = parseFloat(data.portfolioTotalReturn || 0);
+    const benchmarkReturn = parseFloat(data.benchmarkTotalReturn || 0);
+    const excessReturn = parseFloat(data.excessReturn || 0);
+
+    $('#benchmark-portfolio-return')
+        .text((portfolioReturn >= 0 ? '+' : '') + portfolioReturn.toFixed(2) + '%')
+        .removeClass('text-success text-danger')
+        .addClass(portfolioReturn >= 0 ? 'text-success' : 'text-danger');
+
+    $('#benchmark-index-return')
+        .text((benchmarkReturn >= 0 ? '+' : '') + benchmarkReturn.toFixed(2) + '%')
+        .removeClass('text-success text-danger')
+        .addClass(benchmarkReturn >= 0 ? 'text-success' : 'text-danger');
+
+    $('#benchmark-excess-return')
+        .text((excessReturn >= 0 ? '+' : '') + excessReturn.toFixed(2) + '%')
+        .removeClass('text-success text-danger')
+        .addClass(excessReturn >= 0 ? 'text-success' : 'text-danger');
+
+    // 초과수익 카드 배경색
+    const $excessCard = $('#excess-return-card');
+    $excessCard.removeClass('bg-success bg-danger bg-light');
+    if (excessReturn > 0) {
+        $excessCard.addClass('bg-success').find('small, h5').addClass('text-white');
+    } else if (excessReturn < 0) {
+        $excessCard.addClass('bg-danger').find('small, h5').addClass('text-white');
+    } else {
+        $excessCard.addClass('bg-light').find('small, h5').removeClass('text-white');
+    }
+
+    // 알파, 베타, 상관계수
+    const alpha = parseFloat(data.alpha || 0);
+    $('#benchmark-alpha')
+        .text((alpha >= 0 ? '+' : '') + alpha.toFixed(4))
+        .removeClass('text-success text-danger')
+        .addClass(alpha >= 0 ? 'text-success' : 'text-danger');
+
+    const beta = parseFloat(data.beta || 1);
+    $('#benchmark-beta')
+        .text(beta.toFixed(4))
+        .removeClass('text-success text-warning text-danger')
+        .addClass(beta < 0.8 ? 'text-success' : (beta > 1.2 ? 'text-danger' : 'text-warning'));
+
+    const correlation = parseFloat(data.correlation || 0);
+    $('#benchmark-correlation').text(correlation.toFixed(4));
+
+    // 추가 지표
+    $('#benchmark-info-ratio').text(parseFloat(data.informationRatio || 0).toFixed(4));
+    $('#benchmark-tracking-error').text(parseFloat(data.trackingError || 0).toFixed(4) + '%');
+    $('#benchmark-treynor').text(parseFloat(data.treynorRatio || 0).toFixed(4));
+    $('#benchmark-rsquared').text(parseFloat(data.rSquared || 0).toFixed(4));
+
+    // MDD
+    const portfolioMdd = parseFloat(data.portfolioMaxDrawdown || 0);
+    const benchmarkMdd = parseFloat(data.benchmarkMaxDrawdown || 0);
+    $('#benchmark-portfolio-mdd').text('-' + portfolioMdd.toFixed(2) + '%');
+    $('#benchmark-index-mdd').text('-' + benchmarkMdd.toFixed(2) + '%');
+
+    // 월별 승패
+    const winMonths = data.portfolioWinMonths || 0;
+    const loseMonths = data.benchmarkWinMonths || 0;
+    $('#benchmark-win-months').text('승: ' + winMonths + '개월');
+    $('#benchmark-lose-months').text('패: ' + loseMonths + '개월');
+}
+
+function resetBenchmarkDisplay() {
+    $('#benchmark-portfolio-return, #benchmark-index-return, #benchmark-excess-return').text('-');
+    $('#benchmark-alpha, #benchmark-beta, #benchmark-correlation').text('-');
+    $('#benchmark-info-ratio, #benchmark-tracking-error, #benchmark-treynor, #benchmark-rsquared').text('-');
+    $('#benchmark-portfolio-mdd, #benchmark-index-mdd').text('-');
+    $('#benchmark-win-months').text('승: 0개월');
+    $('#benchmark-lose-months').text('패: 0개월');
+
+    if (benchmarkComparisonChart) {
+        benchmarkComparisonChart.data.labels = [];
+        benchmarkComparisonChart.data.datasets[0].data = [];
+        benchmarkComparisonChart.data.datasets[1].data = [];
+        benchmarkComparisonChart.update();
+    }
+}
+
+function showBenchmarkEmpty() {
+    resetBenchmarkDisplay();
+    $('#benchmark-empty').show();
+}
+
+function updateBenchmark(period) {
+    // 버튼 활성화 상태 변경
+    $(event.target).closest('.btn-group').find('button').removeClass('active');
+    event.target.classList.add('active');
+
+    loadBenchmarkComparison(period);
+}
+
+function generateSampleBenchmark() {
+    const benchmark = $('#benchmark-select').val();
+    const range = getDateRange('1Y');
+
+    $.ajax({
+        url: `${API_BASE_URL}/analysis/benchmark/generate-sample`,
+        method: 'POST',
+        data: {
+            benchmark: benchmark,
+            startDate: range.startDate,
+            endDate: range.endDate
+        },
+        success: function(response) {
+            alert(response.message || '샘플 데이터가 생성되었습니다.');
+            loadBenchmarkComparison(currentBenchmarkPeriod);
+        },
+        error: function(xhr) {
+            alert('샘플 데이터 생성 실패: ' + (xhr.responseJSON?.message || xhr.statusText));
+        }
+    });
 }

@@ -186,6 +186,7 @@ public class AnalysisService {
                     .labels(new ArrayList<>())
                     .values(new ArrayList<>())
                     .cumulativeReturns(new ArrayList<>())
+                    .dailyReturns(new ArrayList<>())
                     .initialInvestment(BigDecimal.ZERO)
                     .finalValue(BigDecimal.ZERO)
                     .totalReturn(BigDecimal.ZERO)
@@ -223,10 +224,12 @@ public class AnalysisService {
         List<String> labels = new ArrayList<>();
         List<BigDecimal> values = new ArrayList<>();
         List<BigDecimal> cumulativeReturns = new ArrayList<>();
+        List<BigDecimal> dailyReturns = new ArrayList<>();
 
         LocalDate current = startDate;
         BigDecimal lastValue = BigDecimal.ZERO;
         BigDecimal lastInvestment = BigDecimal.ZERO;
+        BigDecimal previousValue = null;
         BigDecimal initialInvestment = null;
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -252,6 +255,16 @@ public class AnalysisService {
                         .multiply(new BigDecimal("100"));
             }
             cumulativeReturns.add(cumulativeReturn);
+
+            // 일간 수익률 계산
+            BigDecimal dailyReturn = BigDecimal.ZERO;
+            if (previousValue != null && previousValue.compareTo(BigDecimal.ZERO) > 0) {
+                dailyReturn = lastValue.subtract(previousValue)
+                        .divide(previousValue, 4, RoundingMode.HALF_UP)
+                        .multiply(new BigDecimal("100"));
+            }
+            dailyReturns.add(dailyReturn);
+            previousValue = lastValue;
 
             current = current.plusDays(1);
         }
@@ -281,11 +294,21 @@ public class AnalysisService {
                 .labels(labels)
                 .values(values)
                 .cumulativeReturns(cumulativeReturns)
+                .dailyReturns(dailyReturns)
                 .initialInvestment(initialInvestment != null ? initialInvestment : BigDecimal.ZERO)
                 .finalValue(lastValue)
                 .totalReturn(totalReturn)
                 .cagr(cagr)
                 .build();
+    }
+
+    /**
+     * 계좌별 Equity Curve 조회 (벤치마크 비교용)
+     */
+    public EquityCurveDto getEquityCurve(Long accountId, LocalDate startDate, LocalDate endDate) {
+        // TODO: accountId 필터링 추가 시 구현
+        // 현재는 전체 포트폴리오 기준으로 반환
+        return calculateEquityCurve(startDate, endDate);
     }
 
     /**

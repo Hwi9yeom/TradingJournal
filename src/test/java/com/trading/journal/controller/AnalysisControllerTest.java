@@ -5,8 +5,12 @@ import com.trading.journal.dto.StockAnalysisDto;
 import com.trading.journal.dto.TaxCalculationDto;
 import com.trading.journal.repository.TransactionRepository;
 import com.trading.journal.service.AnalysisService;
+import com.trading.journal.service.BenchmarkService;
+import com.trading.journal.service.RiskMetricsService;
+import com.trading.journal.service.SectorAnalysisService;
 import com.trading.journal.service.StockAnalysisService;
 import com.trading.journal.service.TaxCalculationService;
+import com.trading.journal.service.TradingPatternService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -35,6 +39,18 @@ class AnalysisControllerTest {
 
     @MockitoBean
     private AnalysisService analysisService;
+
+    @MockitoBean
+    private RiskMetricsService riskMetricsService;
+
+    @MockitoBean
+    private TradingPatternService tradingPatternService;
+
+    @MockitoBean
+    private BenchmarkService benchmarkService;
+
+    @MockitoBean
+    private SectorAnalysisService sectorAnalysisService;
 
     @MockitoBean
     private StockAnalysisService stockAnalysisService;

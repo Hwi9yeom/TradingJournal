@@ -26,6 +26,9 @@ public class EquityCurveDto {
     /** 누적 수익률 목록 (%) */
     private List<BigDecimal> cumulativeReturns;
 
+    /** 일간 수익률 목록 (%) */
+    private List<BigDecimal> dailyReturns;
+
     /** 초기 투자금액 */
     private BigDecimal initialInvestment;
 

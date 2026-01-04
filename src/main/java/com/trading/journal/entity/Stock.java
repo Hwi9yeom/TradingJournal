@@ -27,7 +27,16 @@ public class Stock {
     private String name;
     
     private String exchange;
-    
+
+    /** 섹터 분류 */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Sector sector;
+
+    /** 세부 산업 */
+    @Column(length = 100)
+    private String industry;
+
     private LocalDateTime createdAt;
     
     private LocalDateTime updatedAt;
