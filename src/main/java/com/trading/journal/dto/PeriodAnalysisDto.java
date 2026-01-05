@@ -24,10 +24,19 @@ public class PeriodAnalysisDto {
     private BigDecimal unrealizedProfitRate;
     private BigDecimal totalProfit;
     private BigDecimal totalProfitRate;
+    private BigDecimal totalProfitPercent;
     private Integer totalTransactions;
     private Integer buyTransactions;
     private Integer sellTransactions;
     private List<MonthlyAnalysisDto> monthlyAnalysis;
+
+    // 추가 성과 지표
+    private BigDecimal winRate;
+    private Integer winCount;
+    private Integer lossCount;
+    private BigDecimal averageReturn;
+    private BigDecimal sharpeRatio;
+    private BigDecimal maxDrawdown;
     
     @Data
     @NoArgsConstructor

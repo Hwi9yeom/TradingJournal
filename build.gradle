@@ -32,6 +32,12 @@ dependencies {
     implementation 'com.opencsv:opencsv:5.7.1'
     implementation 'org.apache.poi:poi:5.2.4'
     implementation 'org.apache.poi:poi-ooxml:5.2.4'
+
+    // PDF generation
+    implementation 'com.github.librepdf:openpdf:2.0.3'
+
+    // Chart generation for PDF reports
+    implementation 'org.jfree:jfreechart:1.5.5'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.jsoup:jsoup:1.17.2'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'

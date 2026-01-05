@@ -1172,3 +1172,126 @@ function generateSampleBenchmark() {
         }
     });
 }
+
+// ==================== PDF 리포트 다운로드 ====================
+
+/**
+ * PDF 리포트 다운로드
+ * @param {string} type - 리포트 유형 (ytd, monthly, yearly)
+ */
+function downloadReport(type) {
+    let url = '';
+    const today = new Date();
+
+    switch(type) {
+        case 'ytd':
+            url = `${API_BASE_URL}/reports/portfolio/pdf/ytd`;
+            break;
+        case 'monthly':
+            url = `${API_BASE_URL}/reports/portfolio/pdf/monthly?year=${today.getFullYear()}&month=${today.getMonth() + 1}`;
+            break;
+        case 'yearly':
+            url = `${API_BASE_URL}/reports/portfolio/pdf/yearly?year=${today.getFullYear()}`;
+            break;
+        default:
+            console.error('Unknown report type:', type);
+            return;
+    }
+
+    downloadPdfReport(url);
+}
+
+/**
+ * 커스텀 기간 리포트 다운로드
+ */
+function downloadCustomReport() {
+    const startDate = $('#reportStartDate').val();
+    const endDate = $('#reportEndDate').val();
+
+    if (!startDate || !endDate) {
+        alert('시작일과 종료일을 모두 선택해주세요.');
+        return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+        alert('시작일이 종료일보다 늦을 수 없습니다.');
+        return;
+    }
+
+    const url = `${API_BASE_URL}/reports/portfolio/pdf?startDate=${startDate}&endDate=${endDate}`;
+    downloadPdfReport(url);
+
+    // 모달 닫기
+    const modal = bootstrap.Modal.getInstance(document.getElementById('customReportModal'));
+    if (modal) {
+        modal.hide();
+    }
+}
+
+/**
+ * PDF 파일 다운로드 실행
+ * @param {string} url - API 엔드포인트 URL
+ */
+function downloadPdfReport(url) {
+    // 로딩 표시
+    const $reportBtn = $('#reportDropdown');
+    const originalText = $reportBtn.html();
+    $reportBtn.html('<span class="spinner-border spinner-border-sm me-1"></span>생성 중...').prop('disabled', true);
+
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/pdf'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('리포트 생성에 실패했습니다.');
+        }
+
+        // Content-Disposition 헤더에서 파일명 추출
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'portfolio_report.pdf';
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1].replace(/['"]/g, '');
+            }
+        }
+
+        return response.blob().then(blob => ({ blob, filename }));
+    })
+    .then(({ blob, filename }) => {
+        // Blob URL 생성 및 다운로드
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+    })
+    .catch(error => {
+        console.error('PDF download error:', error);
+        alert('PDF 리포트 생성에 실패했습니다. 다시 시도해주세요.');
+    })
+    .finally(() => {
+        // 버튼 복원
+        $reportBtn.html(originalText).prop('disabled', false);
+    });
+}
+
+/**
+ * 커스텀 리포트 모달 초기화 (날짜 기본값 설정)
+ */
+$(document).ready(function() {
+    // 모달이 열릴 때 기본 날짜 설정
+    $('#customReportModal').on('show.bs.modal', function() {
+        const today = new Date();
+        const startOfYear = new Date(today.getFullYear(), 0, 1);
+
+        $('#reportEndDate').val(today.toISOString().split('T')[0]);
+        $('#reportStartDate').val(startOfYear.toISOString().split('T')[0]);
+    });
+});
