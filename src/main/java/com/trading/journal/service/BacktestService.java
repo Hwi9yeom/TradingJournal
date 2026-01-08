@@ -4,6 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trading.journal.dto.BacktestRequestDto;
 import com.trading.journal.dto.BacktestResultDto;
+import com.trading.journal.dto.OptimizationRequestDto;
+import com.trading.journal.dto.OptimizationRequestDto.ParameterRange;
+import com.trading.journal.dto.OptimizationResultDto;
+import com.trading.journal.dto.OptimizationResultDto.ParameterResult;
 import com.trading.journal.entity.BacktestResult;
 import com.trading.journal.entity.BacktestTrade;
 import com.trading.journal.repository.BacktestResultRepository;
@@ -11,6 +15,7 @@ import com.trading.journal.strategy.TradingStrategy;
 import com.trading.journal.strategy.TradingStrategy.PriceData;
 import com.trading.journal.strategy.TradingStrategy.Signal;
 import com.trading.journal.strategy.impl.BollingerBandStrategy;
+import com.trading.journal.strategy.impl.MACDStrategy;
 import com.trading.journal.strategy.impl.MomentumStrategy;
 import com.trading.journal.strategy.impl.MovingAverageCrossStrategy;
 import com.trading.journal.strategy.impl.RSIStrategy;
@@ -18,10 +23,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import yahoofinance.histquotes.HistoricalQuote;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -36,6 +43,7 @@ public class BacktestService {
 
     private final BacktestResultRepository backtestResultRepository;
     private final ObjectMapper objectMapper;
+    private final StockPriceService stockPriceService;
 
     /**
      * 백테스트 실행
@@ -47,8 +55,8 @@ public class BacktestService {
         // 1. 전략 생성
         TradingStrategy strategy = createStrategy(request);
 
-        // 2. 가격 데이터 생성 (실제로는 외부 API나 DB에서 가져옴)
-        List<PriceData> prices = generateSamplePriceData(request.getSymbol(),
+        // 2. 실제 가격 데이터 조회 (Yahoo Finance API)
+        List<PriceData> prices = fetchHistoricalPriceData(request.getSymbol(),
                 request.getStartDate(), request.getEndDate());
 
         // 3. 백테스트 시뮬레이션 실행
@@ -99,6 +107,13 @@ public class BacktestService {
                         .period(getIntParam(params, "period", 20))
                         .entryThreshold(getDoubleParam(params, "entryThreshold", 0.0))
                         .exitThreshold(getDoubleParam(params, "exitThreshold", 0.0))
+                        .build();
+
+            case MACD:
+                return MACDStrategy.builder()
+                        .fastPeriod(getIntParam(params, "fastPeriod", 12))
+                        .slowPeriod(getIntParam(params, "slowPeriod", 26))
+                        .signalPeriod(getIntParam(params, "signalPeriod", 9))
                         .build();
 
             default:
@@ -411,7 +426,42 @@ public class BacktestService {
     }
 
     /**
-     * 샘플 가격 데이터 생성 (테스트용)
+     * Yahoo Finance API로 실제 가격 데이터 조회
+     * 실패 시 샘플 데이터로 폴백
+     */
+    private List<PriceData> fetchHistoricalPriceData(String symbol, LocalDate startDate, LocalDate endDate) {
+        try {
+            log.info("Yahoo Finance에서 가격 데이터 조회: {} ({} ~ {})", symbol, startDate, endDate);
+            List<HistoricalQuote> quotes = stockPriceService.getHistoricalQuotes(symbol, startDate, endDate);
+
+            if (quotes == null || quotes.isEmpty()) {
+                log.warn("가격 데이터가 없습니다. 샘플 데이터 사용: {}", symbol);
+                return generateSamplePriceData(symbol, startDate, endDate);
+            }
+
+            List<PriceData> prices = quotes.stream()
+                    .filter(q -> q.getClose() != null)
+                    .map(q -> PriceData.builder()
+                            .date(q.getDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate())
+                            .open(q.getOpen() != null ? q.getOpen() : q.getClose())
+                            .high(q.getHigh() != null ? q.getHigh() : q.getClose())
+                            .low(q.getLow() != null ? q.getLow() : q.getClose())
+                            .close(q.getClose())
+                            .volume(q.getVolume() != null ? q.getVolume() : 0L)
+                            .build())
+                    .sorted(Comparator.comparing(PriceData::getDate))
+                    .collect(Collectors.toList());
+
+            log.info("가격 데이터 {} 건 조회 완료", prices.size());
+            return prices;
+        } catch (Exception e) {
+            log.warn("실제 데이터 조회 실패, 샘플 데이터 사용: {}", e.getMessage());
+            return generateSamplePriceData(symbol, startDate, endDate);
+        }
+    }
+
+    /**
+     * 샘플 가격 데이터 생성 (테스트용 / 폴백용)
      */
     private List<PriceData> generateSamplePriceData(String symbol, LocalDate startDate, LocalDate endDate) {
         List<PriceData> prices = new ArrayList<>();
@@ -630,10 +680,184 @@ public class BacktestService {
                 params.put("entryThreshold", 0.0);
                 params.put("exitThreshold", 0.0);
                 break;
+            case MACD:
+                params.put("fastPeriod", 12);
+                params.put("slowPeriod", 26);
+                params.put("signalPeriod", 9);
+                break;
             default:
                 break;
         }
         return params;
+    }
+
+    // === 전략 최적화 ===
+
+    /**
+     * 전략 파라미터 최적화 (그리드 서치)
+     */
+    @Transactional
+    public OptimizationResultDto optimizeStrategy(OptimizationRequestDto request) {
+        long startTime = System.currentTimeMillis();
+        log.info("전략 최적화 시작: {} - {}", request.getStrategyType(), request.getSymbol());
+
+        // 1. 파라미터 조합 생성
+        List<Map<String, Object>> paramCombinations = generateParameterCombinations(request.getParameterRanges());
+        log.info("테스트할 파라미터 조합 수: {}", paramCombinations.size());
+
+        // 2. 가격 데이터 미리 조회 (재사용)
+        List<PriceData> prices = fetchHistoricalPriceData(request.getSymbol(),
+                request.getStartDate(), request.getEndDate());
+
+        // 3. 각 조합에 대해 백테스트 실행
+        List<ParameterResult> results = new ArrayList<>();
+        for (Map<String, Object> params : paramCombinations) {
+            try {
+                BacktestRequestDto backtestRequest = createBacktestRequestFromOptimization(request, params);
+                TradingStrategy strategy = createStrategy(backtestRequest);
+                BacktestResult result = executeBacktest(backtestRequest, strategy, prices);
+
+                BigDecimal targetValue = getTargetValue(result, request.getTarget());
+
+                results.add(ParameterResult.builder()
+                        .parameters(params)
+                        .targetValue(targetValue)
+                        .totalReturn(result.getTotalReturn())
+                        .maxDrawdown(result.getMaxDrawdown())
+                        .sharpeRatio(result.getSharpeRatio())
+                        .profitFactor(result.getProfitFactor())
+                        .totalTrades(result.getTotalTrades())
+                        .winRate(result.getWinRate())
+                        .build());
+            } catch (Exception e) {
+                log.warn("파라미터 조합 테스트 실패: {} - {}", params, e.getMessage());
+            }
+        }
+
+        if (results.isEmpty()) {
+            throw new RuntimeException("최적화 실패: 유효한 결과가 없습니다");
+        }
+
+        // 4. 최적 파라미터 선택
+        ParameterResult best = results.stream()
+                .max(Comparator.comparing(r -> r.getTargetValue() != null ? r.getTargetValue() : BigDecimal.ZERO))
+                .orElseThrow(() -> new RuntimeException("최적 파라미터를 찾을 수 없습니다"));
+
+        // 5. 최적 파라미터로 전체 결과 생성 (저장 포함)
+        BacktestRequestDto bestRequest = createBacktestRequestFromOptimization(request, best.getParameters());
+        BacktestResultDto bestFullResult = runBacktest(bestRequest);
+
+        long executionTime = System.currentTimeMillis() - startTime;
+        log.info("최적화 완료: {} 조합 테스트, 최적 수익률 {}%, 실행시간 {}ms",
+                results.size(), best.getTotalReturn(), executionTime);
+
+        return OptimizationResultDto.builder()
+                .bestParameters(best.getParameters())
+                .bestResult(bestFullResult)
+                .allResults(results)
+                .totalCombinations(paramCombinations.size())
+                .executionTimeMs(executionTime)
+                .targetType(request.getTarget().name())
+                .build();
+    }
+
+    /**
+     * 파라미터 조합 생성 (카르테시안 곱)
+     */
+    private List<Map<String, Object>> generateParameterCombinations(Map<String, ParameterRange> ranges) {
+        List<Map<String, Object>> combinations = new ArrayList<>();
+        combinations.add(new HashMap<>());
+
+        if (ranges == null || ranges.isEmpty()) {
+            return combinations;
+        }
+
+        for (Map.Entry<String, ParameterRange> entry : ranges.entrySet()) {
+            String paramName = entry.getKey();
+            ParameterRange range = entry.getValue();
+
+            List<Number> values = generateRangeValues(range);
+            List<Map<String, Object>> newCombinations = new ArrayList<>();
+
+            for (Map<String, Object> existing : combinations) {
+                for (Number value : values) {
+                    Map<String, Object> newCombo = new HashMap<>(existing);
+                    newCombo.put(paramName, value);
+                    newCombinations.add(newCombo);
+                }
+            }
+            combinations = newCombinations;
+        }
+
+        return combinations;
+    }
+
+    /**
+     * 범위 값 생성
+     */
+    private List<Number> generateRangeValues(ParameterRange range) {
+        List<Number> values = new ArrayList<>();
+
+        double min = range.getMin().doubleValue();
+        double max = range.getMax().doubleValue();
+        double step = range.getStep().doubleValue();
+
+        if (step <= 0) {
+            step = 1;
+        }
+
+        for (double v = min; v <= max; v += step) {
+            // 정수인지 실수인지 판단
+            if (step == Math.floor(step) && min == Math.floor(min)) {
+                values.add((int) v);
+            } else {
+                values.add(v);
+            }
+        }
+
+        return values;
+    }
+
+    /**
+     * 최적화 요청에서 백테스트 요청 생성
+     */
+    private BacktestRequestDto createBacktestRequestFromOptimization(OptimizationRequestDto optRequest,
+                                                                       Map<String, Object> params) {
+        return BacktestRequestDto.builder()
+                .symbol(optRequest.getSymbol())
+                .strategyType(optRequest.getStrategyType())
+                .strategyParams(params)
+                .startDate(optRequest.getStartDate())
+                .endDate(optRequest.getEndDate())
+                .initialCapital(optRequest.getInitialCapital())
+                .positionSizePercent(optRequest.getPositionSizePercent())
+                .commissionRate(optRequest.getCommissionRate())
+                .slippage(optRequest.getSlippage())
+                .build();
+    }
+
+    /**
+     * 최적화 목표에 따른 값 추출
+     */
+    private BigDecimal getTargetValue(BacktestResult result, OptimizationRequestDto.OptimizationTarget target) {
+        switch (target) {
+            case TOTAL_RETURN:
+                return result.getTotalReturn();
+            case SHARPE_RATIO:
+                return result.getSharpeRatio() != null ? result.getSharpeRatio() : BigDecimal.ZERO;
+            case PROFIT_FACTOR:
+                return result.getProfitFactor() != null ? result.getProfitFactor() : BigDecimal.ZERO;
+            case MIN_DRAWDOWN:
+                // MDD는 작을수록 좋으므로 음수로 변환
+                return result.getMaxDrawdown() != null ? result.getMaxDrawdown().negate() : BigDecimal.ZERO;
+            case CALMAR_RATIO:
+                if (result.getMaxDrawdown() != null && result.getMaxDrawdown().compareTo(BigDecimal.ZERO) > 0) {
+                    return result.getCagr().divide(result.getMaxDrawdown(), 4, RoundingMode.HALF_UP);
+                }
+                return BigDecimal.ZERO;
+            default:
+                return result.getTotalReturn();
+        }
     }
 
     // === Helper methods ===

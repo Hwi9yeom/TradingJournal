@@ -508,3 +508,268 @@ function formatDateTime(dateTimeStr) {
     const date = new Date(dateTimeStr);
     return date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'});
 }
+
+// === 최적화 기능 ===
+
+let optimizationResult = null;
+
+// 최적화 모달이 열릴 때 파라미터 범위 입력 UI 생성
+$('#optimizeModal').on('show.bs.modal', function() {
+    renderParamRangeInputs();
+});
+
+function renderParamRangeInputs() {
+    const container = $('#paramRangeInputs');
+    container.empty();
+
+    if (!selectedStrategy) {
+        container.html('<p class="text-muted">먼저 전략을 선택하세요.</p>');
+        return;
+    }
+
+    const strategy = strategies.find(function(s) { return s.type === selectedStrategy; });
+    if (!strategy || !strategy.parameters) {
+        container.html('<p class="text-muted">파라미터가 없는 전략입니다.</p>');
+        return;
+    }
+
+    const paramLabels = {
+        'shortPeriod': { label: '단기 MA 기간', defaultMin: 5, defaultMax: 30, defaultStep: 5 },
+        'longPeriod': { label: '장기 MA 기간', defaultMin: 20, defaultMax: 100, defaultStep: 10 },
+        'maType': null,
+        'period': { label: '기간', defaultMin: 5, defaultMax: 30, defaultStep: 5 },
+        'overboughtLevel': { label: '과매수 레벨', defaultMin: 60, defaultMax: 80, defaultStep: 5 },
+        'oversoldLevel': { label: '과매도 레벨', defaultMin: 20, defaultMax: 40, defaultStep: 5 },
+        'stdDevMultiplier': { label: '표준편차 배수', defaultMin: 1.5, defaultMax: 3.0, defaultStep: 0.5 },
+        'entryThreshold': { label: '진입 임계값 (%)', defaultMin: -5, defaultMax: 5, defaultStep: 1 },
+        'exitThreshold': { label: '청산 임계값 (%)', defaultMin: -5, defaultMax: 5, defaultStep: 1 },
+        'fastPeriod': { label: '단기 EMA 기간', defaultMin: 8, defaultMax: 16, defaultStep: 2 },
+        'slowPeriod': { label: '장기 EMA 기간', defaultMin: 20, defaultMax: 32, defaultStep: 3 },
+        'signalPeriod': { label: '시그널 기간', defaultMin: 5, defaultMax: 12, defaultStep: 1 }
+    };
+
+    container.append('<h6 class="mb-3">파라미터 범위 설정</h6>');
+
+    for (var key in strategy.parameters) {
+        if (!strategy.parameters.hasOwnProperty(key)) continue;
+
+        var config = paramLabels[key];
+        if (!config) continue;
+
+        var defaultValue = strategy.parameters[key];
+        var html = '<div class="card mb-2">' +
+            '<div class="card-body py-2">' +
+            '<div class="d-flex justify-content-between align-items-center mb-2">' +
+            '<label class="form-label mb-0">' + config.label + '</label>' +
+            '<div class="form-check">' +
+            '<input class="form-check-input" type="checkbox" id="optimize_' + key + '" checked>' +
+            '<label class="form-check-label" for="optimize_' + key + '">최적화</label>' +
+            '</div>' +
+            '</div>' +
+            '<div class="row g-2">' +
+            '<div class="col-4">' +
+            '<input type="number" class="form-control form-control-sm" id="min_' + key + '" placeholder="최소" value="' + config.defaultMin + '">' +
+            '</div>' +
+            '<div class="col-4">' +
+            '<input type="number" class="form-control form-control-sm" id="max_' + key + '" placeholder="최대" value="' + config.defaultMax + '">' +
+            '</div>' +
+            '<div class="col-4">' +
+            '<input type="number" class="form-control form-control-sm" id="step_' + key + '" placeholder="단위" value="' + config.defaultStep + '">' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+        container.append(html);
+    }
+
+    // 예상 조합 수 표시
+    container.append('<div class="alert alert-secondary mt-3" id="estimatedCombinations">' +
+        '<i class="bi bi-calculator me-2"></i>예상 조합 수: <strong>계산 중...</strong>' +
+        '</div>');
+
+    updateEstimatedCombinations();
+
+    // 범위 변경 시 조합 수 업데이트
+    container.find('input').on('change', updateEstimatedCombinations);
+}
+
+function updateEstimatedCombinations() {
+    var ranges = getParameterRanges();
+    var total = 1;
+
+    for (var key in ranges) {
+        if (ranges.hasOwnProperty(key)) {
+            var range = ranges[key];
+            var count = Math.floor((range.max - range.min) / range.step) + 1;
+            total *= count;
+        }
+    }
+
+    $('#estimatedCombinations strong').text(total + '개');
+
+    if (total > 1000) {
+        $('#estimatedCombinations').removeClass('alert-secondary').addClass('alert-warning');
+        $('#estimatedCombinations').html('<i class="bi bi-exclamation-triangle me-2"></i>예상 조합 수: <strong>' + total + '개</strong> (많은 시간이 소요될 수 있습니다)');
+    } else {
+        $('#estimatedCombinations').removeClass('alert-warning').addClass('alert-secondary');
+    }
+}
+
+function getParameterRanges() {
+    var ranges = {};
+
+    $('#paramRangeInputs input[id^="optimize_"]').each(function() {
+        if (!$(this).is(':checked')) return;
+
+        var key = $(this).attr('id').replace('optimize_', '');
+        var min = parseFloat($('#min_' + key).val());
+        var max = parseFloat($('#max_' + key).val());
+        var step = parseFloat($('#step_' + key).val());
+
+        if (!isNaN(min) && !isNaN(max) && !isNaN(step) && step > 0) {
+            ranges[key] = { min: min, max: max, step: step };
+        }
+    });
+
+    return ranges;
+}
+
+function runOptimization() {
+    if (!selectedStrategy) {
+        alert('전략을 선택해주세요.');
+        return;
+    }
+
+    var ranges = getParameterRanges();
+    if (Object.keys(ranges).length === 0) {
+        alert('최적화할 파라미터를 선택해주세요.');
+        return;
+    }
+
+    var request = {
+        symbol: $('#symbol').val(),
+        strategyType: selectedStrategy,
+        startDate: $('#startDate').val(),
+        endDate: $('#endDate').val(),
+        initialCapital: parseFloat($('#initialCapital').val()),
+        positionSizePercent: parseFloat($('#positionSize').val()),
+        commissionRate: parseFloat($('#commission').val()),
+        slippage: parseFloat($('#slippage').val()),
+        parameterRanges: ranges,
+        target: $('#optimizationTarget').val()
+    };
+
+    // 모달 닫기
+    bootstrap.Modal.getInstance(document.getElementById('optimizeModal')).hide();
+
+    // 로딩 표시
+    $('#loadingOverlay').css('display', 'flex');
+    $('#loadingOverlay h5').text('파라미터 최적화 중...');
+
+    $.ajax({
+        url: API_BASE_URL + '/backtest/optimize',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(request),
+        success: function(data) {
+            optimizationResult = data;
+            displayOptimizationResult(data);
+            $('#loadingOverlay').hide();
+            $('#loadingOverlay h5').text('백테스트 실행 중...');
+
+            // 결과 모달 표시
+            var resultModal = new bootstrap.Modal(document.getElementById('optimizeResultModal'));
+            resultModal.show();
+        },
+        error: function(xhr) {
+            console.error('최적화 실패:', xhr);
+            alert('최적화 실행에 실패했습니다: ' + (xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : '알 수 없는 오류'));
+            $('#loadingOverlay').hide();
+            $('#loadingOverlay h5').text('백테스트 실행 중...');
+        }
+    });
+}
+
+function displayOptimizationResult(result) {
+    // 최적 파라미터 표시
+    var bestParamsHtml = '';
+    for (var key in result.bestParameters) {
+        if (result.bestParameters.hasOwnProperty(key)) {
+            bestParamsHtml += '<div class="col-auto"><span class="badge bg-success fs-6">' + key + ': ' + result.bestParameters[key] + '</span></div>';
+        }
+    }
+    $('#bestParams').html(bestParamsHtml);
+
+    // 최적 결과 통계
+    var best = result.bestResult;
+    var returnClass = best.totalReturn >= 0 ? 'text-success' : 'text-danger';
+    $('#bestStats').html(
+        '<div class="col-md-3"><div class="text-muted">총 수익률</div><h4 class="' + returnClass + '">' + formatPercent(best.totalReturn) + '</h4></div>' +
+        '<div class="col-md-3"><div class="text-muted">최대 낙폭</div><h4 class="text-danger">' + formatPercent(-Math.abs(best.maxDrawdown)) + '</h4></div>' +
+        '<div class="col-md-3"><div class="text-muted">샤프 비율</div><h4>' + (best.sharpeRatio ? best.sharpeRatio.toFixed(2) : '-') + '</h4></div>' +
+        '<div class="col-md-3"><div class="text-muted">승률</div><h4>' + formatPercent(best.winRate) + '</h4></div>'
+    );
+
+    // 조합 수
+    $('#combinationCount').text(result.totalCombinations + '개 조합');
+
+    // 실행 시간
+    $('#optimizationTime').text('실행 시간: ' + (result.executionTimeMs / 1000).toFixed(1) + '초');
+
+    // 모든 결과 정렬 (수익률 순)
+    var sortedResults = result.allResults.slice().sort(function(a, b) {
+        return (b.totalReturn || 0) - (a.totalReturn || 0);
+    });
+
+    // 모든 결과 테이블
+    var listHtml = '';
+    sortedResults.forEach(function(r, idx) {
+        var paramStr = '';
+        for (var key in r.parameters) {
+            if (r.parameters.hasOwnProperty(key)) {
+                paramStr += key + '=' + r.parameters[key] + ' ';
+            }
+        }
+        var rowClass = (r.totalReturn || 0) >= 0 ? 'table-success' : 'table-danger';
+        if (idx === 0) rowClass = 'table-warning';
+
+        listHtml += '<tr class="' + rowClass + '">' +
+            '<td>' + (idx + 1) + '</td>' +
+            '<td><small>' + paramStr + '</small></td>' +
+            '<td class="text-end">' + formatPercent(r.totalReturn) + '</td>' +
+            '<td class="text-end">' + formatPercent(-Math.abs(r.maxDrawdown || 0)) + '</td>' +
+            '<td class="text-end">' + (r.sharpeRatio ? r.sharpeRatio.toFixed(2) : '-') + '</td>' +
+            '<td class="text-end">' + formatPercent(r.winRate) + '</td>' +
+            '<td class="text-end">' + (r.totalTrades || 0) + '</td>' +
+            '</tr>';
+    });
+    $('#allResultsList').html(listHtml);
+}
+
+function applyBestParams() {
+    if (!optimizationResult || !optimizationResult.bestParameters) {
+        return;
+    }
+
+    // 최적 파라미터를 입력 폼에 적용
+    var params = optimizationResult.bestParameters;
+    for (var key in params) {
+        if (params.hasOwnProperty(key)) {
+            var input = $('#paramInputs [data-param="' + key + '"]');
+            if (input.length) {
+                input.val(params[key]);
+            }
+        }
+    }
+
+    // 결과 모달 닫기
+    bootstrap.Modal.getInstance(document.getElementById('optimizeResultModal')).hide();
+
+    // 최적 결과로 메인 결과 패널 업데이트
+    if (optimizationResult.bestResult) {
+        currentResult = optimizationResult.bestResult;
+        displayResult(optimizationResult.bestResult);
+    }
+
+    alert('최적 파라미터가 적용되었습니다.');
+}

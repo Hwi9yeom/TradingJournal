@@ -190,9 +190,14 @@
                 </div>
 
                 <!-- 실행 버튼 -->
-                <button type="button" class="btn btn-primary btn-lg w-100 mb-4" onclick="runBacktest()">
-                    <i class="bi bi-play-fill me-2"></i>백테스트 실행
-                </button>
+                <div class="d-grid gap-2 mb-4">
+                    <button type="button" class="btn btn-primary btn-lg" onclick="runBacktest()">
+                        <i class="bi bi-play-fill me-2"></i>백테스트 실행
+                    </button>
+                    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#optimizeModal">
+                        <i class="bi bi-gear me-2"></i>파라미터 최적화
+                    </button>
+                </div>
             </div>
 
             <!-- 결과 패널 -->
@@ -362,6 +367,110 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 최적화 모달 -->
+    <div class="modal fade" id="optimizeModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-gear text-success me-2"></i>파라미터 최적화</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        파라미터 범위를 설정하면 모든 조합을 테스트하여 최적의 파라미터를 찾습니다.
+                    </div>
+
+                    <!-- 최적화 목표 -->
+                    <div class="mb-3">
+                        <label class="form-label">최적화 목표</label>
+                        <select class="form-select" id="optimizationTarget">
+                            <option value="TOTAL_RETURN">총 수익률 최대화</option>
+                            <option value="SHARPE_RATIO">샤프 비율 최대화</option>
+                            <option value="PROFIT_FACTOR">손익비 최대화</option>
+                            <option value="MIN_DRAWDOWN">최대낙폭 최소화</option>
+                            <option value="CALMAR_RATIO">칼마 비율 최대화</option>
+                        </select>
+                    </div>
+
+                    <!-- 파라미터 범위 설정 -->
+                    <div id="paramRangeInputs">
+                        <p class="text-muted">먼저 전략을 선택하세요.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-success" onclick="runOptimization()">
+                        <i class="bi bi-search me-1"></i>최적화 실행
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 최적화 결과 모달 -->
+    <div class="modal fade" id="optimizeResultModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-trophy text-warning me-2"></i>최적화 결과</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- 최적 파라미터 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-success text-white">
+                            <i class="bi bi-star-fill me-2"></i>최적 파라미터
+                        </div>
+                        <div class="card-body">
+                            <div id="bestParams" class="row">
+                                <!-- 최적 파라미터 표시 -->
+                            </div>
+                            <hr>
+                            <div class="row text-center" id="bestStats">
+                                <!-- 최적 결과 통계 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 모든 조합 결과 -->
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-table me-2"></i>모든 조합 결과</span>
+                            <span class="badge bg-primary" id="combinationCount">0개 조합</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive" style="max-height: 400px;">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>파라미터</th>
+                                            <th class="text-end">수익률</th>
+                                            <th class="text-end">MDD</th>
+                                            <th class="text-end">샤프</th>
+                                            <th class="text-end">승률</th>
+                                            <th class="text-end">거래수</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="allResultsList">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <small class="text-muted me-auto" id="optimizationTime">실행 시간: -</small>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    <button type="button" class="btn btn-primary" onclick="applyBestParams()">
+                        <i class="bi bi-check-circle me-1"></i>최적 파라미터 적용
+                    </button>
                 </div>
             </div>
         </div>

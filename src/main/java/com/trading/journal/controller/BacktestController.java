@@ -2,6 +2,8 @@ package com.trading.journal.controller;
 
 import com.trading.journal.dto.BacktestRequestDto;
 import com.trading.journal.dto.BacktestResultDto;
+import com.trading.journal.dto.OptimizationRequestDto;
+import com.trading.journal.dto.OptimizationResultDto;
 import com.trading.journal.service.BacktestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -58,5 +60,17 @@ public class BacktestController {
     @GetMapping("/strategies")
     public ResponseEntity<List<Map<String, Object>>> getAvailableStrategies() {
         return ResponseEntity.ok(backtestService.getAvailableStrategies());
+    }
+
+    /**
+     * 전략 파라미터 최적화
+     */
+    @PostMapping("/optimize")
+    public ResponseEntity<OptimizationResultDto> optimizeStrategy(@Valid @RequestBody OptimizationRequestDto request) {
+        log.info("전략 최적화 요청: symbol={}, strategy={}, target={}",
+                request.getSymbol(), request.getStrategyType(), request.getTarget());
+
+        OptimizationResultDto result = backtestService.optimizeStrategy(request);
+        return ResponseEntity.ok(result);
     }
 }
