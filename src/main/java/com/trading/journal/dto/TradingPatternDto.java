@@ -12,7 +12,6 @@ import java.util.List;
 
 /**
  * 거래 패턴 분석 DTO
- * 연승/연패, 시간대별 성과, 보유 기간 분석 등
  */
 @Data
 @NoArgsConstructor
@@ -20,59 +19,54 @@ import java.util.List;
 @Builder
 public class TradingPatternDto {
 
-    /** 스트릭(연승/연패) 분석 */
-    private StreakAnalysis streakAnalysis;
-
-    /** 요일별 성과 */
-    private List<DayOfWeekPerformance> dayOfWeekPerformance;
-
-    /** 월별 계절성 */
-    private List<MonthlySeasonality> monthlySeasonality;
-
-    /** 거래 규모 분석 */
-    private TradeSizeAnalysis tradeSizeAnalysis;
-
-    /** 보유 기간 분석 */
-    private HoldingPeriodAnalysis holdingPeriodAnalysis;
-
-    /** 분석 기간 */
-    private LocalDate startDate;
-    private LocalDate endDate;
-
-    /** 총 거래 수 */
-    private int totalTrades;
-
     /**
      * 스트릭(연승/연패) 분석
+     */
+    private StreakAnalysis streakAnalysis;
+
+    /**
+     * 요일별 성과
+     */
+    private List<DayOfWeekPerformance> dayOfWeekPerformance;
+
+    /**
+     * 월별 계절성
+     */
+    private List<MonthlySeasonality> monthlySeasonality;
+
+    /**
+     * 거래 규모 분석
+     */
+    private TradeSizeAnalysis tradeSizeAnalysis;
+
+    /**
+     * 보유 기간 분석
+     */
+    private HoldingPeriodAnalysis holdingPeriodAnalysis;
+
+    /**
+     * 분석 기간
+     */
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private int totalTrades;
+
+    // ========== 내부 DTO 클래스들 ==========
+
+    /**
+     * 스트릭 분석
      */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
     public static class StreakAnalysis {
-        /** 현재 스트릭 (+면 연승, -면 연패) */
-        private int currentStreak;
-
-        /** 최대 연승 */
-        private int maxWinStreak;
-
-        /** 최대 연패 */
-        private int maxLossStreak;
-
-        /** 평균 연승 */
-        private BigDecimal avgWinStreak;
-
-        /** 평균 연패 */
-        private BigDecimal avgLossStreak;
-
-        /** 연승 횟수 */
-        private int winStreakCount;
-
-        /** 연패 횟수 */
-        private int lossStreakCount;
-
-        /** 최근 스트릭 이벤트 목록 */
-        private List<StreakEvent> recentStreaks;
+        private int currentStreak;        // +면 연승, -면 연패
+        private int maxWinStreak;         // 최대 연승
+        private int maxLossStreak;        // 최대 연패
+        private int avgWinStreak;         // 평균 연승
+        private int avgLossStreak;        // 평균 연패
+        private List<StreakEvent> recentStreaks;  // 최근 스트릭 이력
     }
 
     /**
@@ -85,9 +79,9 @@ public class TradingPatternDto {
     public static class StreakEvent {
         private LocalDate startDate;
         private LocalDate endDate;
-        private int streakLength;
-        private boolean isWinStreak;
-        private BigDecimal totalProfit;
+        private int length;               // 스트릭 길이
+        private boolean isWinStreak;      // 연승 여부
+        private BigDecimal totalPnl;      // 해당 기간 총 손익
     }
 
     /**
@@ -99,13 +93,13 @@ public class TradingPatternDto {
     @Builder
     public static class DayOfWeekPerformance {
         private DayOfWeek dayOfWeek;
-        private String dayOfWeekKorean;
-        private int tradeCount;
-        private BigDecimal winRate;
-        private BigDecimal avgReturn;
-        private BigDecimal totalProfit;
-        private int winCount;
-        private int lossCount;
+        private String dayOfWeekLabel;    // 한글 요일명
+        private int tradeCount;           // 거래 횟수
+        private int winCount;             // 수익 거래 수
+        private BigDecimal winRate;       // 승률
+        private BigDecimal avgReturn;     // 평균 수익률
+        private BigDecimal totalPnl;      // 총 손익
+        private BigDecimal avgPnl;        // 평균 손익
     }
 
     /**
@@ -116,14 +110,14 @@ public class TradingPatternDto {
     @AllArgsConstructor
     @Builder
     public static class MonthlySeasonality {
-        private int month;
-        private String monthName;
+        private int month;                // 1-12
+        private String monthLabel;        // 한글 월명
         private int tradeCount;
+        private int winCount;
         private BigDecimal winRate;
         private BigDecimal avgReturn;
-        private BigDecimal totalProfit;
-        private int winCount;
-        private int lossCount;
+        private BigDecimal totalPnl;
+        private int yearCount;            // 데이터가 있는 연도 수
     }
 
     /**
@@ -134,26 +128,31 @@ public class TradingPatternDto {
     @AllArgsConstructor
     @Builder
     public static class TradeSizeAnalysis {
-        /** 평균 거래 금액 */
-        private BigDecimal avgTradeAmount;
+        private BigDecimal avgTradeAmount;      // 평균 거래 금액
+        private BigDecimal maxTradeAmount;      // 최대 거래 금액
+        private BigDecimal minTradeAmount;      // 최소 거래 금액
+        private BigDecimal medianTradeAmount;   // 중간값
+        private BigDecimal stdDeviation;        // 표준편차
 
-        /** 최대 거래 금액 */
-        private BigDecimal maxTradeAmount;
+        // 거래 규모별 분포
+        private List<TradeSizeBucket> distribution;
+    }
 
-        /** 최소 거래 금액 */
-        private BigDecimal minTradeAmount;
-
-        /** 중앙값 거래 금액 */
-        private BigDecimal medianTradeAmount;
-
-        /** 거래 금액 표준편차 */
-        private BigDecimal stdDevTradeAmount;
-
-        /** 평균 수익 거래 금액 */
-        private BigDecimal avgWinTradeAmount;
-
-        /** 평균 손실 거래 금액 */
-        private BigDecimal avgLossTradeAmount;
+    /**
+     * 거래 규모 구간
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class TradeSizeBucket {
+        private String label;             // "100만원 미만", "100-500만원" 등
+        private BigDecimal minAmount;
+        private BigDecimal maxAmount;
+        private int count;
+        private BigDecimal percentage;
+        private BigDecimal avgReturn;     // 해당 구간 평균 수익률
+        private BigDecimal winRate;       // 해당 구간 승률
     }
 
     /**
@@ -164,42 +163,30 @@ public class TradingPatternDto {
     @AllArgsConstructor
     @Builder
     public static class HoldingPeriodAnalysis {
-        /** 평균 보유 기간 (일) */
-        private BigDecimal avgHoldingDays;
+        private BigDecimal avgHoldingDays;          // 전체 평균 보유 기간
+        private BigDecimal avgWinHoldingDays;       // 수익 거래 평균 보유 기간
+        private BigDecimal avgLossHoldingDays;      // 손실 거래 평균 보유 기간
+        private int maxHoldingDays;                 // 최대 보유 기간
+        private int minHoldingDays;                 // 최소 보유 기간
 
-        /** 최대 보유 기간 (일) */
-        private int maxHoldingDays;
-
-        /** 최소 보유 기간 (일) */
-        private int minHoldingDays;
-
-        /** 중앙값 보유 기간 (일) */
-        private int medianHoldingDays;
-
-        /** 수익 거래 평균 보유 기간 */
-        private BigDecimal avgWinHoldingDays;
-
-        /** 손실 거래 평균 보유 기간 */
-        private BigDecimal avgLossHoldingDays;
-
-        /** 보유 기간별 성과 분포 */
-        private List<HoldingPeriodBucket> holdingPeriodDistribution;
+        // 보유 기간별 분포
+        private List<HoldingPeriodBucket> distribution;
     }
 
     /**
-     * 보유 기간 구간별 성과
+     * 보유 기간 구간
      */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
     public static class HoldingPeriodBucket {
-        private String label;  // e.g., "1-7일", "1-4주", "1-3개월"
+        private String label;             // "당일", "1-3일", "1주일 이내" 등
         private int minDays;
         private int maxDays;
-        private int tradeCount;
-        private BigDecimal winRate;
+        private int count;
+        private BigDecimal percentage;
         private BigDecimal avgReturn;
-        private BigDecimal totalProfit;
+        private BigDecimal winRate;
     }
 }

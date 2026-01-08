@@ -7,7 +7,6 @@ import com.trading.journal.entity.TransactionType;
 import com.trading.journal.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,52 +15,46 @@ import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
  * 거래 패턴 분석 서비스
- * 연승/연패, 시간대별 성과, 보유 기간 분석 등
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
-@Transactional(readOnly = true)
 public class TradingPatternService {
 
     private final TransactionRepository transactionRepository;
 
-    private static final String[] DAY_OF_WEEK_KOREAN = {
-            "", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"
-    };
+    private static final String[] DAY_LABELS = {"", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"};
+    private static final String[] MONTH_LABELS = {"", "1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"};
 
-    private static final String[] MONTH_NAMES = {
-            "", "1월", "2월", "3월", "4월", "5월", "6월",
-            "7월", "8월", "9월", "10월", "11월", "12월"
-    };
+    /**
+     * 종합 거래 패턴 분석 (Controller에서 호출)
+     */
+    @Transactional(readOnly = true)
+    public TradingPatternDto analyzePatterns(Long accountId, LocalDate startDate, LocalDate endDate) {
+        return getFullAnalysis(accountId, startDate, endDate);
+    }
 
     /**
      * 종합 거래 패턴 분석
      */
-    @Cacheable(value = "analysis", key = "'pattern_' + #accountId + '_' + #startDate + '_' + #endDate")
-    public TradingPatternDto analyzePatterns(Long accountId, LocalDate startDate, LocalDate endDate) {
-        log.debug("Analyzing trading patterns for account {} from {} to {}", accountId, startDate, endDate);
-
+    @Transactional(readOnly = true)
+    public TradingPatternDto getFullAnalysis(Long accountId, LocalDate startDate, LocalDate endDate) {
         LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
-        List<Transaction> transactions;
-        if (accountId != null) {
-            transactions = transactionRepository.findByAccountIdAndDateRange(accountId, startDateTime, endDateTime);
-        } else {
-            transactions = transactionRepository.findByDateRange(startDateTime, endDateTime);
-        }
+        List<Transaction> allTransactions = accountId != null
+                ? transactionRepository.findByAccountIdAndDateRange(accountId, startDateTime, endDateTime)
+                : transactionRepository.findByDateRange(startDateTime, endDateTime);
 
-        // 매도 거래만 필터링 (실현 손익 기준)
-        List<Transaction> sellTransactions = transactions.stream()
+        // 매도 거래만 추출 (실현 손익 기반 분석)
+        List<Transaction> sellTransactions = allTransactions.stream()
                 .filter(t -> t.getType() == TransactionType.SELL)
-                .filter(t -> t.getRealizedPnl() != null)
                 .sorted(Comparator.comparing(Transaction::getTransactionDate))
                 .collect(Collectors.toList());
 
@@ -69,20 +62,16 @@ public class TradingPatternService {
                 .streakAnalysis(analyzeStreaks(sellTransactions))
                 .dayOfWeekPerformance(analyzeDayOfWeek(sellTransactions))
                 .monthlySeasonality(analyzeMonthlySeasonality(sellTransactions))
-                .tradeSizeAnalysis(analyzeTradeSizes(sellTransactions))
-                .holdingPeriodAnalysis(analyzeHoldingPeriods(transactions))
+                .tradeSizeAnalysis(analyzeTradeSize(sellTransactions))
+                .holdingPeriodAnalysis(analyzeHoldingPeriod(allTransactions))
                 .startDate(startDate)
                 .endDate(endDate)
                 .totalTrades(sellTransactions.size())
                 .build();
     }
 
-    public TradingPatternDto analyzePatterns(LocalDate startDate, LocalDate endDate) {
-        return analyzePatterns(null, startDate, endDate);
-    }
-
     /**
-     * 연승/연패 분석
+     * 스트릭 분석
      */
     public StreakAnalysis analyzeStreaks(List<Transaction> sellTransactions) {
         if (sellTransactions.isEmpty()) {
@@ -90,11 +79,9 @@ public class TradingPatternService {
                     .currentStreak(0)
                     .maxWinStreak(0)
                     .maxLossStreak(0)
-                    .avgWinStreak(BigDecimal.ZERO)
-                    .avgLossStreak(BigDecimal.ZERO)
-                    .winStreakCount(0)
-                    .lossStreakCount(0)
-                    .recentStreaks(new ArrayList<>())
+                    .avgWinStreak(0)
+                    .avgLossStreak(0)
+                    .recentStreaks(Collections.emptyList())
                     .build();
         }
 
@@ -102,90 +89,76 @@ public class TradingPatternService {
         int currentStreak = 0;
         int maxWinStreak = 0;
         int maxLossStreak = 0;
+        List<Integer> winStreaks = new ArrayList<>();
+        List<Integer> lossStreaks = new ArrayList<>();
 
-        LocalDate streakStartDate = null;
-        BigDecimal streakProfit = BigDecimal.ZERO;
-        boolean currentIsWin = false;
+        LocalDate streakStart = null;
+        LocalDate streakEnd = null;
+        BigDecimal streakPnl = BigDecimal.ZERO;
+        Boolean lastWin = null;
+        int streakLength = 0;
 
-        for (int i = 0; i < sellTransactions.size(); i++) {
-            Transaction tx = sellTransactions.get(i);
-            boolean isWin = tx.getRealizedPnl().compareTo(BigDecimal.ZERO) > 0;
+        for (Transaction tx : sellTransactions) {
+            BigDecimal pnl = tx.getRealizedPnl() != null ? tx.getRealizedPnl() : BigDecimal.ZERO;
+            boolean isWin = pnl.compareTo(BigDecimal.ZERO) > 0;
             LocalDate txDate = tx.getTransactionDate().toLocalDate();
 
-            if (i == 0) {
-                currentStreak = isWin ? 1 : -1;
-                currentIsWin = isWin;
-                streakStartDate = txDate;
-                streakProfit = tx.getRealizedPnl();
-            } else if ((isWin && currentStreak > 0) || (!isWin && currentStreak < 0)) {
+            if (lastWin == null) {
+                // 첫 거래
+                lastWin = isWin;
+                streakStart = txDate;
+                streakLength = 1;
+                streakPnl = pnl;
+            } else if (lastWin == isWin) {
                 // 스트릭 계속
-                currentStreak += isWin ? 1 : -1;
-                streakProfit = streakProfit.add(tx.getRealizedPnl());
+                streakLength++;
+                streakPnl = streakPnl.add(pnl);
             } else {
-                // 스트릭 종료 - 이벤트 저장
-                if (Math.abs(currentStreak) >= 2) {
-                    streaks.add(StreakEvent.builder()
-                            .startDate(streakStartDate)
-                            .endDate(sellTransactions.get(i - 1).getTransactionDate().toLocalDate())
-                            .streakLength(Math.abs(currentStreak))
-                            .isWinStreak(currentIsWin)
-                            .totalProfit(streakProfit)
-                            .build());
-                }
+                // 스트릭 종료
+                streakEnd = txDate;
+                streaks.add(StreakEvent.builder()
+                        .startDate(streakStart)
+                        .endDate(streakEnd)
+                        .length(streakLength)
+                        .isWinStreak(lastWin)
+                        .totalPnl(streakPnl)
+                        .build());
 
-                // 최대 스트릭 업데이트
-                if (currentStreak > 0) {
-                    maxWinStreak = Math.max(maxWinStreak, currentStreak);
+                if (lastWin) {
+                    winStreaks.add(streakLength);
+                    maxWinStreak = Math.max(maxWinStreak, streakLength);
                 } else {
-                    maxLossStreak = Math.max(maxLossStreak, Math.abs(currentStreak));
+                    lossStreaks.add(streakLength);
+                    maxLossStreak = Math.max(maxLossStreak, streakLength);
                 }
 
                 // 새 스트릭 시작
-                currentStreak = isWin ? 1 : -1;
-                currentIsWin = isWin;
-                streakStartDate = txDate;
-                streakProfit = tx.getRealizedPnl();
+                lastWin = isWin;
+                streakStart = txDate;
+                streakLength = 1;
+                streakPnl = pnl;
             }
         }
 
         // 마지막 스트릭 처리
-        if (currentStreak > 0) {
-            maxWinStreak = Math.max(maxWinStreak, currentStreak);
-        } else {
-            maxLossStreak = Math.max(maxLossStreak, Math.abs(currentStreak));
+        if (streakLength > 0) {
+            currentStreak = lastWin ? streakLength : -streakLength;
+            if (lastWin) {
+                winStreaks.add(streakLength);
+                maxWinStreak = Math.max(maxWinStreak, streakLength);
+            } else {
+                lossStreaks.add(streakLength);
+                maxLossStreak = Math.max(maxLossStreak, streakLength);
+            }
         }
 
-        if (Math.abs(currentStreak) >= 2) {
-            streaks.add(StreakEvent.builder()
-                    .startDate(streakStartDate)
-                    .endDate(sellTransactions.get(sellTransactions.size() - 1).getTransactionDate().toLocalDate())
-                    .streakLength(Math.abs(currentStreak))
-                    .isWinStreak(currentIsWin)
-                    .totalProfit(streakProfit)
-                    .build());
-        }
+        int avgWinStreak = winStreaks.isEmpty() ? 0 : (int) winStreaks.stream().mapToInt(i -> i).average().orElse(0);
+        int avgLossStreak = lossStreaks.isEmpty() ? 0 : (int) lossStreaks.stream().mapToInt(i -> i).average().orElse(0);
 
-        // 평균 스트릭 계산
-        List<StreakEvent> winStreaks = streaks.stream()
-                .filter(StreakEvent::isWinStreak)
-                .collect(Collectors.toList());
-        List<StreakEvent> lossStreaks = streaks.stream()
-                .filter(s -> !s.isWinStreak())
-                .collect(Collectors.toList());
-
-        BigDecimal avgWinStreak = winStreaks.isEmpty() ? BigDecimal.ZERO :
-                BigDecimal.valueOf(winStreaks.stream().mapToInt(StreakEvent::getStreakLength).average().orElse(0))
-                        .setScale(2, RoundingMode.HALF_UP);
-
-        BigDecimal avgLossStreak = lossStreaks.isEmpty() ? BigDecimal.ZERO :
-                BigDecimal.valueOf(lossStreaks.stream().mapToInt(StreakEvent::getStreakLength).average().orElse(0))
-                        .setScale(2, RoundingMode.HALF_UP);
-
-        // 최근 5개 스트릭만
-        List<StreakEvent> recentStreaks = streaks.stream()
-                .sorted(Comparator.comparing(StreakEvent::getEndDate).reversed())
-                .limit(5)
-                .collect(Collectors.toList());
+        // 최근 5개 스트릭
+        List<StreakEvent> recentStreaks = streaks.size() > 5
+                ? streaks.subList(streaks.size() - 5, streaks.size())
+                : streaks;
 
         return StreakAnalysis.builder()
                 .currentStreak(currentStreak)
@@ -193,8 +166,6 @@ public class TradingPatternService {
                 .maxLossStreak(maxLossStreak)
                 .avgWinStreak(avgWinStreak)
                 .avgLossStreak(avgLossStreak)
-                .winStreakCount(winStreaks.size())
-                .lossStreakCount(lossStreaks.size())
                 .recentStreaks(recentStreaks)
                 .build();
     }
@@ -204,48 +175,59 @@ public class TradingPatternService {
      */
     public List<DayOfWeekPerformance> analyzeDayOfWeek(List<Transaction> sellTransactions) {
         Map<DayOfWeek, List<Transaction>> byDayOfWeek = sellTransactions.stream()
-                .collect(Collectors.groupingBy(t ->
-                        t.getTransactionDate().getDayOfWeek()));
+                .collect(Collectors.groupingBy(t -> t.getTransactionDate().getDayOfWeek()));
 
         List<DayOfWeekPerformance> result = new ArrayList<>();
 
         for (DayOfWeek day : DayOfWeek.values()) {
-            List<Transaction> dayTransactions = byDayOfWeek.getOrDefault(day, new ArrayList<>());
+            List<Transaction> dayTx = byDayOfWeek.getOrDefault(day, Collections.emptyList());
 
-            int tradeCount = dayTransactions.size();
-            int winCount = (int) dayTransactions.stream()
-                    .filter(t -> t.getRealizedPnl().compareTo(BigDecimal.ZERO) > 0)
-                    .count();
-            int lossCount = tradeCount - winCount;
-
-            BigDecimal winRate = tradeCount > 0
-                    ? BigDecimal.valueOf((double) winCount / tradeCount * 100).setScale(2, RoundingMode.HALF_UP)
-                    : BigDecimal.ZERO;
-
-            BigDecimal totalProfit = dayTransactions.stream()
-                    .map(Transaction::getRealizedPnl)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            BigDecimal avgReturn = BigDecimal.ZERO;
-            BigDecimal totalCost = dayTransactions.stream()
-                    .map(t -> t.getCostBasis() != null ? t.getCostBasis() : t.getTotalAmount())
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            if (totalCost.compareTo(BigDecimal.ZERO) > 0) {
-                avgReturn = totalProfit.divide(totalCost, 4, RoundingMode.HALF_UP)
-                        .multiply(new BigDecimal("100"))
-                        .setScale(2, RoundingMode.HALF_UP);
+            if (dayTx.isEmpty()) {
+                result.add(DayOfWeekPerformance.builder()
+                        .dayOfWeek(day)
+                        .dayOfWeekLabel(DAY_LABELS[day.getValue()])
+                        .tradeCount(0)
+                        .winCount(0)
+                        .winRate(BigDecimal.ZERO)
+                        .avgReturn(BigDecimal.ZERO)
+                        .totalPnl(BigDecimal.ZERO)
+                        .avgPnl(BigDecimal.ZERO)
+                        .build());
+                continue;
             }
+
+            int winCount = 0;
+            BigDecimal totalPnl = BigDecimal.ZERO;
+            BigDecimal totalReturn = BigDecimal.ZERO;
+
+            for (Transaction tx : dayTx) {
+                BigDecimal pnl = tx.getRealizedPnl() != null ? tx.getRealizedPnl() : BigDecimal.ZERO;
+                if (pnl.compareTo(BigDecimal.ZERO) > 0) winCount++;
+                totalPnl = totalPnl.add(pnl);
+
+                // 수익률 계산 (원가 대비)
+                if (tx.getCostBasis() != null && tx.getCostBasis().compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal returnPct = pnl.divide(tx.getCostBasis(), 4, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100));
+                    totalReturn = totalReturn.add(returnPct);
+                }
+            }
+
+            BigDecimal winRate = BigDecimal.valueOf(winCount)
+                    .divide(BigDecimal.valueOf(dayTx.size()), 4, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100));
+            BigDecimal avgPnl = totalPnl.divide(BigDecimal.valueOf(dayTx.size()), 2, RoundingMode.HALF_UP);
+            BigDecimal avgReturn = totalReturn.divide(BigDecimal.valueOf(dayTx.size()), 2, RoundingMode.HALF_UP);
 
             result.add(DayOfWeekPerformance.builder()
                     .dayOfWeek(day)
-                    .dayOfWeekKorean(DAY_OF_WEEK_KOREAN[day.getValue()])
-                    .tradeCount(tradeCount)
+                    .dayOfWeekLabel(DAY_LABELS[day.getValue()])
+                    .tradeCount(dayTx.size())
+                    .winCount(winCount)
                     .winRate(winRate)
                     .avgReturn(avgReturn)
-                    .totalProfit(totalProfit)
-                    .winCount(winCount)
-                    .lossCount(lossCount)
+                    .totalPnl(totalPnl)
+                    .avgPnl(avgPnl)
                     .build());
         }
 
@@ -257,48 +239,59 @@ public class TradingPatternService {
      */
     public List<MonthlySeasonality> analyzeMonthlySeasonality(List<Transaction> sellTransactions) {
         Map<Integer, List<Transaction>> byMonth = sellTransactions.stream()
-                .collect(Collectors.groupingBy(t ->
-                        t.getTransactionDate().getMonthValue()));
+                .collect(Collectors.groupingBy(t -> t.getTransactionDate().getMonthValue()));
 
         List<MonthlySeasonality> result = new ArrayList<>();
 
         for (int month = 1; month <= 12; month++) {
-            List<Transaction> monthTransactions = byMonth.getOrDefault(month, new ArrayList<>());
+            List<Transaction> monthTx = byMonth.getOrDefault(month, Collections.emptyList());
 
-            int tradeCount = monthTransactions.size();
-            int winCount = (int) monthTransactions.stream()
-                    .filter(t -> t.getRealizedPnl().compareTo(BigDecimal.ZERO) > 0)
-                    .count();
-            int lossCount = tradeCount - winCount;
-
-            BigDecimal winRate = tradeCount > 0
-                    ? BigDecimal.valueOf((double) winCount / tradeCount * 100).setScale(2, RoundingMode.HALF_UP)
-                    : BigDecimal.ZERO;
-
-            BigDecimal totalProfit = monthTransactions.stream()
-                    .map(Transaction::getRealizedPnl)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            BigDecimal avgReturn = BigDecimal.ZERO;
-            BigDecimal totalCost = monthTransactions.stream()
-                    .map(t -> t.getCostBasis() != null ? t.getCostBasis() : t.getTotalAmount())
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            if (totalCost.compareTo(BigDecimal.ZERO) > 0) {
-                avgReturn = totalProfit.divide(totalCost, 4, RoundingMode.HALF_UP)
-                        .multiply(new BigDecimal("100"))
-                        .setScale(2, RoundingMode.HALF_UP);
+            if (monthTx.isEmpty()) {
+                result.add(MonthlySeasonality.builder()
+                        .month(month)
+                        .monthLabel(MONTH_LABELS[month])
+                        .tradeCount(0)
+                        .winCount(0)
+                        .winRate(BigDecimal.ZERO)
+                        .avgReturn(BigDecimal.ZERO)
+                        .totalPnl(BigDecimal.ZERO)
+                        .yearCount(0)
+                        .build());
+                continue;
             }
+
+            int winCount = 0;
+            BigDecimal totalPnl = BigDecimal.ZERO;
+            BigDecimal totalReturn = BigDecimal.ZERO;
+            Set<Integer> years = new HashSet<>();
+
+            for (Transaction tx : monthTx) {
+                BigDecimal pnl = tx.getRealizedPnl() != null ? tx.getRealizedPnl() : BigDecimal.ZERO;
+                if (pnl.compareTo(BigDecimal.ZERO) > 0) winCount++;
+                totalPnl = totalPnl.add(pnl);
+                years.add(tx.getTransactionDate().getYear());
+
+                if (tx.getCostBasis() != null && tx.getCostBasis().compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal returnPct = pnl.divide(tx.getCostBasis(), 4, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100));
+                    totalReturn = totalReturn.add(returnPct);
+                }
+            }
+
+            BigDecimal winRate = BigDecimal.valueOf(winCount)
+                    .divide(BigDecimal.valueOf(monthTx.size()), 4, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100));
+            BigDecimal avgReturn = totalReturn.divide(BigDecimal.valueOf(monthTx.size()), 2, RoundingMode.HALF_UP);
 
             result.add(MonthlySeasonality.builder()
                     .month(month)
-                    .monthName(MONTH_NAMES[month])
-                    .tradeCount(tradeCount)
+                    .monthLabel(MONTH_LABELS[month])
+                    .tradeCount(monthTx.size())
+                    .winCount(winCount)
                     .winRate(winRate)
                     .avgReturn(avgReturn)
-                    .totalProfit(totalProfit)
-                    .winCount(winCount)
-                    .lossCount(lossCount)
+                    .totalPnl(totalPnl)
+                    .yearCount(years.size())
                     .build());
         }
 
@@ -308,16 +301,15 @@ public class TradingPatternService {
     /**
      * 거래 규모 분석
      */
-    public TradeSizeAnalysis analyzeTradeSizes(List<Transaction> sellTransactions) {
+    public TradeSizeAnalysis analyzeTradeSize(List<Transaction> sellTransactions) {
         if (sellTransactions.isEmpty()) {
             return TradeSizeAnalysis.builder()
                     .avgTradeAmount(BigDecimal.ZERO)
                     .maxTradeAmount(BigDecimal.ZERO)
                     .minTradeAmount(BigDecimal.ZERO)
                     .medianTradeAmount(BigDecimal.ZERO)
-                    .stdDevTradeAmount(BigDecimal.ZERO)
-                    .avgWinTradeAmount(BigDecimal.ZERO)
-                    .avgLossTradeAmount(BigDecimal.ZERO)
+                    .stdDeviation(BigDecimal.ZERO)
+                    .distribution(Collections.emptyList())
                     .build();
         }
 
@@ -327,8 +319,7 @@ public class TradingPatternService {
                 .collect(Collectors.toList());
 
         BigDecimal sum = amounts.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal avg = sum.divide(new BigDecimal(amounts.size()), 2, RoundingMode.HALF_UP);
-
+        BigDecimal avg = sum.divide(BigDecimal.valueOf(amounts.size()), 2, RoundingMode.HALF_UP);
         BigDecimal max = amounts.get(amounts.size() - 1);
         BigDecimal min = amounts.get(0);
         BigDecimal median = amounts.get(amounts.size() / 2);
@@ -337,184 +328,169 @@ public class TradingPatternService {
         BigDecimal variance = amounts.stream()
                 .map(a -> a.subtract(avg).pow(2))
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .divide(new BigDecimal(amounts.size()), 6, RoundingMode.HALF_UP);
-        BigDecimal stdDev = BigDecimal.valueOf(Math.sqrt(variance.doubleValue()))
-                .setScale(2, RoundingMode.HALF_UP);
+                .divide(BigDecimal.valueOf(amounts.size()), 4, RoundingMode.HALF_UP);
+        BigDecimal stdDev = BigDecimal.valueOf(Math.sqrt(variance.doubleValue())).setScale(2, RoundingMode.HALF_UP);
 
-        // 수익/손실 거래 평균 금액
-        List<Transaction> winTrades = sellTransactions.stream()
-                .filter(t -> t.getRealizedPnl().compareTo(BigDecimal.ZERO) > 0)
-                .collect(Collectors.toList());
-        List<Transaction> lossTrades = sellTransactions.stream()
-                .filter(t -> t.getRealizedPnl().compareTo(BigDecimal.ZERO) <= 0)
-                .collect(Collectors.toList());
-
-        BigDecimal avgWin = winTrades.isEmpty() ? BigDecimal.ZERO :
-                winTrades.stream().map(Transaction::getTotalAmount)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add)
-                        .divide(new BigDecimal(winTrades.size()), 2, RoundingMode.HALF_UP);
-
-        BigDecimal avgLoss = lossTrades.isEmpty() ? BigDecimal.ZERO :
-                lossTrades.stream().map(Transaction::getTotalAmount)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add)
-                        .divide(new BigDecimal(lossTrades.size()), 2, RoundingMode.HALF_UP);
+        // 구간별 분포
+        List<TradeSizeBucket> distribution = createTradeSizeBuckets(sellTransactions);
 
         return TradeSizeAnalysis.builder()
                 .avgTradeAmount(avg)
                 .maxTradeAmount(max)
                 .minTradeAmount(min)
                 .medianTradeAmount(median)
-                .stdDevTradeAmount(stdDev)
-                .avgWinTradeAmount(avgWin)
-                .avgLossTradeAmount(avgLoss)
+                .stdDeviation(stdDev)
+                .distribution(distribution)
                 .build();
     }
 
+    private List<TradeSizeBucket> createTradeSizeBuckets(List<Transaction> transactions) {
+        // 구간 정의 (원)
+        BigDecimal[][] bucketRanges = {
+                {BigDecimal.ZERO, BigDecimal.valueOf(1000000)},           // 100만원 미만
+                {BigDecimal.valueOf(1000000), BigDecimal.valueOf(5000000)},  // 100-500만원
+                {BigDecimal.valueOf(5000000), BigDecimal.valueOf(10000000)}, // 500-1000만원
+                {BigDecimal.valueOf(10000000), BigDecimal.valueOf(50000000)}, // 1000-5000만원
+                {BigDecimal.valueOf(50000000), BigDecimal.valueOf(Long.MAX_VALUE)} // 5000만원 이상
+        };
+        String[] labels = {"100만원 미만", "100-500만원", "500-1000만원", "1000-5000만원", "5000만원 이상"};
+
+        List<TradeSizeBucket> buckets = new ArrayList<>();
+        int total = transactions.size();
+
+        for (int i = 0; i < bucketRanges.length; i++) {
+            BigDecimal minAmt = bucketRanges[i][0];
+            BigDecimal maxAmt = bucketRanges[i][1];
+
+            List<Transaction> bucketTx = transactions.stream()
+                    .filter(t -> {
+                        BigDecimal amt = t.getTotalAmount();
+                        return amt.compareTo(minAmt) >= 0 && amt.compareTo(maxAmt) < 0;
+                    })
+                    .collect(Collectors.toList());
+
+            int count = bucketTx.size();
+            int winCount = (int) bucketTx.stream()
+                    .filter(t -> t.getRealizedPnl() != null && t.getRealizedPnl().compareTo(BigDecimal.ZERO) > 0)
+                    .count();
+
+            BigDecimal avgReturn = BigDecimal.ZERO;
+            if (!bucketTx.isEmpty()) {
+                BigDecimal totalReturn = bucketTx.stream()
+                        .filter(t -> t.getCostBasis() != null && t.getCostBasis().compareTo(BigDecimal.ZERO) > 0)
+                        .map(t -> t.getRealizedPnl().divide(t.getCostBasis(), 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                avgReturn = totalReturn.divide(BigDecimal.valueOf(bucketTx.size()), 2, RoundingMode.HALF_UP);
+            }
+
+            buckets.add(TradeSizeBucket.builder()
+                    .label(labels[i])
+                    .minAmount(minAmt)
+                    .maxAmount(maxAmt)
+                    .count(count)
+                    .percentage(total > 0 ? BigDecimal.valueOf(count * 100.0 / total).setScale(1, RoundingMode.HALF_UP) : BigDecimal.ZERO)
+                    .avgReturn(avgReturn)
+                    .winRate(count > 0 ? BigDecimal.valueOf(winCount * 100.0 / count).setScale(1, RoundingMode.HALF_UP) : BigDecimal.ZERO)
+                    .build());
+        }
+
+        return buckets;
+    }
+
     /**
-     * 보유 기간 분석
+     * 보유 기간 분석 (매수-매도 쌍 기반)
      */
-    public HoldingPeriodAnalysis analyzeHoldingPeriods(List<Transaction> transactions) {
-        // 종목별로 매수-매도 매칭하여 보유 기간 계산
-        Map<Long, List<Transaction>> byStock = transactions.stream()
+    public HoldingPeriodAnalysis analyzeHoldingPeriod(List<Transaction> allTransactions) {
+        // 종목별로 매수/매도 거래를 그룹화하여 보유 기간 추정
+        Map<Long, List<Transaction>> byStock = allTransactions.stream()
                 .collect(Collectors.groupingBy(t -> t.getStock().getId()));
 
-        List<HoldingPeriodRecord> records = new ArrayList<>();
+        List<Integer> holdingDays = new ArrayList<>();
+        List<Integer> winHoldingDays = new ArrayList<>();
+        List<Integer> lossHoldingDays = new ArrayList<>();
 
-        for (List<Transaction> stockTxs : byStock.values()) {
-            List<Transaction> buys = stockTxs.stream()
+        for (List<Transaction> stockTx : byStock.values()) {
+            List<Transaction> buys = stockTx.stream()
                     .filter(t -> t.getType() == TransactionType.BUY)
                     .sorted(Comparator.comparing(Transaction::getTransactionDate))
                     .collect(Collectors.toList());
 
-            List<Transaction> sells = stockTxs.stream()
+            List<Transaction> sells = stockTx.stream()
                     .filter(t -> t.getType() == TransactionType.SELL)
                     .sorted(Comparator.comparing(Transaction::getTransactionDate))
                     .collect(Collectors.toList());
 
-            // FIFO 매칭
-            int buyIndex = 0;
+            // 간단한 FIFO 매칭으로 보유 기간 추정
+            int buyIdx = 0;
             for (Transaction sell : sells) {
-                if (buyIndex < buys.size()) {
-                    Transaction buy = buys.get(buyIndex);
-                    long days = ChronoUnit.DAYS.between(
+                if (buyIdx < buys.size()) {
+                    Transaction buy = buys.get(buyIdx);
+                    int days = (int) java.time.temporal.ChronoUnit.DAYS.between(
                             buy.getTransactionDate().toLocalDate(),
-                            sell.getTransactionDate().toLocalDate());
+                            sell.getTransactionDate().toLocalDate()
+                    );
+                    days = Math.max(0, days);
+                    holdingDays.add(days);
 
-                    boolean isWin = sell.getRealizedPnl() != null &&
-                            sell.getRealizedPnl().compareTo(BigDecimal.ZERO) > 0;
-
-                    records.add(new HoldingPeriodRecord((int) days, isWin,
-                            sell.getRealizedPnl() != null ? sell.getRealizedPnl() : BigDecimal.ZERO));
-                    buyIndex++;
+                    BigDecimal pnl = sell.getRealizedPnl() != null ? sell.getRealizedPnl() : BigDecimal.ZERO;
+                    if (pnl.compareTo(BigDecimal.ZERO) > 0) {
+                        winHoldingDays.add(days);
+                    } else {
+                        lossHoldingDays.add(days);
+                    }
+                    buyIdx++;
                 }
             }
         }
 
-        if (records.isEmpty()) {
+        if (holdingDays.isEmpty()) {
             return HoldingPeriodAnalysis.builder()
                     .avgHoldingDays(BigDecimal.ZERO)
-                    .maxHoldingDays(0)
-                    .minHoldingDays(0)
-                    .medianHoldingDays(0)
                     .avgWinHoldingDays(BigDecimal.ZERO)
                     .avgLossHoldingDays(BigDecimal.ZERO)
-                    .holdingPeriodDistribution(createEmptyDistribution())
+                    .maxHoldingDays(0)
+                    .minHoldingDays(0)
+                    .distribution(createHoldingPeriodBuckets(Collections.emptyList(), Collections.emptyList()))
                     .build();
         }
 
-        List<Integer> allDays = records.stream()
-                .map(r -> r.days)
-                .sorted()
-                .collect(Collectors.toList());
-
-        int sum = allDays.stream().mapToInt(Integer::intValue).sum();
-        BigDecimal avg = BigDecimal.valueOf((double) sum / allDays.size()).setScale(1, RoundingMode.HALF_UP);
-
-        List<HoldingPeriodRecord> winRecords = records.stream()
-                .filter(r -> r.isWin)
-                .collect(Collectors.toList());
-        List<HoldingPeriodRecord> lossRecords = records.stream()
-                .filter(r -> !r.isWin)
-                .collect(Collectors.toList());
-
-        BigDecimal avgWin = winRecords.isEmpty() ? BigDecimal.ZERO :
-                BigDecimal.valueOf(winRecords.stream().mapToInt(r -> r.days).average().orElse(0))
-                        .setScale(1, RoundingMode.HALF_UP);
-
-        BigDecimal avgLoss = lossRecords.isEmpty() ? BigDecimal.ZERO :
-                BigDecimal.valueOf(lossRecords.stream().mapToInt(r -> r.days).average().orElse(0))
-                        .setScale(1, RoundingMode.HALF_UP);
+        Collections.sort(holdingDays);
 
         return HoldingPeriodAnalysis.builder()
-                .avgHoldingDays(avg)
-                .maxHoldingDays(allDays.get(allDays.size() - 1))
-                .minHoldingDays(allDays.get(0))
-                .medianHoldingDays(allDays.get(allDays.size() / 2))
-                .avgWinHoldingDays(avgWin)
-                .avgLossHoldingDays(avgLoss)
-                .holdingPeriodDistribution(createDistribution(records))
+                .avgHoldingDays(BigDecimal.valueOf(holdingDays.stream().mapToInt(i -> i).average().orElse(0)).setScale(1, RoundingMode.HALF_UP))
+                .avgWinHoldingDays(BigDecimal.valueOf(winHoldingDays.stream().mapToInt(i -> i).average().orElse(0)).setScale(1, RoundingMode.HALF_UP))
+                .avgLossHoldingDays(BigDecimal.valueOf(lossHoldingDays.stream().mapToInt(i -> i).average().orElse(0)).setScale(1, RoundingMode.HALF_UP))
+                .maxHoldingDays(holdingDays.get(holdingDays.size() - 1))
+                .minHoldingDays(holdingDays.get(0))
+                .distribution(createHoldingPeriodBuckets(holdingDays, winHoldingDays))
                 .build();
     }
 
-    private List<HoldingPeriodBucket> createEmptyDistribution() {
-        return Arrays.asList(
-                createBucket("1-7일", 1, 7, new ArrayList<>()),
-                createBucket("1-2주", 8, 14, new ArrayList<>()),
-                createBucket("2-4주", 15, 30, new ArrayList<>()),
-                createBucket("1-3개월", 31, 90, new ArrayList<>()),
-                createBucket("3개월+", 91, Integer.MAX_VALUE, new ArrayList<>())
-        );
-    }
+    private List<HoldingPeriodBucket> createHoldingPeriodBuckets(List<Integer> allDays, List<Integer> winDays) {
+        int[][] ranges = {{0, 0}, {1, 3}, {4, 7}, {8, 30}, {31, 90}, {91, Integer.MAX_VALUE}};
+        String[] labels = {"당일", "1-3일", "4-7일", "1주-1개월", "1-3개월", "3개월 이상"};
 
-    private List<HoldingPeriodBucket> createDistribution(List<HoldingPeriodRecord> records) {
-        return Arrays.asList(
-                createBucket("1-7일", 1, 7, records),
-                createBucket("1-2주", 8, 14, records),
-                createBucket("2-4주", 15, 30, records),
-                createBucket("1-3개월", 31, 90, records),
-                createBucket("3개월+", 91, Integer.MAX_VALUE, records)
-        );
-    }
+        List<HoldingPeriodBucket> buckets = new ArrayList<>();
+        int total = allDays.size();
 
-    private HoldingPeriodBucket createBucket(String label, int minDays, int maxDays,
-                                              List<HoldingPeriodRecord> records) {
-        List<HoldingPeriodRecord> bucketRecords = records.stream()
-                .filter(r -> r.days >= minDays && r.days <= maxDays)
-                .collect(Collectors.toList());
+        for (int i = 0; i < ranges.length; i++) {
+            int minD = ranges[i][0];
+            int maxD = ranges[i][1];
 
-        int tradeCount = bucketRecords.size();
-        int winCount = (int) bucketRecords.stream().filter(r -> r.isWin).count();
+            int count = (int) allDays.stream().filter(d -> d >= minD && d <= maxD).count();
+            int winCount = (int) winDays.stream().filter(d -> d >= minD && d <= maxD).count();
 
-        BigDecimal winRate = tradeCount > 0
-                ? BigDecimal.valueOf((double) winCount / tradeCount * 100).setScale(2, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
-
-        BigDecimal totalProfit = bucketRecords.stream()
-                .map(r -> r.profit)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal avgReturn = BigDecimal.ZERO;
-
-        return HoldingPeriodBucket.builder()
-                .label(label)
-                .minDays(minDays)
-                .maxDays(maxDays)
-                .tradeCount(tradeCount)
-                .winRate(winRate)
-                .avgReturn(avgReturn)
-                .totalProfit(totalProfit)
-                .build();
-    }
-
-    private static class HoldingPeriodRecord {
-        int days;
-        boolean isWin;
-        BigDecimal profit;
-
-        HoldingPeriodRecord(int days, boolean isWin, BigDecimal profit) {
-            this.days = days;
-            this.isWin = isWin;
-            this.profit = profit;
+            buckets.add(HoldingPeriodBucket.builder()
+                    .label(labels[i])
+                    .minDays(minD)
+                    .maxDays(maxD)
+                    .count(count)
+                    .percentage(total > 0 ? BigDecimal.valueOf(count * 100.0 / total).setScale(1, RoundingMode.HALF_UP) : BigDecimal.ZERO)
+                    .avgReturn(BigDecimal.ZERO)
+                    .winRate(count > 0 ? BigDecimal.valueOf(winCount * 100.0 / count).setScale(1, RoundingMode.HALF_UP) : BigDecimal.ZERO)
+                    .build());
         }
+
+        return buckets;
     }
 }

@@ -1,323 +1,331 @@
-const API_BASE_URL = '/api';
-let dayOfWeekChart, monthlySeasonalityChart;
-let currentPeriod = '1Y';
-
+/**
+ * 거래 패턴 분석 JavaScript
+ */
 $(document).ready(function() {
-    if (!checkAuth()) {
-        return;
+    let charts = {};
+
+    // 초기화
+    init();
+
+    function init() {
+        // 기본 날짜 설정 (최근 1년)
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setFullYear(startDate.getFullYear() - 1);
+
+        $('#startDate').val(formatDateInput(startDate));
+        $('#endDate').val(formatDateInput(endDate));
+
+        // 이벤트 바인딩
+        $('#btnAnalyze').click(loadPatternAnalysis);
+
+        // 초기 분석 실행
+        loadPatternAnalysis();
     }
 
-    initializeCharts();
-    loadPatterns(currentPeriod);
+    function loadPatternAnalysis() {
+        const startDate = $('#startDate').val();
+        const endDate = $('#endDate').val();
+
+        if (!startDate || !endDate) {
+            alert('날짜를 선택해주세요');
+            return;
+        }
+
+        $.get('/api/analysis/patterns', { startDate, endDate })
+            .done(function(data) {
+                updateSummaryCards(data);
+                updateStreakTimeline(data.streakAnalysis);
+                renderDayOfWeekChart(data.dayOfWeekPerformance);
+                renderMonthlyChart(data.monthlySeasonality);
+                updateHoldingPeriodStats(data.holdingPeriodAnalysis);
+                renderHoldingPeriodChart(data.holdingPeriodAnalysis);
+                updateTradeSizeStats(data.tradeSizeAnalysis);
+                renderTradeSizeChart(data.tradeSizeAnalysis);
+                renderTradeSizePerformance(data.tradeSizeAnalysis);
+            })
+            .fail(function(err) {
+                console.error('패턴 분석 로드 실패:', err);
+                alert('패턴 분석을 불러오는데 실패했습니다');
+            });
+    }
+
+    function updateSummaryCards(data) {
+        $('#totalTrades').text(data.totalTrades || 0);
+
+        const streak = data.streakAnalysis;
+        if (streak) {
+            const currentStreak = streak.currentStreak || 0;
+            let streakText = '0';
+            if (currentStreak > 0) {
+                streakText = '+' + currentStreak + ' 연승';
+            } else if (currentStreak < 0) {
+                streakText = Math.abs(currentStreak) + ' 연패';
+            }
+            $('#currentStreak')
+                .text(streakText)
+                .removeClass('streak-positive streak-negative')
+                .addClass(currentStreak > 0 ? 'streak-positive' : currentStreak < 0 ? 'streak-negative' : '');
+
+            $('#maxWinStreak').text(streak.maxWinStreak || 0);
+            $('#maxLossStreak').text(streak.maxLossStreak || 0);
+        }
+    }
+
+    function updateStreakTimeline(streakAnalysis) {
+        const container = $('#streakTimeline');
+        container.empty();
+
+        if (!streakAnalysis || !streakAnalysis.recentStreaks || streakAnalysis.recentStreaks.length === 0) {
+            container.html('<div class="text-muted">스트릭 데이터가 없습니다</div>');
+            return;
+        }
+
+        streakAnalysis.recentStreaks.forEach(function(streak) {
+            const isWin = streak.isWinStreak || streak.winStreak;
+            const block = $('<div class="streak-block ' + (isWin ? 'streak-win' : 'streak-loss') + '"></div>')
+                .attr('title', formatDate(streak.startDate) + ' ~ ' + formatDate(streak.endDate) + '\n' + formatCurrency(streak.totalPnl))
+                .text(streak.length);
+            container.append(block);
+        });
+    }
+
+    function renderDayOfWeekChart(dayOfWeekData) {
+        if (!dayOfWeekData || dayOfWeekData.length === 0) return;
+
+        const ctx = document.getElementById('dayOfWeekChart');
+        if (charts.dayOfWeek) charts.dayOfWeek.destroy();
+
+        const labels = dayOfWeekData.map(function(d) { return d.dayOfWeekLabel; });
+        const winRates = dayOfWeekData.map(function(d) { return d.winRate || 0; });
+        const avgReturns = dayOfWeekData.map(function(d) { return d.avgReturn || 0; });
+
+        charts.dayOfWeek = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '승률 (%)',
+                        data: winRates,
+                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: '평균 수익률 (%)',
+                        data: avgReturns,
+                        type: 'line',
+                        borderColor: '#28a745',
+                        backgroundColor: 'transparent',
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        title: { display: true, text: '승률 (%)' },
+                        min: 0,
+                        max: 100
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        title: { display: true, text: '수익률 (%)' },
+                        grid: { drawOnChartArea: false }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderMonthlyChart(monthlyData) {
+        if (!monthlyData || monthlyData.length === 0) return;
+
+        const ctx = document.getElementById('monthlyChart');
+        if (charts.monthly) charts.monthly.destroy();
+
+        const labels = monthlyData.map(function(m) { return m.monthLabel; });
+        const winRates = monthlyData.map(function(m) { return m.winRate || 0; });
+        const tradeCounts = monthlyData.map(function(m) { return m.tradeCount || 0; });
+
+        charts.monthly = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '거래 수',
+                        data: tradeCounts,
+                        backgroundColor: 'rgba(108, 117, 125, 0.5)',
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: '승률 (%)',
+                        data: winRates,
+                        type: 'line',
+                        borderColor: '#667eea',
+                        backgroundColor: 'transparent',
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        title: { display: true, text: '거래 수' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        title: { display: true, text: '승률 (%)' },
+                        min: 0,
+                        max: 100,
+                        grid: { drawOnChartArea: false }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateHoldingPeriodStats(holdingData) {
+        if (!holdingData) return;
+
+        $('#avgHoldingDays').text((holdingData.avgHoldingDays || 0) + ' 일');
+        $('#avgWinHoldingDays').text((holdingData.avgWinHoldingDays || 0) + ' 일');
+        $('#avgLossHoldingDays').text((holdingData.avgLossHoldingDays || 0) + ' 일');
+    }
+
+    function renderHoldingPeriodChart(holdingData) {
+        if (!holdingData || !holdingData.distribution) return;
+
+        const ctx = document.getElementById('holdingPeriodChart');
+        if (charts.holdingPeriod) charts.holdingPeriod.destroy();
+
+        const distribution = holdingData.distribution;
+        const labels = distribution.map(function(d) { return d.label; });
+        const counts = distribution.map(function(d) { return d.count || 0; });
+
+        charts.holdingPeriod = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: counts,
+                    backgroundColor: [
+                        '#667eea', '#764ba2', '#f093fb',
+                        '#f5576c', '#4facfe', '#00f2fe'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateTradeSizeStats(tradeSizeData) {
+        if (!tradeSizeData) return;
+
+        $('#avgTradeAmount').text(formatCurrency(tradeSizeData.avgTradeAmount));
+        $('#stdDeviation').text(formatCurrency(tradeSizeData.stdDeviation));
+    }
+
+    function renderTradeSizeChart(tradeSizeData) {
+        if (!tradeSizeData || !tradeSizeData.distribution) return;
+
+        const ctx = document.getElementById('tradeSizeChart');
+        if (charts.tradeSize) charts.tradeSize.destroy();
+
+        const distribution = tradeSizeData.distribution;
+        const labels = distribution.map(function(d) { return d.label; });
+        const percentages = distribution.map(function(d) { return d.percentage || 0; });
+
+        charts.tradeSize = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '비중 (%)',
+                    data: percentages,
+                    backgroundColor: 'rgba(102, 126, 234, 0.7)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        title: { display: true, text: '비중 (%)' }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderTradeSizePerformance(tradeSizeData) {
+        const container = $('#tradeSizePerformance');
+        container.empty();
+
+        if (!tradeSizeData || !tradeSizeData.distribution) {
+            container.html('<div class="text-muted">데이터가 없습니다</div>');
+            return;
+        }
+
+        const distribution = tradeSizeData.distribution;
+
+        distribution.forEach(function(bucket) {
+            const winRate = bucket.winRate || 0;
+            const barColor = winRate >= 50 ? 'bg-success' : 'bg-danger';
+
+            container.append(
+                '<div class="mb-3">' +
+                    '<div class="progress-label">' +
+                        '<span>' + bucket.label + '</span>' +
+                        '<span>' + bucket.count + '건 (' + winRate.toFixed(1) + '%)</span>' +
+                    '</div>' +
+                    '<div class="progress" style="height: 8px;">' +
+                        '<div class="progress-bar ' + barColor + '" style="width: ' + winRate + '%"></div>' +
+                    '</div>' +
+                '</div>'
+            );
+        });
+    }
+
+    // 유틸리티 함수
+    function formatDateInput(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '-';
+        return new Date(dateStr).toLocaleDateString('ko-KR');
+    }
+
+    function formatCurrency(value) {
+        if (value == null) return '₩0';
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(value);
+    }
 });
-
-function initializeCharts() {
-    // 요일별 성과 차트
-    const dayCtx = document.getElementById('dayOfWeekChart').getContext('2d');
-    dayOfWeekChart = new Chart(dayCtx, {
-        type: 'bar',
-        data: {
-            labels: ['월', '화', '수', '목', '금'],
-            datasets: [{
-                label: '승률 (%)',
-                data: [],
-                backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                yAxisID: 'y'
-            }, {
-                label: '수익금',
-                data: [],
-                type: 'line',
-                borderColor: 'rgb(75, 192, 192)',
-                backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                yAxisID: 'y1',
-                tension: 0.1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'top'
-                }
-            },
-            scales: {
-                y: {
-                    type: 'linear',
-                    position: 'left',
-                    title: {
-                        display: true,
-                        text: '승률 (%)'
-                    },
-                    min: 0,
-                    max: 100
-                },
-                y1: {
-                    type: 'linear',
-                    position: 'right',
-                    title: {
-                        display: true,
-                        text: '수익금'
-                    },
-                    grid: {
-                        drawOnChartArea: false
-                    }
-                }
-            }
-        }
-    });
-
-    // 월별 계절성 차트
-    const monthCtx = document.getElementById('monthlySeasonalityChart').getContext('2d');
-    monthlySeasonalityChart = new Chart(monthCtx, {
-        type: 'bar',
-        data: {
-            labels: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
-            datasets: [{
-                label: '수익금',
-                data: [],
-                backgroundColor: function(context) {
-                    const value = context.parsed.y;
-                    return value >= 0 ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.7)';
-                }
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return '수익금: ' + formatCurrency(context.parsed.y);
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    ticks: {
-                        callback: function(value) {
-                            return formatCurrency(value);
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-function getDateRange(period) {
-    const endDate = new Date();
-    const startDate = new Date();
-
-    switch(period) {
-        case '3M': startDate.setMonth(endDate.getMonth() - 3); break;
-        case '6M': startDate.setMonth(endDate.getMonth() - 6); break;
-        case '1Y': startDate.setFullYear(endDate.getFullYear() - 1); break;
-        case 'ALL': startDate.setFullYear(2020); break;
-        default: startDate.setFullYear(endDate.getFullYear() - 1);
-    }
-
-    return {
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0]
-    };
-}
-
-function loadPatterns(period) {
-    const range = getDateRange(period);
-
-    $.ajax({
-        url: `${API_BASE_URL}/analysis/patterns`,
-        method: 'GET',
-        data: {
-            startDate: range.startDate,
-            endDate: range.endDate
-        },
-        success: function(data) {
-            updateStreakAnalysis(data.streakAnalysis);
-            updateDayOfWeekPerformance(data.dayOfWeekPerformance);
-            updateMonthlySeasonality(data.monthlySeasonality);
-            updateTradeSizeAnalysis(data.tradeSizeAnalysis);
-            updateHoldingPeriodAnalysis(data.holdingPeriodAnalysis);
-            $('#total-trades').text(data.totalTrades);
-        },
-        error: function(xhr) {
-            console.error('Failed to load trading patterns:', xhr);
-        }
-    });
-}
-
-function updatePeriod(period) {
-    currentPeriod = period;
-
-    // 버튼 활성화 상태 변경
-    $('.btn-group button').removeClass('active');
-    event.target.classList.add('active');
-
-    loadPatterns(period);
-}
-
-function updateStreakAnalysis(data) {
-    if (!data) return;
-
-    // 현재 스트릭 상태
-    const current = data.currentStreak;
-    const $current = $('#current-streak');
-    if (current > 0) {
-        $current.text(`${current}연승`).removeClass('text-danger').addClass('text-success');
-    } else if (current < 0) {
-        $current.text(`${Math.abs(current)}연패`).removeClass('text-success').addClass('text-danger');
-    } else {
-        $current.text('-').removeClass('text-success text-danger');
-    }
-
-    $('#max-win-streak').text(data.maxWinStreak + '연승');
-    $('#max-loss-streak').text(data.maxLossStreak + '연패');
-    $('#avg-win-streak').text(parseFloat(data.avgWinStreak || 0).toFixed(1));
-    $('#avg-loss-streak').text(parseFloat(data.avgLossStreak || 0).toFixed(1));
-
-    // 최근 스트릭 타임라인
-    const $container = $('#recent-streaks');
-    if (!data.recentStreaks || data.recentStreaks.length === 0) {
-        $container.html('<div class="text-center text-muted py-3">최근 연속 기록 없음</div>');
-        return;
-    }
-
-    let html = '<div class="list-group">';
-    data.recentStreaks.forEach(streak => {
-        const isWin = streak.winStreak || streak.isWinStreak;
-        const cssClass = isWin ? 'streak-win' : 'streak-loss';
-        const icon = isWin ? 'bi-trophy-fill text-success' : 'bi-x-circle-fill text-danger';
-        const label = isWin ? '연승' : '연패';
-        const profit = parseFloat(streak.totalProfit || 0);
-
-        html += `
-            <div class="list-group-item ${cssClass} d-flex justify-content-between align-items-center">
-                <div>
-                    <i class="bi ${icon} me-2"></i>
-                    <strong>${streak.streakLength}${label}</strong>
-                    <small class="text-muted ms-2">${streak.startDate} ~ ${streak.endDate}</small>
-                </div>
-                <span class="${profit >= 0 ? 'text-success' : 'text-danger'}">${formatCurrency(profit)}</span>
-            </div>
-        `;
-    });
-    html += '</div>';
-    $container.html(html);
-}
-
-function updateDayOfWeekPerformance(data) {
-    if (!data) return;
-
-    // 월~금만 필터링 (주말 제외)
-    const weekdays = data.filter(d => d.dayOfWeek !== 'SATURDAY' && d.dayOfWeek !== 'SUNDAY');
-    const labels = weekdays.map(d => d.dayOfWeekKorean);
-    const winRates = weekdays.map(d => parseFloat(d.winRate || 0));
-    const profits = weekdays.map(d => parseFloat(d.totalProfit || 0));
-
-    dayOfWeekChart.data.labels = labels;
-    dayOfWeekChart.data.datasets[0].data = winRates;
-    dayOfWeekChart.data.datasets[1].data = profits;
-    dayOfWeekChart.update();
-
-    // 테이블 업데이트
-    let tableHtml = '';
-    weekdays.forEach(d => {
-        const profit = parseFloat(d.totalProfit || 0);
-        tableHtml += `
-            <tr>
-                <td>${d.dayOfWeekKorean}</td>
-                <td class="text-end">${d.tradeCount}</td>
-                <td class="text-end">${parseFloat(d.winRate || 0).toFixed(1)}%</td>
-                <td class="text-end ${profit >= 0 ? 'text-success' : 'text-danger'}">${formatCurrency(profit)}</td>
-            </tr>
-        `;
-    });
-    $('#day-of-week-table tbody').html(tableHtml);
-}
-
-function updateMonthlySeasonality(data) {
-    if (!data) return;
-
-    const profits = data.map(d => parseFloat(d.totalProfit || 0));
-
-    monthlySeasonalityChart.data.datasets[0].data = profits;
-    monthlySeasonalityChart.update();
-
-    // 테이블 업데이트
-    let tableHtml = '';
-    data.forEach(d => {
-        if (d.tradeCount > 0) {
-            const profit = parseFloat(d.totalProfit || 0);
-            tableHtml += `
-                <tr>
-                    <td>${d.monthName}</td>
-                    <td class="text-end">${d.tradeCount}</td>
-                    <td class="text-end">${parseFloat(d.winRate || 0).toFixed(1)}%</td>
-                    <td class="text-end ${profit >= 0 ? 'text-success' : 'text-danger'}">${formatCurrency(profit)}</td>
-                </tr>
-            `;
-        }
-    });
-    $('#monthly-table tbody').html(tableHtml || '<tr><td colspan="4" class="text-center text-muted">데이터 없음</td></tr>');
-}
-
-function updateTradeSizeAnalysis(data) {
-    if (!data) return;
-
-    $('#avg-trade-amount').text(formatCurrency(data.avgTradeAmount || 0));
-    $('#max-trade-amount').text(formatCurrency(data.maxTradeAmount || 0));
-    $('#min-trade-amount').text(formatCurrency(data.minTradeAmount || 0));
-    $('#median-trade-amount').text(formatCurrency(data.medianTradeAmount || 0));
-    $('#avg-win-amount').text(formatCurrency(data.avgWinTradeAmount || 0));
-    $('#avg-loss-amount').text(formatCurrency(data.avgLossTradeAmount || 0));
-}
-
-function updateHoldingPeriodAnalysis(data) {
-    if (!data) return;
-
-    $('#avg-holding-days').text(parseFloat(data.avgHoldingDays || 0).toFixed(1) + '일');
-    $('#avg-win-holding').text(parseFloat(data.avgWinHoldingDays || 0).toFixed(1) + '일');
-    $('#avg-loss-holding').text(parseFloat(data.avgLossHoldingDays || 0).toFixed(1) + '일');
-
-    // 보유 기간별 분포 바 차트
-    const $container = $('#holding-distribution');
-    if (!data.holdingPeriodDistribution) {
-        $container.html('<div class="text-center text-muted">데이터 없음</div>');
-        return;
-    }
-
-    const totalTrades = data.holdingPeriodDistribution.reduce((sum, b) => sum + b.tradeCount, 0);
-
-    let html = '';
-    data.holdingPeriodDistribution.forEach(bucket => {
-        const percentage = totalTrades > 0 ? (bucket.tradeCount / totalTrades * 100) : 0;
-        const barColor = bucket.totalProfit >= 0 ? 'bg-success' : 'bg-danger';
-
-        html += `
-            <div class="mb-2">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span>${bucket.label}</span>
-                    <span class="text-muted">${bucket.tradeCount}건 (${percentage.toFixed(1)}%)</span>
-                </div>
-                <div class="progress" style="height: 20px;">
-                    <div class="progress-bar ${barColor}" role="progressbar"
-                         style="width: ${percentage}%;"
-                         title="승률: ${parseFloat(bucket.winRate || 0).toFixed(1)}%">
-                        ${percentage > 10 ? percentage.toFixed(0) + '%' : ''}
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    $container.html(html);
-}
-
-function formatCurrency(value) {
-    return '₩' + Math.round(value || 0).toLocaleString();
-}
