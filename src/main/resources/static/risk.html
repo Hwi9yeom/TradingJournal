@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>리스크 관리 - 투자 기록 서비스</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">투자 기록 서비스</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard.html">대시보드</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="patterns.html">패턴분석</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="reviews.html">거래복기</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="risk.html">리스크관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="backtest.html">백테스팅</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">거래관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="accounts.html">계좌관리</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-shield-exclamation text-warning"></i> 리스크 관리</h2>
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                <i class="bi bi-gear me-1"></i>설정
+            </button>
+        </div>
+
+        <!-- 리스크 한도 상태 -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card h-100" id="dailyLossCard">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="card-subtitle text-muted mb-0">일일 손실 한도</h6>
+                            <span class="badge" id="dailyLossStatus">-</span>
+                        </div>
+                        <h4 class="mb-1" id="dailyPnl">₩0</h4>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar" id="dailyLossProgress" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <small class="text-muted" id="dailyLossRemaining">한도: -</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card h-100" id="weeklyLossCard">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="card-subtitle text-muted mb-0">주간 손실 한도</h6>
+                            <span class="badge" id="weeklyLossStatus">-</span>
+                        </div>
+                        <h4 class="mb-1" id="weeklyPnl">₩0</h4>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar" id="weeklyLossProgress" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <small class="text-muted" id="weeklyLossRemaining">한도: -</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card h-100" id="positionCountCard">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="card-subtitle text-muted mb-0">오픈 포지션</h6>
+                            <span class="badge" id="positionCountStatus">-</span>
+                        </div>
+                        <h4 class="mb-1" id="positionCount">0 / 10</h4>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar" id="positionCountProgress" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <small class="text-muted" id="positionCountRemaining">남은 슬롯: -</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card h-100 border-info">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="card-subtitle text-muted mb-0">총 오픈 리스크</h6>
+                            <i class="bi bi-exclamation-triangle text-warning"></i>
+                        </div>
+                        <h4 class="mb-1" id="totalOpenRisk">₩0</h4>
+                        <small class="text-muted">자본 대비 <span id="openRiskPercent">0%</span></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 포지션 사이징 계산기 -->
+            <div class="col-md-5">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-calculator me-2"></i>포지션 사이징 계산기</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="positionSizingForm">
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <label class="form-label">진입가</label>
+                                    <input type="number" class="form-control" id="entryPrice" step="0.01" required>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">손절가</label>
+                                    <input type="number" class="form-control" id="stopLossPrice" step="0.01" required>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">익절가 (선택)</label>
+                                    <input type="number" class="form-control" id="takeProfitPrice" step="0.01">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">리스크 %</label>
+                                    <input type="number" class="form-control" id="riskPercent" value="2" step="0.1" min="0.1" max="10">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 mt-3">
+                                <i class="bi bi-calculator me-1"></i>계산하기
+                            </button>
+                        </form>
+
+                        <!-- 계산 결과 -->
+                        <div id="sizingResult" class="mt-4 d-none">
+                            <hr>
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="fw-bold text-primary fs-4" id="recommendedQty">0</div>
+                                    <small class="text-muted">추천 수량</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fw-bold fs-4" id="positionValue">₩0</div>
+                                    <small class="text-muted">포지션 금액</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fw-bold fs-4" id="rrRatio">-</div>
+                                    <small class="text-muted">R:R 비율</small>
+                                </div>
+                            </div>
+                            <div class="mt-3 p-3 bg-light rounded">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>예상 손실:</span>
+                                    <span class="text-danger fw-bold" id="potentialLoss">-</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>예상 이익:</span>
+                                    <span class="text-success fw-bold" id="potentialProfit">-</span>
+                                </div>
+                            </div>
+                            <div class="mt-3 text-muted small" id="kellyInfo"></div>
+                            <div class="alert alert-warning d-none mt-3" id="sizingWarning"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 시나리오 비교 -->
+                <div class="card mb-4 d-none" id="scenariosCard">
+                    <div class="card-header">
+                        <h6 class="mb-0">리스크 수준별 시나리오</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>시나리오</th>
+                                        <th class="text-end">수량</th>
+                                        <th class="text-end">금액</th>
+                                        <th class="text-end">손실</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scenariosBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- R-Multiple 분석 -->
+            <div class="col-md-7">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>R-Multiple 분석</h5>
+                        <select class="form-select form-select-sm" style="width: auto;" id="rMultiplePeriod" onchange="loadRMultipleAnalysis()">
+                            <option value="1">최근 1개월</option>
+                            <option value="3" selected>최근 3개월</option>
+                            <option value="6">최근 6개월</option>
+                            <option value="12">최근 1년</option>
+                        </select>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-3 text-center">
+                                <div class="fs-4 fw-bold text-primary" id="avgRMultiple">0.00R</div>
+                                <small class="text-muted">평균 R</small>
+                            </div>
+                            <div class="col-3 text-center">
+                                <div class="fs-4 fw-bold" id="expectancy">0.00</div>
+                                <small class="text-muted">기대값</small>
+                            </div>
+                            <div class="col-3 text-center">
+                                <div class="fs-4 fw-bold text-success" id="positiveRCount">0</div>
+                                <small class="text-muted">수익 거래</small>
+                            </div>
+                            <div class="col-3 text-center">
+                                <div class="fs-4 fw-bold text-danger" id="negativeRCount">0</div>
+                                <small class="text-muted">손실 거래</small>
+                            </div>
+                        </div>
+                        <canvas id="rMultipleChart" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- 섹터 노출 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-pie-chart me-2"></i>섹터 노출</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <canvas id="sectorChart" height="200"></canvas>
+                            </div>
+                            <div class="col-6">
+                                <div id="sectorList"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 포지션별 리스크 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-table me-2"></i>포지션별 리스크</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>종목</th>
+                                <th class="text-end">수량</th>
+                                <th class="text-end">진입가</th>
+                                <th class="text-end">현재가</th>
+                                <th class="text-end">손절가</th>
+                                <th class="text-end">미실현 손익</th>
+                                <th class="text-end">리스크 금액</th>
+                                <th class="text-end">현재 R</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positionRisksBody">
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    <div class="spinner-border spinner-border-sm me-2"></div>로딩 중...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 설정 모달 -->
+    <div class="modal fade" id="settingsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-gear me-2"></i>리스크 설정</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="settingsForm">
+                        <div class="mb-3">
+                            <label class="form-label">계좌 자본금</label>
+                            <div class="input-group">
+                                <span class="input-group-text">₩</span>
+                                <input type="number" class="form-control" id="settingCapital" step="1000">
+                            </div>
+                        </div>
+                        <hr>
+                        <h6>리스크 한도</h6>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="form-label">거래당 최대 리스크 (%)</label>
+                                <input type="number" class="form-control" id="settingMaxRiskPerTrade" step="0.1" min="0.1" max="10">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">일일 최대 손실 (%)</label>
+                                <input type="number" class="form-control" id="settingMaxDailyLoss" step="0.1" min="1" max="20">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">주간 최대 손실 (%)</label>
+                                <input type="number" class="form-control" id="settingMaxWeeklyLoss" step="0.1" min="2" max="30">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">최대 오픈 포지션 수</label>
+                                <input type="number" class="form-control" id="settingMaxPositions" min="1" max="100">
+                            </div>
+                        </div>
+                        <hr>
+                        <h6>집중도 한도</h6>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="form-label">최대 포지션 크기 (%)</label>
+                                <input type="number" class="form-control" id="settingMaxPositionSize" step="1" min="5" max="100">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">섹터 집중도 한도 (%)</label>
+                                <input type="number" class="form-control" id="settingMaxSectorConc" step="1" min="10" max="100">
+                            </div>
+                        </div>
+                        <hr>
+                        <h6>Kelly Criterion</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Kelly 비율 (0.5 = Half Kelly)</label>
+                            <input type="number" class="form-control" id="settingKellyFraction" step="0.1" min="0.1" max="1">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-primary" onclick="saveSettings()">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="auth.js"></script>
+    <script src="risk.js"></script>
+</body>
+</html>

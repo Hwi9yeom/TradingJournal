@@ -97,4 +97,44 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("accountId") Long accountId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
+    // ===== 리스크 관리용 쿼리 =====
+
+    /**
+     * 계좌/종목/타입별 거래 조회 (날짜 오름차순) - R-multiple 계산용
+     */
+    @Query("SELECT t FROM Transaction t WHERE " +
+           "((:accountId IS NULL AND t.account IS NULL) OR t.account.id = :accountId) " +
+           "AND t.stock.id = :stockId " +
+           "AND t.type = :type " +
+           "ORDER BY t.transactionDate ASC")
+    List<Transaction> findByAccountIdAndStockIdAndTypeOrderByTransactionDateAsc(
+            @Param("accountId") Long accountId,
+            @Param("stockId") Long stockId,
+            @Param("type") TransactionType type);
+
+    /**
+     * R-multiple이 있는 SELL 거래 조회 (리스크 분석용)
+     */
+    @Query("SELECT t FROM Transaction t WHERE " +
+           "(:accountId IS NULL OR t.account.id = :accountId) " +
+           "AND t.type = 'SELL' " +
+           "AND t.rMultiple IS NOT NULL " +
+           "AND t.transactionDate BETWEEN :startDate AND :endDate " +
+           "ORDER BY t.transactionDate DESC")
+    List<Transaction> findSellTransactionsWithRMultiple(
+            @Param("accountId") Long accountId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * 일별 실현 손익 조회 (리스크 대시보드용)
+     */
+    @Query("SELECT COALESCE(SUM(t.realizedPnl), 0) FROM Transaction t WHERE " +
+           "(:accountId IS NULL OR t.account.id = :accountId) " +
+           "AND t.type = 'SELL' " +
+           "AND CAST(t.transactionDate AS DATE) = :date")
+    java.math.BigDecimal sumRealizedPnlByDate(
+            @Param("accountId") Long accountId,
+            @Param("date") java.time.LocalDate date);
 }

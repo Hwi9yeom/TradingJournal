@@ -67,6 +67,27 @@ public class Transaction {
     @Column(precision = 19, scale = 4)
     private BigDecimal remainingQuantity;
 
+    // 리스크 관리 필드
+    /** 손절가 */
+    @Column(precision = 19, scale = 4)
+    private BigDecimal stopLossPrice;
+
+    /** 익절가 */
+    @Column(precision = 19, scale = 4)
+    private BigDecimal takeProfitPrice;
+
+    /** 초기 리스크 금액: (진입가 - 손절가) × 수량 */
+    @Column(precision = 19, scale = 4)
+    private BigDecimal initialRiskAmount;
+
+    /** 리스크/리워드 비율: (익절가 - 진입가) / (진입가 - 손절가) */
+    @Column(precision = 10, scale = 4)
+    private BigDecimal riskRewardRatio;
+
+    /** R-multiple: 실현손익 / 초기리스크 */
+    @Column(precision = 10, scale = 4)
+    private BigDecimal rMultiple;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

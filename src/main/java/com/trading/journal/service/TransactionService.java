@@ -15,6 +15,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -55,14 +57,26 @@ public class TransactionService {
                 .notes(dto.getNotes())
                 // 매수인 경우 remainingQuantity 초기화
                 .remainingQuantity(dto.getType() == TransactionType.BUY ? dto.getQuantity() : null)
+                // 리스크 관리 필드
+                .stopLossPrice(dto.getStopLossPrice())
+                .takeProfitPrice(dto.getTakeProfitPrice())
                 .build();
+
+        // 리스크 관련 계산 (BUY 거래에서 손절가가 설정된 경우)
+        if (dto.getType() == TransactionType.BUY && dto.getStopLossPrice() != null) {
+            calculateAndSetRiskFields(transaction, dto.getPrice(), dto.getStopLossPrice(),
+                    dto.getTakeProfitPrice(), dto.getQuantity());
+        }
 
         transaction = transactionRepository.save(transaction);
 
-        // 매도인 경우 FIFO 계산
+        // 매도인 경우 FIFO 계산 및 R-multiple 계산
         if (dto.getType() == TransactionType.SELL) {
             FifoResult fifoResult = fifoCalculationService.calculateFifoProfit(transaction);
             fifoCalculationService.applyFifoResult(transaction, fifoResult);
+
+            // R-multiple 계산 (관련 BUY 거래의 초기 리스크 기반)
+            calculateRMultipleForSell(transaction);
         }
 
         portfolioService.updatePortfolio(transaction);
@@ -148,6 +162,16 @@ public class TransactionService {
         transaction.setTransactionDate(dto.getTransactionDate());
         transaction.setNotes(dto.getNotes());
 
+        // 리스크 필드 업데이트
+        transaction.setStopLossPrice(dto.getStopLossPrice());
+        transaction.setTakeProfitPrice(dto.getTakeProfitPrice());
+
+        // BUY 거래이고 손절가가 설정된 경우 리스크 계산
+        if (transaction.getType() == TransactionType.BUY && dto.getStopLossPrice() != null) {
+            calculateAndSetRiskFields(transaction, dto.getPrice(), dto.getStopLossPrice(),
+                    dto.getTakeProfitPrice(), dto.getQuantity());
+        }
+
         transaction = transactionRepository.save(transaction);
 
         // Account 기반으로 포트폴리오 및 FIFO 재계산
@@ -219,8 +243,30 @@ public class TransactionService {
                 .totalAmount(transaction.getTotalAmount())
                 .realizedPnl(transaction.getRealizedPnl())
                 .costBasis(transaction.getCostBasis())
+                // 리스크 관리 필드
+                .stopLossPrice(transaction.getStopLossPrice())
+                .takeProfitPrice(transaction.getTakeProfitPrice())
+                .initialRiskAmount(transaction.getInitialRiskAmount())
+                .riskRewardRatio(transaction.getRiskRewardRatio())
+                .rMultiple(transaction.getRMultiple())
                 .createdAt(transaction.getCreatedAt())
                 .updatedAt(transaction.getUpdatedAt());
+
+        // 손절/익절 % 계산
+        if (transaction.getPrice() != null && transaction.getPrice().compareTo(BigDecimal.ZERO) > 0) {
+            if (transaction.getStopLossPrice() != null) {
+                BigDecimal stopLossPercent = transaction.getPrice().subtract(transaction.getStopLossPrice())
+                        .divide(transaction.getPrice(), 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100));
+                builder.stopLossPercent(stopLossPercent);
+            }
+            if (transaction.getTakeProfitPrice() != null) {
+                BigDecimal takeProfitPercent = transaction.getTakeProfitPrice().subtract(transaction.getPrice())
+                        .divide(transaction.getPrice(), 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100));
+                builder.takeProfitPercent(takeProfitPercent);
+            }
+        }
 
         // Account 정보 추가
         if (transaction.getAccount() != null) {
@@ -229,5 +275,102 @@ public class TransactionService {
         }
 
         return builder.build();
+    }
+
+    /**
+     * 리스크 관련 필드 계산 및 설정
+     */
+    private void calculateAndSetRiskFields(Transaction transaction, BigDecimal entryPrice,
+                                           BigDecimal stopLossPrice, BigDecimal takeProfitPrice,
+                                           BigDecimal quantity) {
+        // 초기 리스크 금액 = (진입가 - 손절가) × 수량
+        BigDecimal riskPerShare = entryPrice.subtract(stopLossPrice).abs();
+        BigDecimal initialRiskAmount = riskPerShare.multiply(quantity);
+        transaction.setInitialRiskAmount(initialRiskAmount);
+
+        // 리스크/리워드 비율 = (익절가 - 진입가) / (진입가 - 손절가)
+        if (takeProfitPrice != null && riskPerShare.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal rewardPerShare = takeProfitPrice.subtract(entryPrice).abs();
+            BigDecimal riskRewardRatio = rewardPerShare.divide(riskPerShare, 4, RoundingMode.HALF_UP);
+            transaction.setRiskRewardRatio(riskRewardRatio);
+        }
+    }
+
+    /**
+     * SELL 거래에 대한 R-multiple 계산
+     * R-multiple = 실현손익 / 초기리스크
+     */
+    private void calculateRMultipleForSell(Transaction sellTransaction) {
+        if (sellTransaction.getRealizedPnl() == null) {
+            return;
+        }
+
+        // 관련 BUY 거래들의 평균 초기 리스크 계산
+        Long accountId = sellTransaction.getAccount() != null ? sellTransaction.getAccount().getId() : null;
+        Long stockId = sellTransaction.getStock().getId();
+
+        List<Transaction> buyTransactions = transactionRepository.findByAccountIdAndStockIdAndTypeOrderByTransactionDateAsc(
+                accountId, stockId, TransactionType.BUY);
+
+        // 초기 리스크가 설정된 BUY 거래들의 평균 리스크 계산
+        BigDecimal totalInitialRisk = BigDecimal.ZERO;
+        int count = 0;
+        for (Transaction buy : buyTransactions) {
+            if (buy.getInitialRiskAmount() != null && buy.getInitialRiskAmount().compareTo(BigDecimal.ZERO) > 0) {
+                // 주당 리스크 기준으로 계산
+                BigDecimal riskPerShare = buy.getInitialRiskAmount().divide(buy.getQuantity(), 4, RoundingMode.HALF_UP);
+                totalInitialRisk = totalInitialRisk.add(riskPerShare);
+                count++;
+            }
+        }
+
+        if (count > 0) {
+            BigDecimal avgRiskPerShare = totalInitialRisk.divide(BigDecimal.valueOf(count), 4, RoundingMode.HALF_UP);
+            BigDecimal sellInitialRisk = avgRiskPerShare.multiply(sellTransaction.getQuantity());
+
+            if (sellInitialRisk.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal rMultiple = sellTransaction.getRealizedPnl()
+                        .divide(sellInitialRisk, 4, RoundingMode.HALF_UP);
+                sellTransaction.setRMultiple(rMultiple);
+                sellTransaction.setInitialRiskAmount(sellInitialRisk);
+                transactionRepository.save(sellTransaction);
+            }
+        }
+    }
+
+    /**
+     * 초기 리스크 계산
+     */
+    public BigDecimal calculateInitialRisk(BigDecimal entryPrice, BigDecimal stopLossPrice, BigDecimal quantity) {
+        if (entryPrice == null || stopLossPrice == null || quantity == null) {
+            return null;
+        }
+        return entryPrice.subtract(stopLossPrice).abs().multiply(quantity);
+    }
+
+    /**
+     * 리스크/리워드 비율 계산
+     */
+    public BigDecimal calculateRiskRewardRatio(BigDecimal entryPrice, BigDecimal stopLossPrice,
+                                               BigDecimal takeProfitPrice) {
+        if (entryPrice == null || stopLossPrice == null || takeProfitPrice == null) {
+            return null;
+        }
+        BigDecimal risk = entryPrice.subtract(stopLossPrice).abs();
+        if (risk.compareTo(BigDecimal.ZERO) == 0) {
+            return null;
+        }
+        BigDecimal reward = takeProfitPrice.subtract(entryPrice).abs();
+        return reward.divide(risk, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * R-multiple 계산
+     */
+    public BigDecimal calculateRMultiple(BigDecimal realizedPnl, BigDecimal initialRisk) {
+        if (realizedPnl == null || initialRisk == null || initialRisk.compareTo(BigDecimal.ZERO) == 0) {
+            return null;
+        }
+        return realizedPnl.divide(initialRisk, 4, RoundingMode.HALF_UP);
     }
 }

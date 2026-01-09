@@ -33,4 +33,10 @@ public interface PortfolioRepository extends JpaRepository<Portfolio, Long> {
     // account_id가 NULL인 포트폴리오 (마이그레이션용)
     @Query("SELECT p FROM Portfolio p WHERE p.account IS NULL")
     List<Portfolio> findByAccountIsNull();
+
+    // 리스크 관리용
+    int countByAccountId(Long accountId);
+
+    @Query("SELECT COUNT(p) FROM Portfolio p WHERE p.account.id = :accountId AND p.quantity > 0")
+    int countActivePositionsByAccountId(@Param("accountId") Long accountId);
 }
