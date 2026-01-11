@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 어시스턴트 - 투자 기록 서비스</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        .chat-container {
+            height: calc(100vh - 350px);
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 0.5rem;
+        }
+        .message {
+            max-width: 85%;
+            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            word-wrap: break-word;
+        }
+        .message.user {
+            background: #0d6efd;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 0.25rem;
+        }
+        .message.assistant {
+            background: white;
+            border: 1px solid #dee2e6;
+            margin-right: auto;
+            border-bottom-left-radius: 0.25rem;
+        }
+        .message.assistant pre {
+            background: #f1f3f4;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            overflow-x: auto;
+        }
+        .chat-input-container {
+            padding: 1rem 0;
+        }
+        .insight-card {
+            border-left: 4px solid;
+            transition: transform 0.2s;
+        }
+        .insight-card:hover {
+            transform: translateY(-2px);
+        }
+        .insight-card.performance {
+            border-left-color: #198754;
+        }
+        .insight-card.risk {
+            border-left-color: #dc3545;
+        }
+        .insight-card.strategy {
+            border-left-color: #0d6efd;
+        }
+        .quick-action-btn {
+            width: 100%;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .quick-action-btn i {
+            width: 24px;
+        }
+        .typing-indicator {
+            display: inline-flex;
+            gap: 4px;
+            padding: 8px 12px;
+        }
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #6c757d;
+            border-radius: 50%;
+            animation: typing 1s infinite;
+        }
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes typing {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-indicator.connected {
+            background: #198754;
+        }
+        .status-indicator.disconnected {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">투자 기록 서비스</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard.html">대시보드</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="patterns.html">패턴분석</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="reviews.html">거래복기</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="risk.html">리스크관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="backtest.html">백테스팅</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="ai-assistant.html">AI어시스턴트</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">거래관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="accounts.html">계좌관리</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-robot text-primary"></i> AI 트레이딩 어시스턴트</h2>
+            <div class="d-flex align-items-center gap-2">
+                <span class="status-indicator" id="ollamaStatus"></span>
+                <span class="text-muted small" id="ollamaStatusText">연결 확인 중...</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 좌측: 빠른 분석 & 인사이트 -->
+            <div class="col-lg-4 mb-4">
+                <!-- 빠른 분석 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-lightning-charge me-2"></i>빠른 분석
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-outline-success quick-action-btn" onclick="analyzePerformance()">
+                            <i class="bi bi-graph-up-arrow me-2"></i>성과 분석
+                        </button>
+                        <button class="btn btn-outline-danger quick-action-btn" onclick="analyzeRisk()">
+                            <i class="bi bi-shield-exclamation me-2"></i>리스크 분석
+                        </button>
+                        <div class="mt-3">
+                            <label class="form-label small text-muted">분석 기간</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="date" class="form-control form-control-sm" id="analysisStartDate">
+                                </div>
+                                <div class="col-6">
+                                    <input type="date" class="form-control form-control-sm" id="analysisEndDate">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 최근 인사이트 -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-lightbulb me-2"></i>최근 인사이트
+                    </div>
+                    <div class="card-body p-0" id="insightsList">
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            분석을 실행하면 인사이트가 표시됩니다
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 우측: 채팅 -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-chat-dots me-2"></i>AI 채팅</span>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearChat()">
+                            <i class="bi bi-trash me-1"></i>대화 초기화
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="chatMessages">
+                                <div class="message assistant">
+                                    안녕하세요! 저는 AI 트레이딩 어시스턴트입니다. 거래 분석, 리스크 관리, 전략 최적화 등에 대해 질문해주세요.
+                                    <br><br>
+                                    <strong>예시 질문:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>최근 3개월 거래 성과를 분석해줘</li>
+                                        <li>현재 리스크 상태가 어떤가요?</li>
+                                        <li>승률을 높이려면 어떻게 해야 할까요?</li>
+                                        <li>손절 전략에 대해 조언해줘</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="chat-input-container px-3">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="chatInput"
+                                           placeholder="메시지를 입력하세요..."
+                                           onkeypress="if(event.key==='Enter') sendMessage()">
+                                    <button class="btn btn-primary" onclick="sendMessage()" id="sendBtn">
+                                        <i class="bi bi-send"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 분석 결과 모달 -->
+    <div class="modal fade" id="analysisModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="analysisModalTitle">
+                        <i class="bi bi-graph-up me-2"></i>AI 분석 결과
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="analysisModalBody">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">분석 중...</span>
+                        </div>
+                        <p class="mt-3 text-muted">AI가 분석 중입니다. 잠시만 기다려주세요...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    <button type="button" class="btn btn-primary" onclick="copyAnalysisToChat()">
+                        <i class="bi bi-chat-dots me-1"></i>채팅으로 이어서 질문
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="ai-assistant.js"></script>
+</body>
+</html>

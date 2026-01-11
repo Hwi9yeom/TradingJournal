@@ -9,8 +9,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.trading.journal.entity.Account;
+import com.trading.journal.entity.Stock;
+
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
@@ -137,4 +141,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     java.math.BigDecimal sumRealizedPnlByDate(
             @Param("accountId") Long accountId,
             @Param("date") java.time.LocalDate date);
+
+    // ===== AI 거래 복기용 쿼리 =====
+
+    /**
+     * 같은 종목의 가장 최근 매수 거래 조회 (AI 거래 복기 생성용)
+     */
+    Optional<Transaction> findFirstByAccountAndStockAndTypeAndTransactionDateBeforeOrderByTransactionDateDesc(
+            Account account,
+            Stock stock,
+            TransactionType type,
+            LocalDateTime beforeDate);
 }
