@@ -41,3 +41,6 @@ TECH_STACK_COMPARISON.md
 
 ### Claude Code ###
 .claude/
+
+### Logs ###
+logs/
