@@ -306,9 +306,139 @@ public class AnalysisService {
      * 계좌별 Equity Curve 조회 (벤치마크 비교용)
      */
     public EquityCurveDto getEquityCurve(Long accountId, LocalDate startDate, LocalDate endDate) {
-        // TODO: accountId 필터링 추가 시 구현
-        // 현재는 전체 포트폴리오 기준으로 반환
-        return calculateEquityCurve(startDate, endDate);
+        if (accountId == null) {
+            return calculateEquityCurve(startDate, endDate);
+        }
+        return calculateEquityCurveByAccount(accountId, startDate, endDate);
+    }
+
+    /**
+     * 계좌별 Equity Curve 계산
+     */
+    private EquityCurveDto calculateEquityCurveByAccount(Long accountId, LocalDate startDate, LocalDate endDate) {
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<Transaction> transactions = transactionRepository.findByAccountIdAndDateRange(accountId, startDateTime, endDateTime);
+        transactions.sort(Comparator.comparing(Transaction::getTransactionDate));
+
+        if (transactions.isEmpty()) {
+            return EquityCurveDto.builder()
+                    .labels(new ArrayList<>())
+                    .values(new ArrayList<>())
+                    .cumulativeReturns(new ArrayList<>())
+                    .dailyReturns(new ArrayList<>())
+                    .initialInvestment(BigDecimal.ZERO)
+                    .finalValue(BigDecimal.ZERO)
+                    .totalReturn(BigDecimal.ZERO)
+                    .cagr(BigDecimal.ZERO)
+                    .build();
+        }
+
+        // 일별 포트폴리오 가치 계산
+        Map<LocalDate, BigDecimal> dailyInvestment = new TreeMap<>();
+        Map<LocalDate, BigDecimal> dailyValue = new TreeMap<>();
+        BigDecimal runningInvestment = BigDecimal.ZERO;
+        BigDecimal runningValue = BigDecimal.ZERO;
+
+        for (Transaction transaction : transactions) {
+            LocalDate date = transaction.getTransactionDate().toLocalDate();
+            BigDecimal amount = transaction.getTotalAmount();
+
+            if (transaction.getType() == TransactionType.BUY) {
+                runningInvestment = runningInvestment.add(amount);
+                runningValue = runningValue.add(amount);
+            } else {
+                BigDecimal realizedPnl = transaction.getRealizedPnl() != null
+                        ? transaction.getRealizedPnl() : BigDecimal.ZERO;
+                runningValue = runningValue.subtract(transaction.getCostBasis() != null
+                        ? transaction.getCostBasis() : amount);
+                runningValue = runningValue.add(realizedPnl);
+            }
+
+            dailyInvestment.put(date, runningInvestment);
+            dailyValue.put(date, runningValue);
+        }
+
+        // 날짜 범위 채우기 및 누적 수익률 계산
+        List<String> labels = new ArrayList<>();
+        List<BigDecimal> values = new ArrayList<>();
+        List<BigDecimal> cumulativeReturns = new ArrayList<>();
+        List<BigDecimal> dailyReturns = new ArrayList<>();
+
+        LocalDate current = startDate;
+        BigDecimal lastValue = BigDecimal.ZERO;
+        BigDecimal lastInvestment = BigDecimal.ZERO;
+        BigDecimal previousValue = null;
+        BigDecimal initialInvestment = null;
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+        while (!current.isAfter(endDate)) {
+            if (dailyValue.containsKey(current)) {
+                lastValue = dailyValue.get(current);
+                lastInvestment = dailyInvestment.get(current);
+            }
+
+            if (initialInvestment == null && lastInvestment.compareTo(BigDecimal.ZERO) > 0) {
+                initialInvestment = lastInvestment;
+            }
+
+            labels.add(current.format(formatter));
+            values.add(lastValue);
+
+            // 누적 수익률 계산
+            BigDecimal cumulativeReturn = BigDecimal.ZERO;
+            if (lastInvestment.compareTo(BigDecimal.ZERO) > 0) {
+                cumulativeReturn = lastValue.subtract(lastInvestment)
+                        .divide(lastInvestment, 4, RoundingMode.HALF_UP)
+                        .multiply(new BigDecimal("100"));
+            }
+            cumulativeReturns.add(cumulativeReturn);
+
+            // 일간 수익률 계산
+            BigDecimal dailyReturn = BigDecimal.ZERO;
+            if (previousValue != null && previousValue.compareTo(BigDecimal.ZERO) > 0) {
+                dailyReturn = lastValue.subtract(previousValue)
+                        .divide(previousValue, 4, RoundingMode.HALF_UP)
+                        .multiply(new BigDecimal("100"));
+            }
+            dailyReturns.add(dailyReturn);
+            previousValue = lastValue;
+
+            current = current.plusDays(1);
+        }
+
+        // 전체 수익률 및 CAGR 계산
+        BigDecimal totalReturn = BigDecimal.ZERO;
+        BigDecimal cagr = BigDecimal.ZERO;
+
+        if (initialInvestment != null && initialInvestment.compareTo(BigDecimal.ZERO) > 0) {
+            totalReturn = lastValue.subtract(initialInvestment)
+                    .divide(initialInvestment, 4, RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"));
+
+            long days = ChronoUnit.DAYS.between(startDate, endDate);
+            if (days > 0 && lastValue.compareTo(BigDecimal.ZERO) > 0) {
+                double years = days / 365.0;
+                double ratio = lastValue.divide(initialInvestment, 6, RoundingMode.HALF_UP).doubleValue();
+                if (ratio > 0 && years > 0) {
+                    double cagrValue = (Math.pow(ratio, 1.0 / years) - 1) * 100;
+                    cagr = BigDecimal.valueOf(cagrValue).setScale(2, RoundingMode.HALF_UP);
+                }
+            }
+        }
+
+        return EquityCurveDto.builder()
+                .labels(labels)
+                .values(values)
+                .cumulativeReturns(cumulativeReturns)
+                .dailyReturns(dailyReturns)
+                .initialInvestment(initialInvestment != null ? initialInvestment : BigDecimal.ZERO)
+                .finalValue(lastValue)
+                .totalReturn(totalReturn)
+                .cagr(cagr)
+                .build();
     }
 
     /**

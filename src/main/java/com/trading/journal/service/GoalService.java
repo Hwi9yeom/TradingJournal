@@ -1,5 +1,6 @@
 package com.trading.journal.service;
 
+import com.trading.journal.dto.DividendSummaryDto;
 import com.trading.journal.dto.GoalDto;
 import com.trading.journal.dto.GoalSummaryDto;
 import com.trading.journal.dto.PortfolioSummaryDto;
@@ -32,6 +33,8 @@ public class GoalService {
     private final GoalRepository goalRepository;
     private final PortfolioAnalysisService portfolioAnalysisService;
     private final AnalysisService analysisService;
+    private final AlertService alertService;
+    private final DividendService dividendService;
 
     /**
      * 새 목표 생성
@@ -249,7 +252,14 @@ public class GoalService {
                 // 마일스톤 달성 확인
                 if (goal.checkNewMilestone()) {
                     log.info("목표 마일스톤 달성: {} - {}% 도달", goal.getName(), goal.getLastMilestone());
-                    // TODO: 알림 발송
+                    // 알림 발송
+                    if (goal.getNotificationEnabled() != null && goal.getNotificationEnabled()) {
+                        if (goal.getLastMilestone() >= 100) {
+                            alertService.createGoalCompletedAlert(goal.getId(), goal.getName());
+                        } else {
+                            alertService.createGoalMilestoneAlert(goal.getId(), goal.getName(), goal.getLastMilestone());
+                        }
+                    }
                 }
 
                 goalRepository.save(goal);
@@ -291,7 +301,11 @@ public class GoalService {
                         ? portfolio.getTotalCurrentValue() : BigDecimal.ZERO;
                 case SAVINGS_AMOUNT -> portfolio.getTotalInvestment() != null
                         ? portfolio.getTotalInvestment() : BigDecimal.ZERO;
-                case DIVIDEND_INCOME -> BigDecimal.ZERO; // TODO: 배당 서비스 연동
+                case DIVIDEND_INCOME -> {
+                    DividendSummaryDto dividendSummary = dividendService.getDividendSummary();
+                    yield dividendSummary.getTotalDividends() != null
+                            ? dividendSummary.getTotalDividends() : BigDecimal.ZERO;
+                }
                 default -> BigDecimal.ZERO;
             };
         } catch (Exception e) {

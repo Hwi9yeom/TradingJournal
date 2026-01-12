@@ -68,8 +68,8 @@ public class PerformanceLoggingAspect {
                 long usedMemory = totalMemory - freeMemory;
                 
                 performanceLogger.debug("[MEMORY] Total: {}MB, Used: {}MB, Free: {}MB", 
-                    totalMemory / 1024 / 1024, 
-                    usedMemory / 1024 / 1024, 
+                    totalMemory / 1024 / 1024,
+                    usedMemory / 1024 / 1024,
                     freeMemory / 1024 / 1024);
             }
         }
