@@ -31,7 +31,7 @@ function loadAccounts() {
             populateAccountSelectors(accounts);
         },
         error: function(xhr) {
-            console.error('Failed to load accounts:', xhr);
+            handleAjaxError(xhr, '계좌 목록을 불러오는데 실패했습니다.');
         }
     });
 }
@@ -93,12 +93,17 @@ function loadPortfolioSummary() {
     $.ajax({
         url: url,
         method: 'GET',
+        beforeSend: function() {
+            // Show skeleton loading
+            showSkeleton('#portfolio-holdings', 5);
+        },
         success: function(data) {
             updatePortfolioSummary(data);
             updatePortfolioHoldings(data.holdings || []);
         },
         error: function(xhr) {
-            console.error('Failed to load portfolio summary:', xhr);
+            handleAjaxError(xhr, '포트폴리오 정보를 불러오는데 실패했습니다.');
+            showEmptyState('#portfolio-holdings', '포트폴리오 정보를 불러올 수 없습니다.');
         }
     });
 }
@@ -117,7 +122,12 @@ function updatePortfolioSummary(summary) {
 function updatePortfolioHoldings(holdings) {
     const tbody = $('#portfolio-holdings');
     tbody.empty();
-    
+
+    if (!holdings || holdings.length === 0) {
+        showEmptyState(tbody, '보유 종목이 없습니다. 거래를 추가해주세요.', 'bi-inbox');
+        return;
+    }
+
     holdings.forEach(holding => {
         const row = $('<tr>');
         row.append(`<td>${holding.stockName} (${holding.stockSymbol})</td>`);
@@ -125,15 +135,15 @@ function updatePortfolioHoldings(holdings) {
         row.append(`<td>${formatCurrency(holding.averagePrice)}</td>`);
         row.append(`<td>${formatCurrency(holding.currentPrice)}</td>`);
         row.append(`<td>${formatCurrency(holding.currentValue)}</td>`);
-        
+
         const profitLossCell = $('<td>').text(formatCurrency(holding.profitLoss) + ' (' + formatPercent(holding.profitLossPercent) + ')');
         profitLossCell.addClass(holding.profitLoss >= 0 ? 'positive' : 'negative');
         row.append(profitLossCell);
-        
+
         const dayChangeCell = $('<td>').text(formatCurrency(holding.dayChange) + ' (' + formatPercent(holding.dayChangePercent) + ')');
         dayChangeCell.addClass(holding.dayChange >= 0 ? 'positive' : 'negative');
         row.append(dayChangeCell);
-        
+
         tbody.append(row);
     });
 }
@@ -173,9 +183,12 @@ function loadTransactions(reset = false) {
             isLoading = false;
         },
         error: function(xhr) {
-            console.error('Failed to load transactions:', xhr);
+            handleAjaxError(xhr, '거래 내역을 불러오는데 실패했습니다.');
             hideLoadingIndicator();
             isLoading = false;
+            if (reset) {
+                showEmptyState('#transaction-list', '거래 내역을 불러올 수 없습니다.');
+            }
         }
     });
 }
@@ -201,11 +214,18 @@ function hideLoadingIndicator() {
 
 function updateTransactionList(transactions, reset = false) {
     const tbody = $('#transaction-list');
-    
+
     if (reset) {
         tbody.empty();
     }
-    
+
+    if (!transactions || transactions.length === 0) {
+        if (reset) {
+            showEmptyState(tbody, '거래 내역이 없습니다. 첫 거래를 추가해보세요!', 'bi-journal-plus');
+        }
+        return;
+    }
+
     transactions.forEach(transaction => {
         const row = $('<tr>');
         row.append(`<td>${formatDateTime(transaction.transactionDate)}</td>`);
@@ -214,14 +234,21 @@ function updateTransactionList(transactions, reset = false) {
         row.append(`<td>${formatNumber(transaction.quantity)}</td>`);
         row.append(`<td>${formatCurrency(transaction.price)}</td>`);
         row.append(`<td>${formatCurrency(transaction.totalAmount)}</td>`);
-        row.append(`<td><button class="btn btn-sm btn-danger btn-delete" onclick="deleteTransaction(${transaction.id})">삭제</button></td>`);
+        row.append(`<td><button class="btn btn-sm btn-danger btn-delete" onclick="deleteTransaction(${transaction.id})" aria-label="거래 삭제">삭제</button></td>`);
         tbody.append(row);
     });
 }
 
 function addTransaction() {
-    const accountId = $('#transaction-account').val();
+    const form = document.getElementById('transaction-form');
 
+    // Validate form
+    if (!validateForm(form)) {
+        ToastNotification.warning('필수 항목을 모두 입력해주세요.');
+        return;
+    }
+
+    const accountId = $('#transaction-account').val();
     const transaction = {
         accountId: accountId ? parseInt(accountId) : null,
         stockSymbol: $('#stock-symbol').val().toUpperCase(),
@@ -237,37 +264,50 @@ function addTransaction() {
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify(transaction),
+        beforeSend: function() {
+            LoadingOverlay.show('거래를 추가하는 중...');
+        },
         success: function() {
+            LoadingOverlay.hide();
             $('#transaction-form')[0].reset();
+            clearFormValidation(form);
             setDefaultDateTime();
-            loadAccounts(); // 계좌 선택기 다시 로드
+            loadAccounts();
             loadPortfolioSummary();
-            loadTransactions(true); // reset and reload
-            alert('거래가 추가되었습니다.');
+            loadTransactions(true);
+            ToastNotification.success('거래가 성공적으로 추가되었습니다.');
         },
         error: function(xhr) {
-            alert('거래 추가 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
+            LoadingOverlay.hide();
+            handleAjaxError(xhr, '거래 추가에 실패했습니다.');
         }
     });
 }
 
 function deleteTransaction(id) {
-    if (!confirm('정말 삭제하시겠습니까?')) {
-        return;
-    }
-    
-    $.ajax({
-        url: `${API_BASE_URL}/transactions/${id}`,
-        method: 'DELETE',
-        success: function() {
-            loadPortfolioSummary();
-            loadTransactions(true); // reset and reload
-            alert('거래가 삭제되었습니다.');
-        },
-        error: function(xhr) {
-            alert('거래 삭제 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
+    showConfirmDialog(
+        '거래 삭제',
+        '이 거래를 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+        function() {
+            $.ajax({
+                url: `${API_BASE_URL}/transactions/${id}`,
+                method: 'DELETE',
+                beforeSend: function() {
+                    LoadingOverlay.show('거래를 삭제하는 중...');
+                },
+                success: function() {
+                    LoadingOverlay.hide();
+                    loadPortfolioSummary();
+                    loadTransactions(true);
+                    ToastNotification.success('거래가 성공적으로 삭제되었습니다.');
+                },
+                error: function(xhr) {
+                    LoadingOverlay.hide();
+                    handleAjaxError(xhr, '거래 삭제에 실패했습니다.');
+                }
+            });
         }
-    });
+    );
 }
 
 function formatCurrency(value) {
