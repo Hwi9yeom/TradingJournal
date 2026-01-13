@@ -132,6 +132,20 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("endDate") LocalDateTime endDate);
 
     /**
+     * SELL 거래 조회 (계좌별/기간별) - Kelly Criterion 계산용
+     */
+    @Query("SELECT t FROM Transaction t WHERE " +
+           "(:accountId IS NULL OR t.account.id = :accountId) " +
+           "AND t.type = :type " +
+           "AND t.transactionDate BETWEEN :startDate AND :endDate " +
+           "ORDER BY t.transactionDate ASC")
+    List<Transaction> findByAccountIdAndTypeAndDateRange(
+            @Param("accountId") Long accountId,
+            @Param("type") TransactionType type,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    /**
      * 일별 실현 손익 조회 (리스크 대시보드용)
      */
     @Query("SELECT COALESCE(SUM(t.realizedPnl), 0) FROM Transaction t WHERE " +

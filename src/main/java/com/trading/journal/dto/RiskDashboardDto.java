@@ -159,7 +159,7 @@ public class RiskDashboardDto {
         /** 음수 R 거래 수 */
         private Integer tradesWithNegativeR;
 
-        /** 기대값 (Expectancy) = 평균 R × 승률 */
+        /** 기대값 (Expectancy) = 평균 R-multiple (모든 거래의 R 평균값) */
         private BigDecimal expectancy;
 
         /** R-multiple 분포 */

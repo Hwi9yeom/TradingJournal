@@ -229,8 +229,8 @@ public class PositionSizingService {
      * 실현 손익 기반 Kelly 계산 (R-multiple 없을 때)
      */
     private BigDecimal calculateKellyFromPnl(Long accountId, LocalDateTime start, LocalDateTime end) {
-        List<Transaction> sellTransactions = transactionRepository.findByAccountIdAndStockIdAndTypeOrderByTransactionDateAsc(
-                accountId, null, TransactionType.SELL);
+        List<Transaction> sellTransactions = transactionRepository.findByAccountIdAndTypeAndDateRange(
+                accountId, TransactionType.SELL, start, end);
 
         if (sellTransactions.isEmpty()) {
             return null;

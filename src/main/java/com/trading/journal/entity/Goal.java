@@ -127,7 +127,14 @@ public class Goal {
                 progress = currentGap.divide(totalGap, 4, java.math.RoundingMode.HALF_UP)
                         .multiply(BigDecimal.valueOf(100));
             } else {
-                progress = BigDecimal.valueOf(100);
+                // startValue == targetValue: check if currentValue meets target
+                if (currentValue.compareTo(targetValue) >= 0) {
+                    progress = BigDecimal.valueOf(100);
+                } else {
+                    // Calculate progress as percentage of target reached
+                    progress = currentValue.divide(targetValue, 4, java.math.RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100));
+                }
             }
         } else {
             // 단순 비율 계산

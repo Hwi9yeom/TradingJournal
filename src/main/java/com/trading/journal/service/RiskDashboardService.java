@@ -162,10 +162,8 @@ public class RiskDashboardService {
         int positiveR = (int) rMultiples.stream().filter(r -> r.compareTo(BigDecimal.ZERO) > 0).count();
         int negativeR = (int) rMultiples.stream().filter(r -> r.compareTo(BigDecimal.ZERO) < 0).count();
 
-        // 기대값 (Expectancy)
-        BigDecimal winRate = BigDecimal.valueOf(positiveR)
-                .divide(BigDecimal.valueOf(rMultiples.size()), 4, RoundingMode.HALF_UP);
-        BigDecimal expectancy = average.multiply(winRate);
+        // 기대값 (Expectancy) - Average R-multiple already represents expectancy
+        BigDecimal expectancy = average;
 
         // 분포 계산
         List<RMultipleDistribution> distribution = calculateRMultipleDistribution(rMultiples);
