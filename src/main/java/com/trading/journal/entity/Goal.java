@@ -92,6 +92,9 @@ public class Goal {
     @Column(length = 2000)
     private String notes;
 
+    @Version
+    private Long version;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

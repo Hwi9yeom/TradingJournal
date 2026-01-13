@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 @Service
@@ -35,7 +36,8 @@ public class DataExportService {
             baos.write(0xEF);
             baos.write(0xBB);
             baos.write(0xBF);
-            
+            baos.flush();
+
             // Write headers
             String[] headers = {
                 "거래일시", "종목코드", "종목명", "거래구분", 
@@ -158,8 +160,14 @@ public class DataExportService {
     }
     
     public byte[] exportTransactionsByDateRangeToCsv(String startDate, String endDate) {
-        LocalDateTime startDateTime = LocalDate.parse(startDate).atStartOfDay();
-        LocalDateTime endDateTime = LocalDate.parse(endDate).atTime(23, 59, 59);
+        LocalDateTime startDateTime;
+        LocalDateTime endDateTime;
+        try {
+            startDateTime = LocalDate.parse(startDate).atStartOfDay();
+            endDateTime = LocalDate.parse(endDate).atTime(23, 59, 59);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("잘못된 날짜 형식입니다. yyyy-MM-dd 형식을 사용하세요: " + e.getMessage());
+        }
         List<TransactionDto> transactions = transactionService.getTransactionsByDateRange(startDateTime, endDateTime);
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -170,6 +178,7 @@ public class DataExportService {
             baos.write(0xEF);
             baos.write(0xBB);
             baos.write(0xBF);
+            baos.flush();
 
             // Write headers
             String[] headers = {
@@ -204,8 +213,14 @@ public class DataExportService {
     }
 
     public byte[] exportTransactionsByDateRangeToExcel(String startDate, String endDate) {
-        LocalDateTime startDateTime = LocalDate.parse(startDate).atStartOfDay();
-        LocalDateTime endDateTime = LocalDate.parse(endDate).atTime(23, 59, 59);
+        LocalDateTime startDateTime;
+        LocalDateTime endDateTime;
+        try {
+            startDateTime = LocalDate.parse(startDate).atStartOfDay();
+            endDateTime = LocalDate.parse(endDate).atTime(23, 59, 59);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("잘못된 날짜 형식입니다. yyyy-MM-dd 형식을 사용하세요: " + e.getMessage());
+        }
         List<TransactionDto> transactions = transactionService.getTransactionsByDateRange(startDateTime, endDateTime);
 
         try (Workbook workbook = new XSSFWorkbook();

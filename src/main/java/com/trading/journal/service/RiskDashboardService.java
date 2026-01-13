@@ -191,6 +191,16 @@ public class RiskDashboardService {
         BigDecimal capital = settings.getAccountCapital() != null ?
                 settings.getAccountCapital() : BigDecimal.ZERO;
 
+        // 배치 로딩: 모든 BUY 거래를 한 번에 조회 (N+1 쿼리 최적화)
+        Map<Long, List<Transaction>> buyTransactionsByStock = transactionRepository
+                .findByAccountIdAndTypeAndDateRange(
+                        targetAccountId,
+                        com.trading.journal.entity.TransactionType.BUY,
+                        LocalDateTime.of(2000, 1, 1, 0, 0),
+                        LocalDateTime.now())
+                .stream()
+                .collect(Collectors.groupingBy(t -> t.getStock().getId()));
+
         List<PositionRiskSummary> risks = new ArrayList<>();
 
         for (Portfolio portfolio : portfolios) {
@@ -218,11 +228,9 @@ public class RiskDashboardService {
             BigDecimal riskAmount = BigDecimal.ZERO;
             BigDecimal currentR = null;
 
-            // 해당 종목의 BUY 거래 조회
-            List<Transaction> buyTransactions = transactionRepository
-                    .findByAccountIdAndStockIdAndTypeOrderByTransactionDateAsc(
-                            targetAccountId, portfolio.getStock().getId(),
-                            com.trading.journal.entity.TransactionType.BUY);
+            // Map에서 해당 종목의 BUY 거래 조회 (이미 로드된 데이터 사용)
+            List<Transaction> buyTransactions = buyTransactionsByStock
+                    .getOrDefault(portfolio.getStock().getId(), Collections.emptyList());
 
             if (!buyTransactions.isEmpty()) {
                 Transaction latestBuy = buyTransactions.get(buyTransactions.size() - 1);
@@ -414,16 +422,24 @@ public class RiskDashboardService {
         List<Portfolio> portfolios = portfolioRepository.findByAccountIdWithStock(accountId);
         BigDecimal totalRisk = BigDecimal.ZERO;
 
+        // 배치 로딩: 모든 BUY 거래를 한 번에 조회 (N+1 쿼리 최적화)
+        Map<Long, List<Transaction>> buyTransactionsByStock = transactionRepository
+                .findByAccountIdAndTypeAndDateRange(
+                        accountId,
+                        com.trading.journal.entity.TransactionType.BUY,
+                        LocalDateTime.of(2000, 1, 1, 0, 0),
+                        LocalDateTime.now())
+                .stream()
+                .collect(Collectors.groupingBy(t -> t.getStock().getId()));
+
         for (Portfolio portfolio : portfolios) {
             if (portfolio.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
 
-            // 해당 종목의 BUY 거래에서 손절가 조회
-            List<Transaction> buyTransactions = transactionRepository
-                    .findByAccountIdAndStockIdAndTypeOrderByTransactionDateAsc(
-                            accountId, portfolio.getStock().getId(),
-                            com.trading.journal.entity.TransactionType.BUY);
+            // Map에서 해당 종목의 BUY 거래 조회 (이미 로드된 데이터 사용)
+            List<Transaction> buyTransactions = buyTransactionsByStock
+                    .getOrDefault(portfolio.getStock().getId(), Collections.emptyList());
 
             if (!buyTransactions.isEmpty()) {
                 Transaction latestBuy = buyTransactions.get(buyTransactions.size() - 1);

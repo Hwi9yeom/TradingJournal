@@ -109,8 +109,15 @@ public class FifoCalculationService {
         // 매수 거래들의 잔여 수량 차감
         for (BuyConsumption consumption : result.getConsumptions()) {
             Transaction buyTx = consumption.getBuyTransaction();
-            BigDecimal newRemaining = buyTx.getRemainingQuantity()
+            BigDecimal expectedRemaining = buyTx.getRemainingQuantity()
                     .subtract(consumption.getConsumedQuantity());
+            BigDecimal newRemaining = expectedRemaining.max(BigDecimal.ZERO);
+
+            if (newRemaining.compareTo(expectedRemaining) != 0) {
+                log.warn("FIFO 계산 조정: 음수 잔여수량 방지 (거래 ID: {}, 원래값: {}, 조정값: {})",
+                        buyTx.getId(), expectedRemaining, newRemaining);
+            }
+
             buyTx.setRemainingQuantity(newRemaining);
             transactionRepository.save(buyTx);
         }

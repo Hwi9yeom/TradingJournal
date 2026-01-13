@@ -306,7 +306,11 @@ public class GoalService {
                     yield dividendSummary.getTotalDividends() != null
                             ? dividendSummary.getTotalDividends() : BigDecimal.ZERO;
                 }
-                default -> BigDecimal.ZERO;
+                case WIN_RATE, TRADE_COUNT, MAX_DRAWDOWN_LIMIT, SHARPE_RATIO -> {
+                    log.warn("GoalType {} 자동 추적 미지원 - 수동 업데이트 필요", goalType);
+                    yield BigDecimal.ZERO;
+                }
+                case CUSTOM -> BigDecimal.ZERO; // CUSTOM은 수동 관리
             };
         } catch (Exception e) {
             log.warn("현재 값 조회 실패 (goalType={}): {}", goalType, e.getMessage());
