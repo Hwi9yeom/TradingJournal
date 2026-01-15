@@ -3,9 +3,12 @@ package com.trading.journal.service;
 import com.trading.journal.dto.CorrelationMatrixDto;
 import com.trading.journal.dto.DrawdownDto;
 import com.trading.journal.dto.EquityCurveDto;
+import com.trading.journal.dto.PairCorrelationDto;
 import com.trading.journal.dto.PeriodAnalysisDto;
 import com.trading.journal.dto.PortfolioDto;
 import com.trading.journal.dto.PortfolioSummaryDto;
+import com.trading.journal.dto.RollingCorrelationDto;
+import com.trading.journal.dto.SectorCorrelationDto;
 import com.trading.journal.entity.Stock;
 import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
@@ -754,5 +757,357 @@ public class AnalysisService {
         correlation = Math.max(-1, Math.min(1, correlation));
 
         return BigDecimal.valueOf(correlation).setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 롤링 상관관계 계산
+     * 시간에 따른 두 종목 간 상관관계 변화 추적
+     */
+    public RollingCorrelationDto calculateRollingCorrelation(
+            String symbol1, String symbol2,
+            LocalDate startDate, LocalDate endDate,
+            int windowDays) {
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<Transaction> transactions = transactionRepository.findByDateRange(startDateTime, endDateTime);
+
+        // 두 종목의 거래만 필터링
+        Map<String, List<Transaction>> bySymbol = transactions.stream()
+                .filter(t -> t.getStock().getSymbol().equals(symbol1) ||
+                        t.getStock().getSymbol().equals(symbol2))
+                .collect(Collectors.groupingBy(t -> t.getStock().getSymbol()));
+
+        List<Transaction> txs1 = bySymbol.getOrDefault(symbol1, new ArrayList<>());
+        List<Transaction> txs2 = bySymbol.getOrDefault(symbol2, new ArrayList<>());
+
+        if (txs1.isEmpty() || txs2.isEmpty()) {
+            return RollingCorrelationDto.builder()
+                    .symbol1(symbol1)
+                    .symbol2(symbol2)
+                    .windowDays(windowDays)
+                    .dates(new ArrayList<>())
+                    .correlations(new ArrayList<>())
+                    .build();
+        }
+
+        String name1 = txs1.get(0).getStock().getName();
+        String name2 = txs2.get(0).getStock().getName();
+
+        // 일별 수익률 계산
+        Map<LocalDate, BigDecimal> returns1 = calculateDailyReturns(txs1);
+        Map<LocalDate, BigDecimal> returns2 = calculateDailyReturns(txs2);
+
+        // 공통 날짜 정렬
+        Set<LocalDate> commonDates = new TreeSet<>(returns1.keySet());
+        commonDates.retainAll(returns2.keySet());
+        List<LocalDate> sortedDates = new ArrayList<>(commonDates);
+
+        if (sortedDates.size() < windowDays) {
+            return RollingCorrelationDto.builder()
+                    .symbol1(symbol1)
+                    .symbol2(symbol2)
+                    .name1(name1)
+                    .name2(name2)
+                    .windowDays(windowDays)
+                    .dates(new ArrayList<>())
+                    .correlations(new ArrayList<>())
+                    .build();
+        }
+
+        // 롤링 상관관계 계산
+        List<LocalDate> rollingDates = new ArrayList<>();
+        List<BigDecimal> rollingCorrelations = new ArrayList<>();
+        BigDecimal totalCorr = BigDecimal.ZERO;
+        BigDecimal maxCorr = new BigDecimal("-1");
+        BigDecimal minCorr = BigDecimal.ONE;
+
+        for (int i = windowDays - 1; i < sortedDates.size(); i++) {
+            List<Double> windowX = new ArrayList<>();
+            List<Double> windowY = new ArrayList<>();
+
+            for (int j = i - windowDays + 1; j <= i; j++) {
+                LocalDate date = sortedDates.get(j);
+                windowX.add(returns1.get(date).doubleValue());
+                windowY.add(returns2.get(date).doubleValue());
+            }
+
+            BigDecimal corr = calculatePearsonCorrelation(windowX, windowY);
+            rollingDates.add(sortedDates.get(i));
+            rollingCorrelations.add(corr);
+
+            totalCorr = totalCorr.add(corr);
+            if (corr.compareTo(maxCorr) > 0) maxCorr = corr;
+            if (corr.compareTo(minCorr) < 0) minCorr = corr;
+        }
+
+        BigDecimal avgCorr = rollingCorrelations.isEmpty() ? BigDecimal.ZERO :
+                totalCorr.divide(new BigDecimal(rollingCorrelations.size()), 4, RoundingMode.HALF_UP);
+
+        // 변동성 (표준편차) 계산
+        BigDecimal variance = BigDecimal.ZERO;
+        for (BigDecimal c : rollingCorrelations) {
+            BigDecimal diff = c.subtract(avgCorr);
+            variance = variance.add(diff.multiply(diff));
+        }
+        BigDecimal volatility = rollingCorrelations.isEmpty() ? BigDecimal.ZERO :
+                BigDecimal.valueOf(Math.sqrt(variance.divide(
+                        new BigDecimal(rollingCorrelations.size()), 10, RoundingMode.HALF_UP).doubleValue()))
+                        .setScale(4, RoundingMode.HALF_UP);
+
+        return RollingCorrelationDto.builder()
+                .symbol1(symbol1)
+                .symbol2(symbol2)
+                .name1(name1)
+                .name2(name2)
+                .dates(rollingDates)
+                .correlations(rollingCorrelations)
+                .windowDays(windowDays)
+                .periodDays((int) ChronoUnit.DAYS.between(startDate, endDate))
+                .currentCorrelation(rollingCorrelations.isEmpty() ? BigDecimal.ZERO :
+                        rollingCorrelations.get(rollingCorrelations.size() - 1))
+                .averageCorrelation(avgCorr)
+                .maxCorrelation(maxCorr)
+                .minCorrelation(minCorr)
+                .correlationVolatility(volatility)
+                .build();
+    }
+
+    /**
+     * 종목 쌍 상세 분석
+     */
+    public PairCorrelationDto calculatePairCorrelation(
+            String symbol1, String symbol2,
+            LocalDate startDate, LocalDate endDate) {
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<Transaction> transactions = transactionRepository.findByDateRange(startDateTime, endDateTime);
+
+        Map<String, List<Transaction>> bySymbol = transactions.stream()
+                .filter(t -> t.getStock().getSymbol().equals(symbol1) ||
+                        t.getStock().getSymbol().equals(symbol2))
+                .collect(Collectors.groupingBy(t -> t.getStock().getSymbol()));
+
+        List<Transaction> txs1 = bySymbol.getOrDefault(symbol1, new ArrayList<>());
+        List<Transaction> txs2 = bySymbol.getOrDefault(symbol2, new ArrayList<>());
+
+        if (txs1.isEmpty() || txs2.isEmpty()) {
+            return PairCorrelationDto.builder()
+                    .symbol1(symbol1)
+                    .symbol2(symbol2)
+                    .correlation(BigDecimal.ZERO)
+                    .build();
+        }
+
+        Stock stock1 = txs1.get(0).getStock();
+        Stock stock2 = txs2.get(0).getStock();
+
+        Map<LocalDate, BigDecimal> returns1 = calculateDailyReturns(txs1);
+        Map<LocalDate, BigDecimal> returns2 = calculateDailyReturns(txs2);
+
+        Set<LocalDate> commonDates = new TreeSet<>(returns1.keySet());
+        commonDates.retainAll(returns2.keySet());
+        List<LocalDate> sortedDates = new ArrayList<>(commonDates);
+
+        List<BigDecimal> r1List = new ArrayList<>();
+        List<BigDecimal> r2List = new ArrayList<>();
+        List<BigDecimal> cumR1 = new ArrayList<>();
+        List<BigDecimal> cumR2 = new ArrayList<>();
+
+        BigDecimal cum1 = BigDecimal.ONE;
+        BigDecimal cum2 = BigDecimal.ONE;
+
+        List<Double> x = new ArrayList<>();
+        List<Double> y = new ArrayList<>();
+
+        for (LocalDate date : sortedDates) {
+            BigDecimal ret1 = returns1.get(date);
+            BigDecimal ret2 = returns2.get(date);
+
+            r1List.add(ret1);
+            r2List.add(ret2);
+
+            cum1 = cum1.multiply(BigDecimal.ONE.add(ret1));
+            cum2 = cum2.multiply(BigDecimal.ONE.add(ret2));
+
+            cumR1.add(cum1.subtract(BigDecimal.ONE).multiply(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP));
+            cumR2.add(cum2.subtract(BigDecimal.ONE).multiply(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP));
+
+            x.add(ret1.doubleValue());
+            y.add(ret2.doubleValue());
+        }
+
+        BigDecimal correlation = calculatePearsonCorrelation(x, y);
+
+        // 평균 및 변동성 계산
+        double avgR1 = x.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+        double avgR2 = y.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+
+        double vol1 = Math.sqrt(x.stream().mapToDouble(v -> Math.pow(v - avgR1, 2)).average().orElse(0));
+        double vol2 = Math.sqrt(y.stream().mapToDouble(v -> Math.pow(v - avgR2, 2)).average().orElse(0));
+
+        // 분산투자 효과 (상관관계가 낮을수록 높음)
+        BigDecimal diversBenefit = BigDecimal.ONE.subtract(correlation.abs())
+                .multiply(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP);
+
+        return PairCorrelationDto.builder()
+                .symbol1(symbol1)
+                .symbol2(symbol2)
+                .name1(stock1.getName())
+                .name2(stock2.getName())
+                .sector1(stock1.getSector() != null ? stock1.getSector().name() : "UNKNOWN")
+                .sector2(stock2.getSector() != null ? stock2.getSector().name() : "UNKNOWN")
+                .correlation(correlation)
+                .startDate(startDate)
+                .endDate(endDate)
+                .periodDays((int) ChronoUnit.DAYS.between(startDate, endDate))
+                .dates(sortedDates)
+                .returns1(r1List)
+                .returns2(r2List)
+                .cumulativeReturns1(cumR1)
+                .cumulativeReturns2(cumR2)
+                .avgReturn1(BigDecimal.valueOf(avgR1 * 100).setScale(4, RoundingMode.HALF_UP))
+                .avgReturn2(BigDecimal.valueOf(avgR2 * 100).setScale(4, RoundingMode.HALF_UP))
+                .volatility1(BigDecimal.valueOf(vol1 * 100).setScale(4, RoundingMode.HALF_UP))
+                .volatility2(BigDecimal.valueOf(vol2 * 100).setScale(4, RoundingMode.HALF_UP))
+                .diversificationBenefit(diversBenefit)
+                .build();
+    }
+
+    /**
+     * 섹터별 상관관계 요약
+     */
+    public SectorCorrelationDto calculateSectorCorrelation(LocalDate startDate, LocalDate endDate) {
+        CorrelationMatrixDto matrix = calculateCorrelationMatrix(startDate, endDate);
+
+        if (matrix.getSymbols().isEmpty()) {
+            return SectorCorrelationDto.builder()
+                    .sectorSummaries(new ArrayList<>())
+                    .sectors(new ArrayList<>())
+                    .sectorMatrix(new ArrayList<>())
+                    .diversificationRecommendations(new ArrayList<>())
+                    .build();
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<Transaction> transactions = transactionRepository.findByDateRange(startDateTime, endDateTime);
+
+        // 종목-섹터 매핑
+        Map<String, String> symbolToSector = transactions.stream()
+                .map(Transaction::getStock)
+                .distinct()
+                .collect(Collectors.toMap(
+                        Stock::getSymbol,
+                        s -> s.getSector() != null ? s.getSector().name() : "UNKNOWN",
+                        (a, b) -> a
+                ));
+
+        // 섹터별 종목 그룹화
+        Map<String, List<String>> sectorStocks = new HashMap<>();
+        for (int i = 0; i < matrix.getSymbols().size(); i++) {
+            String symbol = matrix.getSymbols().get(i);
+            String sector = symbolToSector.getOrDefault(symbol, "UNKNOWN");
+            sectorStocks.computeIfAbsent(sector, k -> new ArrayList<>()).add(symbol);
+        }
+
+        // 섹터별 요약
+        List<SectorCorrelationDto.SectorSummary> summaries = new ArrayList<>();
+        for (Map.Entry<String, List<String>> entry : sectorStocks.entrySet()) {
+            String sector = entry.getKey();
+            List<String> stocks = entry.getValue();
+
+            // 섹터 내 평균 상관계수 계산
+            BigDecimal internalCorr = BigDecimal.ZERO;
+            int count = 0;
+
+            for (int i = 0; i < stocks.size(); i++) {
+                int idx1 = matrix.getSymbols().indexOf(stocks.get(i));
+                for (int j = i + 1; j < stocks.size(); j++) {
+                    int idx2 = matrix.getSymbols().indexOf(stocks.get(j));
+                    if (idx1 >= 0 && idx2 >= 0) {
+                        internalCorr = internalCorr.add(matrix.getMatrix().get(idx1).get(idx2).abs());
+                        count++;
+                    }
+                }
+            }
+
+            summaries.add(SectorCorrelationDto.SectorSummary.builder()
+                    .sector(sector)
+                    .sectorLabel(getSectorLabel(sector))
+                    .stockCount(stocks.size())
+                    .stocks(stocks)
+                    .internalCorrelation(count > 0 ?
+                            internalCorr.divide(new BigDecimal(count), 4, RoundingMode.HALF_UP) :
+                            BigDecimal.ZERO)
+                    .build());
+        }
+
+        // 분산투자 추천 (상관관계 낮은 종목 쌍)
+        List<SectorCorrelationDto.SectorPair> recommendations = new ArrayList<>();
+        List<String> symbols = matrix.getSymbols();
+
+        // 모든 쌍의 상관관계를 계산하고 정렬
+        List<Object[]> pairs = new ArrayList<>();
+        for (int i = 0; i < symbols.size(); i++) {
+            for (int j = i + 1; j < symbols.size(); j++) {
+                BigDecimal corr = matrix.getMatrix().get(i).get(j);
+                pairs.add(new Object[]{symbols.get(i), symbols.get(j), corr});
+            }
+        }
+
+        // 상관관계 낮은 순으로 정렬
+        pairs.sort((a, b) -> ((BigDecimal) a[2]).compareTo((BigDecimal) b[2]));
+
+        // 상위 5개 추천
+        for (int i = 0; i < Math.min(5, pairs.size()); i++) {
+            Object[] pair = pairs.get(i);
+            String s1 = (String) pair[0];
+            String s2 = (String) pair[1];
+            BigDecimal corr = (BigDecimal) pair[2];
+
+            String recommendation;
+            if (corr.compareTo(new BigDecimal("-0.3")) < 0) {
+                recommendation = "매우 좋은 분산투자 조합 (역상관)";
+            } else if (corr.compareTo(new BigDecimal("0.3")) < 0) {
+                recommendation = "좋은 분산투자 조합";
+            } else {
+                recommendation = "보통";
+            }
+
+            recommendations.add(SectorCorrelationDto.SectorPair.builder()
+                    .sector1(s1)
+                    .sector2(s2)
+                    .correlation(corr)
+                    .recommendation(recommendation)
+                    .build());
+        }
+
+        return SectorCorrelationDto.builder()
+                .sectorSummaries(summaries)
+                .sectors(new ArrayList<>(sectorStocks.keySet()))
+                .sectorMatrix(new ArrayList<>())
+                .diversificationRecommendations(recommendations)
+                .build();
+    }
+
+    private String getSectorLabel(String sector) {
+        Map<String, String> labels = Map.of(
+                "TECHNOLOGY", "기술",
+                "FINANCE", "금융",
+                "HEALTHCARE", "헬스케어",
+                "CONSUMER", "소비재",
+                "INDUSTRIAL", "산업재",
+                "ENERGY", "에너지",
+                "MATERIALS", "소재",
+                "UTILITIES", "유틸리티",
+                "REAL_ESTATE", "부동산",
+                "UNKNOWN", "미분류"
+        );
+        return labels.getOrDefault(sector, sector);
     }
 }

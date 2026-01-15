@@ -1,9 +1,11 @@
 package com.trading.journal.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trading.journal.dto.BacktestRequestDto;
 import com.trading.journal.dto.BacktestResultDto;
+import com.trading.journal.dto.BacktestSummaryDto;
 import com.trading.journal.dto.OptimizationRequestDto;
 import com.trading.journal.dto.OptimizationRequestDto.ParameterRange;
 import com.trading.journal.dto.OptimizationResultDto;
@@ -31,6 +33,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -65,10 +68,13 @@ public class BacktestService {
         // 4. 실행 시간 기록
         result.setExecutionTimeMs(System.currentTimeMillis() - startTime);
 
-        // 5. 결과 저장
+        // 5. 차트 데이터 계산 및 캐싱
+        cacheComputedData(result, prices);
+
+        // 6. 결과 저장
         BacktestResult saved = backtestResultRepository.save(result);
 
-        // 6. DTO 변환 및 반환
+        // 7. DTO 변환 및 반환
         return convertToDto(saved, prices);
     }
 
@@ -497,7 +503,78 @@ public class BacktestService {
     }
 
     /**
-     * 결과를 DTO로 변환
+     * 계산된 차트 데이터를 엔티티에 캐싱 (저장 시 한 번만 계산)
+     */
+    private void cacheComputedData(BacktestResult result, List<PriceData> prices) {
+        try {
+            // 월별 성과 계산
+            Map<String, BacktestResultDto.MonthlyPerformance> monthlyMap = new LinkedHashMap<>();
+            for (BacktestTrade trade : result.getTrades()) {
+                String month = trade.getExitDate().toString().substring(0, 7);
+                BacktestResultDto.MonthlyPerformance mp = monthlyMap.computeIfAbsent(month,
+                        m -> BacktestResultDto.MonthlyPerformance.builder()
+                                .month(m)
+                                .returnPct(BigDecimal.ZERO)
+                                .tradeCount(0)
+                                .profit(BigDecimal.ZERO)
+                                .build());
+                mp.setTradeCount(mp.getTradeCount() + 1);
+                mp.setProfit(mp.getProfit().add(trade.getProfit()));
+                mp.setReturnPct(mp.getReturnPct().add(trade.getProfitPercent()));
+            }
+            result.setMonthlyPerformanceJson(toJsonList(new ArrayList<>(monthlyMap.values())));
+
+            // Equity curve 및 drawdown 계산
+            List<String> equityLabels = new ArrayList<>();
+            List<BigDecimal> equityCurve = new ArrayList<>();
+            List<BigDecimal> drawdownCurve = new ArrayList<>();
+            List<BigDecimal> benchmarkCurve = new ArrayList<>();
+
+            if (!prices.isEmpty()) {
+                BigDecimal peakEquity = result.getInitialCapital();
+                BigDecimal currentEquity = result.getInitialCapital();
+                BigDecimal benchmarkStart = prices.get(0).getClose();
+
+                for (int i = 0; i < prices.size(); i += 5) {  // 주 단위 샘플링
+                    PriceData price = prices.get(i);
+                    equityLabels.add(price.getDate().toString());
+
+                    // 간단한 equity 계산
+                    double progress = (double) i / prices.size();
+                    currentEquity = result.getInitialCapital().add(
+                            result.getFinalCapital().subtract(result.getInitialCapital())
+                                    .multiply(BigDecimal.valueOf(progress)));
+                    equityCurve.add(currentEquity);
+
+                    // Drawdown
+                    if (currentEquity.compareTo(peakEquity) > 0) {
+                        peakEquity = currentEquity;
+                    }
+                    BigDecimal drawdown = peakEquity.subtract(currentEquity)
+                            .divide(peakEquity, 4, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(-100));
+                    drawdownCurve.add(drawdown);
+
+                    // Benchmark (Buy & Hold)
+                    BigDecimal benchmarkValue = result.getInitialCapital()
+                            .multiply(price.getClose())
+                            .divide(benchmarkStart, 2, RoundingMode.HALF_UP);
+                    benchmarkCurve.add(benchmarkValue);
+                }
+            }
+
+            result.setEquityLabelsJson(toJsonList(equityLabels));
+            result.setEquityCurveJson(toJsonList(equityCurve));
+            result.setDrawdownCurveJson(toJsonList(drawdownCurve));
+            result.setBenchmarkCurveJson(toJsonList(benchmarkCurve));
+
+        } catch (Exception e) {
+            log.warn("차트 데이터 캐싱 실패: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 결과를 DTO로 변환 (캐시된 데이터 우선 사용)
      */
     private BacktestResultDto convertToDto(BacktestResult result, List<PriceData> prices) {
         List<BacktestResultDto.TradeDto> tradeDtos = result.getTrades().stream()
@@ -519,62 +596,30 @@ public class BacktestService {
                         .build())
                 .collect(Collectors.toList());
 
-        // 월별 성과 계산
-        Map<String, BacktestResultDto.MonthlyPerformance> monthlyMap = new LinkedHashMap<>();
-        for (BacktestTrade trade : result.getTrades()) {
-            String month = trade.getExitDate().toString().substring(0, 7);
-            BacktestResultDto.MonthlyPerformance mp = monthlyMap.computeIfAbsent(month,
-                    m -> BacktestResultDto.MonthlyPerformance.builder()
-                            .month(m)
-                            .returnPct(BigDecimal.ZERO)
-                            .tradeCount(0)
-                            .profit(BigDecimal.ZERO)
-                            .build());
-            mp.setTradeCount(mp.getTradeCount() + 1);
-            mp.setProfit(mp.getProfit().add(trade.getProfit()));
-            mp.setReturnPct(mp.getReturnPct().add(trade.getProfitPercent()));
+        // 캐시된 데이터 사용 시도
+        List<String> equityLabels = loadCachedList(result.getEquityLabelsJson(), new TypeReference<>() {});
+        List<BigDecimal> equityCurve = loadCachedList(result.getEquityCurveJson(), new TypeReference<>() {});
+        List<BigDecimal> drawdownCurve = loadCachedList(result.getDrawdownCurveJson(), new TypeReference<>() {});
+        List<BigDecimal> benchmarkCurve = loadCachedList(result.getBenchmarkCurveJson(), new TypeReference<>() {});
+        List<BacktestResultDto.MonthlyPerformance> monthlyPerformance = loadCachedList(
+                result.getMonthlyPerformanceJson(), new TypeReference<>() {});
+
+        // 캐시가 없으면 실시간 계산 (하위 호환성)
+        if (equityLabels.isEmpty() && !prices.isEmpty()) {
+            log.debug("캐시된 차트 데이터 없음, 실시간 계산 수행: {}", result.getId());
+            computeChartDataRealtime(result, prices, equityLabels, equityCurve, drawdownCurve, benchmarkCurve);
         }
 
-        // Equity curve 및 drawdown 계산
-        List<String> equityLabels = new ArrayList<>();
-        List<BigDecimal> equityCurve = new ArrayList<>();
-        List<BigDecimal> drawdownCurve = new ArrayList<>();
-        List<BigDecimal> benchmarkCurve = new ArrayList<>();
-
-        BigDecimal peakEquity = result.getInitialCapital();
-        BigDecimal currentEquity = result.getInitialCapital();
-        BigDecimal benchmarkStart = prices.isEmpty() ? BigDecimal.valueOf(100) : prices.get(0).getClose();
-
-        for (int i = 0; i < prices.size(); i += 5) {  // 주 단위 샘플링
-            PriceData price = prices.get(i);
-            equityLabels.add(price.getDate().toString());
-
-            // 간단한 equity 계산 (실제로는 더 정교하게)
-            double progress = (double) i / prices.size();
-            currentEquity = result.getInitialCapital().add(
-                    result.getFinalCapital().subtract(result.getInitialCapital())
-                            .multiply(BigDecimal.valueOf(progress)));
-            equityCurve.add(currentEquity);
-
-            // Drawdown
-            if (currentEquity.compareTo(peakEquity) > 0) {
-                peakEquity = currentEquity;
-            }
-            BigDecimal drawdown = peakEquity.subtract(currentEquity)
-                    .divide(peakEquity, 4, RoundingMode.HALF_UP)
-                    .multiply(BigDecimal.valueOf(-100));
-            drawdownCurve.add(drawdown);
-
-            // Benchmark (Buy & Hold)
-            BigDecimal benchmarkValue = result.getInitialCapital()
-                    .multiply(price.getClose())
-                    .divide(benchmarkStart, 2, RoundingMode.HALF_UP);
-            benchmarkCurve.add(benchmarkValue);
+        if (monthlyPerformance.isEmpty()) {
+            monthlyPerformance = computeMonthlyPerformance(result);
         }
 
         // Calmar Ratio
-        BigDecimal calmarRatio = result.getMaxDrawdown().compareTo(BigDecimal.ZERO) > 0 ?
-                result.getCagr().divide(result.getMaxDrawdown(), 4, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+        BigDecimal calmarRatio = BigDecimal.ZERO;
+        if (result.getMaxDrawdown() != null && result.getMaxDrawdown().compareTo(BigDecimal.ZERO) > 0
+                && result.getCagr() != null) {
+            calmarRatio = result.getCagr().divide(result.getMaxDrawdown(), 4, RoundingMode.HALF_UP);
+        }
 
         return BacktestResultDto.builder()
                 .id(result.getId())
@@ -608,20 +653,116 @@ public class BacktestService {
                 .equityCurve(equityCurve)
                 .drawdownCurve(drawdownCurve)
                 .benchmarkCurve(benchmarkCurve)
-                .monthlyPerformance(new ArrayList<>(monthlyMap.values()))
+                .monthlyPerformance(monthlyPerformance)
                 .executedAt(result.getExecutedAt())
                 .executionTimeMs(result.getExecutionTimeMs())
                 .build();
     }
 
     /**
-     * 백테스트 히스토리 조회
+     * 캐시된 JSON 데이터를 리스트로 로드
+     */
+    private <T> List<T> loadCachedList(String json, TypeReference<List<T>> typeRef) {
+        if (json == null || json.isEmpty()) {
+            return new ArrayList<>();
+        }
+        try {
+            return objectMapper.readValue(json, typeRef);
+        } catch (Exception e) {
+            log.warn("캐시 데이터 로드 실패: {}", e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * 차트 데이터 실시간 계산 (캐시 미스 시)
+     */
+    private void computeChartDataRealtime(BacktestResult result, List<PriceData> prices,
+                                          List<String> equityLabels, List<BigDecimal> equityCurve,
+                                          List<BigDecimal> drawdownCurve, List<BigDecimal> benchmarkCurve) {
+        BigDecimal peakEquity = result.getInitialCapital();
+        BigDecimal currentEquity = result.getInitialCapital();
+        BigDecimal benchmarkStart = prices.get(0).getClose();
+
+        for (int i = 0; i < prices.size(); i += 5) {
+            PriceData price = prices.get(i);
+            equityLabels.add(price.getDate().toString());
+
+            double progress = (double) i / prices.size();
+            currentEquity = result.getInitialCapital().add(
+                    result.getFinalCapital().subtract(result.getInitialCapital())
+                            .multiply(BigDecimal.valueOf(progress)));
+            equityCurve.add(currentEquity);
+
+            if (currentEquity.compareTo(peakEquity) > 0) {
+                peakEquity = currentEquity;
+            }
+            BigDecimal drawdown = peakEquity.subtract(currentEquity)
+                    .divide(peakEquity, 4, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(-100));
+            drawdownCurve.add(drawdown);
+
+            BigDecimal benchmarkValue = result.getInitialCapital()
+                    .multiply(price.getClose())
+                    .divide(benchmarkStart, 2, RoundingMode.HALF_UP);
+            benchmarkCurve.add(benchmarkValue);
+        }
+    }
+
+    /**
+     * 월별 성과 계산
+     */
+    private List<BacktestResultDto.MonthlyPerformance> computeMonthlyPerformance(BacktestResult result) {
+        Map<String, BacktestResultDto.MonthlyPerformance> monthlyMap = new LinkedHashMap<>();
+        for (BacktestTrade trade : result.getTrades()) {
+            String month = trade.getExitDate().toString().substring(0, 7);
+            BacktestResultDto.MonthlyPerformance mp = monthlyMap.computeIfAbsent(month,
+                    m -> BacktestResultDto.MonthlyPerformance.builder()
+                            .month(m)
+                            .returnPct(BigDecimal.ZERO)
+                            .tradeCount(0)
+                            .profit(BigDecimal.ZERO)
+                            .build());
+            mp.setTradeCount(mp.getTradeCount() + 1);
+            mp.setProfit(mp.getProfit().add(trade.getProfit()));
+            mp.setReturnPct(mp.getReturnPct().add(trade.getProfitPercent()));
+        }
+        return new ArrayList<>(monthlyMap.values());
+    }
+
+    /**
+     * 백테스트 히스토리 조회 (요약 정보만)
      */
     @Transactional(readOnly = true)
-    public List<BacktestResultDto> getHistory() {
+    public List<BacktestSummaryDto> getHistory() {
         return backtestResultRepository.findTop20ByOrderByExecutedAtDesc().stream()
-                .map(result -> convertToDto(result, new ArrayList<>()))
+                .map(this::convertToSummaryDto)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 결과를 요약 DTO로 변환 (목록 조회용 - 차트/거래 데이터 제외)
+     */
+    private BacktestSummaryDto convertToSummaryDto(BacktestResult result) {
+        return BacktestSummaryDto.builder()
+                .id(result.getId())
+                .strategyName(result.getStrategyName())
+                .strategyType(extractStrategyType(result.getStrategyName()))
+                .symbol(result.getSymbol())
+                .startDate(result.getStartDate())
+                .endDate(result.getEndDate())
+                .initialCapital(result.getInitialCapital())
+                .finalCapital(result.getFinalCapital())
+                .totalReturn(result.getTotalReturn())
+                .cagr(result.getCagr())
+                .maxDrawdown(result.getMaxDrawdown())
+                .sharpeRatio(result.getSharpeRatio())
+                .profitFactor(result.getProfitFactor())
+                .totalTrades(result.getTotalTrades())
+                .winRate(result.getWinRate())
+                .executedAt(result.getExecutedAt())
+                .executionTimeMs(result.getExecutionTimeMs())
+                .build();
     }
 
     /**
@@ -709,9 +850,13 @@ public class BacktestService {
         List<PriceData> prices = fetchHistoricalPriceData(request.getSymbol(),
                 request.getStartDate(), request.getEndDate());
 
-        // 3. 각 조합에 대해 백테스트 실행
-        List<ParameterResult> results = new ArrayList<>();
-        for (Map<String, Object> params : paramCombinations) {
+        // 3. 각 조합에 대해 백테스트 실행 (병렬 처리)
+        List<ParameterResult> results = Collections.synchronizedList(new ArrayList<>());
+        final int totalCombinations = paramCombinations.size();
+        final AtomicInteger completedCount = new AtomicInteger(0);
+        final AtomicInteger logInterval = new AtomicInteger(Math.max(1, totalCombinations / 10)); // 10% 단위 로깅
+
+        paramCombinations.parallelStream().forEach(params -> {
             try {
                 BacktestRequestDto backtestRequest = createBacktestRequestFromOptimization(request, params);
                 TradingStrategy strategy = createStrategy(backtestRequest);
@@ -729,10 +874,18 @@ public class BacktestService {
                         .totalTrades(result.getTotalTrades())
                         .winRate(result.getWinRate())
                         .build());
+
+                // 진행률 로깅 (10% 단위)
+                int completed = completedCount.incrementAndGet();
+                if (completed % logInterval.get() == 0 || completed == totalCombinations) {
+                    log.info("최적화 진행률: {}/{} ({}%)", completed, totalCombinations,
+                            String.format("%.0f", (double) completed / totalCombinations * 100));
+                }
             } catch (Exception e) {
                 log.warn("파라미터 조합 테스트 실패: {} - {}", params, e.getMessage());
+                completedCount.incrementAndGet();
             }
-        }
+        });
 
         if (results.isEmpty()) {
             throw new RuntimeException("최적화 실패: 유효한 결과가 없습니다");
@@ -888,6 +1041,17 @@ public class BacktestService {
             return objectMapper.writeValueAsString(map);
         } catch (JsonProcessingException e) {
             return "{}";
+        }
+    }
+
+    /**
+     * 리스트를 JSON 문자열로 변환
+     */
+    private String toJsonList(Object list) {
+        try {
+            return objectMapper.writeValueAsString(list);
+        } catch (JsonProcessingException e) {
+            return "[]";
         }
     }
 

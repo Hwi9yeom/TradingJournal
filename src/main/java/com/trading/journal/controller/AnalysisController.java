@@ -4,9 +4,12 @@ import com.trading.journal.dto.BenchmarkComparisonDto;
 import com.trading.journal.dto.CorrelationMatrixDto;
 import com.trading.journal.dto.DrawdownDto;
 import com.trading.journal.dto.EquityCurveDto;
+import com.trading.journal.dto.PairCorrelationDto;
 import com.trading.journal.dto.PeriodAnalysisDto;
 import com.trading.journal.dto.RiskMetricsDto;
+import com.trading.journal.dto.RollingCorrelationDto;
 import com.trading.journal.dto.SectorAnalysisDto;
+import com.trading.journal.dto.SectorCorrelationDto;
 import com.trading.journal.dto.StockAnalysisDto;
 import com.trading.journal.dto.TaxCalculationDto;
 import com.trading.journal.dto.TradingPatternDto;
@@ -317,6 +320,65 @@ public class AnalysisController {
 
         CorrelationMatrixDto correlation = analysisService.calculateCorrelationMatrix(startDate, endDate);
         return ResponseEntity.ok(correlation);
+    }
+
+    /**
+     * 롤링 상관관계 조회
+     * 시간에 따른 두 종목 간 상관관계 변화 추적
+     */
+    @GetMapping("/correlation/rolling")
+    public ResponseEntity<RollingCorrelationDto> getRollingCorrelation(
+            @RequestParam String symbol1,
+            @RequestParam String symbol2,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "30") int windowDays) {
+        log.info("Getting rolling correlation for {} vs {} from {} to {} with {}d window",
+                symbol1, symbol2, startDate, endDate, windowDays);
+
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("시작일은 종료일보다 이전이어야 합니다");
+        }
+
+        RollingCorrelationDto rolling = analysisService.calculateRollingCorrelation(
+                symbol1, symbol2, startDate, endDate, windowDays);
+        return ResponseEntity.ok(rolling);
+    }
+
+    /**
+     * 종목 쌍 상세 분석
+     */
+    @GetMapping("/correlation/pair")
+    public ResponseEntity<PairCorrelationDto> getPairCorrelation(
+            @RequestParam String symbol1,
+            @RequestParam String symbol2,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        log.info("Getting pair correlation for {} vs {} from {} to {}", symbol1, symbol2, startDate, endDate);
+
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("시작일은 종료일보다 이전이어야 합니다");
+        }
+
+        PairCorrelationDto pair = analysisService.calculatePairCorrelation(symbol1, symbol2, startDate, endDate);
+        return ResponseEntity.ok(pair);
+    }
+
+    /**
+     * 섹터별 상관관계 요약
+     */
+    @GetMapping("/correlation/sector-summary")
+    public ResponseEntity<SectorCorrelationDto> getSectorCorrelation(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        log.info("Getting sector correlation summary from {} to {}", startDate, endDate);
+
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("시작일은 종료일보다 이전이어야 합니다");
+        }
+
+        SectorCorrelationDto sector = analysisService.calculateSectorCorrelation(startDate, endDate);
+        return ResponseEntity.ok(sector);
     }
 
     /**

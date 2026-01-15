@@ -43,14 +43,13 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/login.html").permitAll()
+                // Static resources (HTML, CSS, JS) - auth checked via JavaScript
+                .requestMatchers("/*.html", "/*.css", "/*.js").permitAll()
                 .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
-                // All other API endpoints require authentication
+                // All API endpoints require authentication (except /api/auth/**)
                 .requestMatchers("/api/**").authenticated()
-                // Static HTML pages require authentication
-                .requestMatchers("/*.html").authenticated()
                 .anyRequest().authenticated()
             )
             // H2 Console support

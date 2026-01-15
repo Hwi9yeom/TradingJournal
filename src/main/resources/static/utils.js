@@ -227,14 +227,9 @@ function handleAjaxError(xhr, defaultMessage = '요청 처리 중 오류가 발�
         response: xhr.responseJSON || xhr.responseText
     });
 
-    // Show user-friendly error
-    ToastNotification.error(errorMessage);
-
-    // Handle specific status codes
-    if (xhr.status === 401) {
-        setTimeout(() => {
-            window.location.href = '/login.html';
-        }, 2000);
+    // Show user-friendly error (skip for 401 which is handled globally by auth.js)
+    if (xhr.status !== 401) {
+        ToastNotification.error(errorMessage);
     }
 }
 

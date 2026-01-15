@@ -30,6 +30,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
             String jwt = getJwtFromRequest(request);
+            String uri = request.getRequestURI();
+
+            // Debug logging for API requests
+            if (uri.startsWith("/api/") && !uri.contains("/auth/")) {
+                log.debug("Request URI: {}, JWT present: {}", uri, jwt != null);
+            }
 
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
                 String username = tokenProvider.getUsernameFromToken(jwt);

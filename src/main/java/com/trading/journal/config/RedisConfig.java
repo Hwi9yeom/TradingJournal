@@ -99,7 +99,8 @@ public class RedisConfig {
                 new ConcurrentMapCache("portfolioAnalysis"),
                 new ConcurrentMapCache("analysis"),
                 new ConcurrentMapCache("dividend"),
-                new ConcurrentMapCache("disclosure")
+                new ConcurrentMapCache("disclosure"),
+                new ConcurrentMapCache("historicalQuotes")
         ));
         return cacheManager;
     }
@@ -137,6 +138,9 @@ public class RedisConfig {
 
         // 공시 정보 - 30분 캐시
         cacheConfigurations.put("disclosure", defaultConfig.entryTtl(Duration.ofMinutes(30)));
+
+        // 과거 가격 데이터 - 24시간 캐시 (과거 데이터는 변경되지 않음)
+        cacheConfigurations.put("historicalQuotes", defaultConfig.entryTtl(Duration.ofHours(24)));
 
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(defaultConfig)

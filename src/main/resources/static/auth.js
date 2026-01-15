@@ -105,39 +105,47 @@ function logout() {
     redirectToLogin();
 }
 
+// Flag to prevent multiple simultaneous redirects
+let isRedirecting = false;
+let authSetupDone = false;
+
 /**
  * Setup jQuery AJAX to include Authorization header
  */
 function setupAjaxAuth() {
-    $.ajaxSetup({
-        beforeSend: function(xhr, settings) {
-            // Skip auth header for login/refresh endpoints
-            if (settings.url && (
-                settings.url.includes('/api/auth/login') ||
-                settings.url.includes('/api/auth/refresh'))) {
-                return;
-            }
+    // Prevent multiple setup calls
+    if (authSetupDone) {
+        return;
+    }
+    authSetupDone = true;
 
-            const token = getAccessToken();
-            if (token) {
-                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-            }
+    // Use ajaxPrefilter for reliable header injection
+    $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
+        // Skip auth header for login/refresh endpoints
+        if (options.url && (
+            options.url.includes('/api/auth/login') ||
+            options.url.includes('/api/auth/refresh'))) {
+            return;
+        }
+
+        const token = getAccessToken();
+        if (token) {
+            jqXHR.setRequestHeader('Authorization', 'Bearer ' + token);
         }
     });
 
     // Global error handler for 401 responses
-    $(document).ajaxError(function(event, jqXHR, settings) {
-        if (jqXHR.status === 401) {
-            // Try to refresh token first
-            const refreshToken = getRefreshToken();
-            if (refreshToken && !settings.url.includes('/api/auth/')) {
-                refreshAccessToken().fail(function() {
-                    redirectToLogin();
-                });
-            } else {
-                clearTokens();
-                redirectToLogin();
+    $(document).off('ajaxError.auth').on('ajaxError.auth', function(event, jqXHR, settings) {
+        if (jqXHR.status === 401 && !isRedirecting) {
+            // Skip if it's an auth endpoint
+            if (settings.url && settings.url.includes('/api/auth/')) {
+                return;
             }
+
+            console.log('401 error, redirecting to login');
+            isRedirecting = true;
+            clearTokens();
+            redirectToLogin();
         }
     });
 }

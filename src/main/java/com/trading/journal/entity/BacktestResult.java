@@ -125,6 +125,28 @@ public class BacktestResult {
     @Column
     private Long executionTimeMs;
 
+    // === 캐싱된 계산 결과 (JSON) ===
+
+    /** 월별 성과 (JSON) */
+    @Column(columnDefinition = "TEXT")
+    private String monthlyPerformanceJson;
+
+    /** Equity Curve 라벨 (JSON) */
+    @Column(columnDefinition = "TEXT")
+    private String equityLabelsJson;
+
+    /** Equity Curve (JSON) */
+    @Column(columnDefinition = "TEXT")
+    private String equityCurveJson;
+
+    /** Drawdown Curve (JSON) */
+    @Column(columnDefinition = "TEXT")
+    private String drawdownCurveJson;
+
+    /** Benchmark Curve (JSON) */
+    @Column(columnDefinition = "TEXT")
+    private String benchmarkCurveJson;
+
     @PrePersist
     protected void onCreate() {
         executedAt = LocalDateTime.now();

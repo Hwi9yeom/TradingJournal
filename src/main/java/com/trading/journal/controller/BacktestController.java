@@ -2,6 +2,7 @@ package com.trading.journal.controller;
 
 import com.trading.journal.dto.BacktestRequestDto;
 import com.trading.journal.dto.BacktestResultDto;
+import com.trading.journal.dto.BacktestSummaryDto;
 import com.trading.journal.dto.OptimizationRequestDto;
 import com.trading.journal.dto.OptimizationResultDto;
 import com.trading.journal.service.BacktestService;
@@ -39,10 +40,10 @@ public class BacktestController {
     }
 
     /**
-     * 백테스트 히스토리 조회
+     * 백테스트 히스토리 조회 (요약 정보만)
      */
     @GetMapping("/history")
-    public ResponseEntity<List<BacktestResultDto>> getHistory() {
+    public ResponseEntity<List<BacktestSummaryDto>> getHistory() {
         return ResponseEntity.ok(backtestService.getHistory());
     }
 

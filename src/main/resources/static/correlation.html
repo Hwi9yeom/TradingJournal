@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>상관관계 분석 - 투자 기록 서비스</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        .correlation-cell {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .correlation-cell:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            z-index: 10;
+            position: relative;
+        }
+        .correlation-header {
+            font-size: 0.7rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 60px;
+        }
+        .heatmap-container {
+            overflow-x: auto;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 1rem;
+        }
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        .pair-analysis {
+            display: none;
+        }
+        .pair-analysis.active {
+            display: block;
+        }
+        .recommendation-card {
+            transition: background-color 0.2s;
+        }
+        .recommendation-card:hover {
+            background-color: #f8f9fa;
+        }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 1rem;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">투자 기록 서비스</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="dashboard.html">대시보드</a></li>
+                    <li class="nav-item"><a class="nav-link" href="index.html">거래관리</a></li>
+                    <li class="nav-item"><a class="nav-link" href="risk.html">리스크관리</a></li>
+                    <li class="nav-item"><a class="nav-link" href="plans.html">트레이드플랜</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="correlation.html">상관관계분석</a></li>
+                    <li class="nav-item"><a class="nav-link" href="dividend.html">배당금관리</a></li>
+                    <li class="nav-item"><a class="nav-link" href="accounts.html">계좌관리</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">로그아웃</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 요약 카드 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="stat-value" id="avg-correlation">-</div>
+                    <div class="stat-label">평균 상관계수</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="stat-value" id="diversification-score">-</div>
+                    <div class="stat-label">분산투자 점수</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="stat-value" id="stock-count">-</div>
+                    <div class="stat-label">분석 종목 수</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <select class="form-select" id="period-selector">
+                        <option value="3M">최근 3개월</option>
+                        <option value="6M" selected>최근 6개월</option>
+                        <option value="1Y">최근 1년</option>
+                        <option value="ALL">전체 기간</option>
+                    </select>
+                    <div class="stat-label mt-2">분석 기간</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 상관관계 히트맵 -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-grid-3x3"></i> 상관관계 히트맵</h5>
+                <div class="legend">
+                    <span class="legend-item">
+                        <span class="legend-color" style="background: #22c55e;"></span>
+                        <small>-1.0 (역상관)</small>
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-color" style="background: #fbbf24;"></span>
+                        <small>0 (무관)</small>
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-color" style="background: #ef4444;"></span>
+                        <small>+1.0 (정상관)</small>
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    <i class="bi bi-info-circle"></i> 셀을 클릭하면 두 종목 간 상세 분석을 볼 수 있습니다.
+                </p>
+                <div class="heatmap-container">
+                    <table class="table table-bordered" id="heatmap-table">
+                        <thead id="heatmap-header"></thead>
+                        <tbody id="heatmap-body"></tbody>
+                    </table>
+                </div>
+                <div id="heatmap-empty" class="text-center text-muted py-5" style="display: none;">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p class="mt-2">분석할 종목이 없습니다. 거래를 추가해주세요.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 섹터별 분석 & 분산투자 추천 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-pie-chart"></i> 섹터별 상관관계</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="sector-summary">
+                            <div class="text-center text-muted py-3">로딩 중...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-lightbulb"></i> 분산투자 추천</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">상관관계가 낮은 종목 쌍입니다.</p>
+                        <div id="recommendations">
+                            <div class="text-center text-muted py-3">로딩 중...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 종목 쌍 상세 분석 -->
+        <div class="card mb-4 pair-analysis" id="pair-analysis-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up"></i>
+                    <span id="pair-title">종목 쌍 상세 분석</span>
+                </h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="closePairAnalysis()">
+                    <i class="bi bi-x-lg"></i> 닫기
+                </button>
+            </div>
+            <div class="card-body">
+                <!-- 쌍 요약 -->
+                <div class="row mb-4">
+                    <div class="col-md-2 text-center">
+                        <div class="h4" id="pair-correlation">-</div>
+                        <small class="text-muted">현재 상관계수</small>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <div class="h4" id="pair-benefit">-</div>
+                        <small class="text-muted">분산투자 효과</small>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <div class="h4" id="pair-avg-return1">-</div>
+                        <small class="text-muted" id="pair-label1">종목1 평균수익</small>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <div class="h4" id="pair-avg-return2">-</div>
+                        <small class="text-muted" id="pair-label2">종목2 평균수익</small>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <div class="h4" id="pair-vol1">-</div>
+                        <small class="text-muted">종목1 변동성</small>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <div class="h4" id="pair-vol2">-</div>
+                        <small class="text-muted">종목2 변동성</small>
+                    </div>
+                </div>
+
+                <!-- 차트 영역 -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-center mb-3">롤링 상관관계 (30일 윈도우)</h6>
+                        <canvas id="rolling-chart" height="250"></canvas>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-center mb-3">누적 수익률 비교</h6>
+                        <canvas id="comparison-chart" height="250"></canvas>
+                    </div>
+                </div>
+
+                <!-- 롤링 상관관계 통계 -->
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="alert alert-info">
+                            <div class="row text-center">
+                                <div class="col">
+                                    <strong>평균:</strong> <span id="rolling-avg">-</span>
+                                </div>
+                                <div class="col">
+                                    <strong>최고:</strong> <span id="rolling-max">-</span>
+                                </div>
+                                <div class="col">
+                                    <strong>최저:</strong> <span id="rolling-min">-</span>
+                                </div>
+                                <div class="col">
+                                    <strong>변동성:</strong> <span id="rolling-vol">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <script src="auth.js"></script>
+    <script src="correlation.js"></script>
+</body>
+</html>
