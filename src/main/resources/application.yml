@@ -3,13 +3,21 @@ spring:
     url: jdbc:h2:file:./data/tradingjournal;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
-    password: 
-  
+    password:
+    # HikariCP Connection Pool 설정
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000        # 5분
+      connection-timeout: 20000   # 20초
+      max-lifetime: 1200000       # 20분
+      pool-name: TradingJournalHikariCP
+
   h2:
     console:
       enabled: true
       path: /h2-console
-  
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -17,6 +25,33 @@ spring:
       hibernate:
         format_sql: true
         show_sql: true
-    
+
+# Resilience4j Circuit Breaker 설정
+resilience4j:
+  circuitbreaker:
+    instances:
+      yahooFinance:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 30s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+        recordExceptions:
+          - java.io.IOException
+          - java.net.SocketTimeoutException
+          - java.lang.RuntimeException
+  retry:
+    instances:
+      yahooFinance:
+        maxAttempts: 3
+        waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.io.IOException
+
 server:
   port: 8080

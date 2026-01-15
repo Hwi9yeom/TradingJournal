@@ -22,10 +22,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Transaction> findByStockIdOrderByTransactionDateDesc(Long stockId);
     List<Transaction> findByTypeOrderByTransactionDateDesc(TransactionType type);
 
-    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock WHERE t.transactionDate BETWEEN :startDate AND :endDate ORDER BY t.transactionDate DESC")
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock LEFT JOIN FETCH t.account WHERE t.transactionDate BETWEEN :startDate AND :endDate ORDER BY t.transactionDate DESC")
     List<Transaction> findByDateRange(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
-    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock ORDER BY t.transactionDate DESC")
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock LEFT JOIN FETCH t.account ORDER BY t.transactionDate DESC")
     List<Transaction> findAllWithStock();
 
     @Query("SELECT t FROM Transaction t JOIN FETCH t.stock WHERE t.stock.symbol = :symbol ORDER BY t.transactionDate DESC")
@@ -39,16 +39,16 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Transaction> findByAccountIdAndStockIdOrderByTransactionDateDesc(Long accountId, Long stockId);
     Page<Transaction> findByAccountId(Long accountId, Pageable pageable);
 
-    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock WHERE t.account.id = :accountId ORDER BY t.transactionDate DESC")
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock JOIN FETCH t.account WHERE t.account.id = :accountId ORDER BY t.transactionDate DESC")
     List<Transaction> findByAccountIdWithStock(@Param("accountId") Long accountId);
 
-    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock WHERE t.account.id = :accountId AND t.transactionDate BETWEEN :startDate AND :endDate ORDER BY t.transactionDate DESC")
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock JOIN FETCH t.account WHERE t.account.id = :accountId AND t.transactionDate BETWEEN :startDate AND :endDate ORDER BY t.transactionDate DESC")
     List<Transaction> findByAccountIdAndDateRange(
             @Param("accountId") Long accountId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
-    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock WHERE t.account.id = :accountId AND t.stock.symbol = :symbol ORDER BY t.transactionDate DESC")
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.stock JOIN FETCH t.account WHERE t.account.id = :accountId AND t.stock.symbol = :symbol ORDER BY t.transactionDate DESC")
     List<Transaction> findByAccountIdAndSymbol(@Param("accountId") Long accountId, @Param("symbol") String symbol);
 
     // account_id가 NULL인 거래 (마이그레이션용)

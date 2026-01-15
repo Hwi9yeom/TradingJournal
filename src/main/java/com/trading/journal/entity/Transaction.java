@@ -7,14 +7,10 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transactions", indexes = {
+    // 핵심 인덱스만 유지 (11개 → 5개로 축소)
+    // 쓰기 성능 향상을 위해 불필요한 인덱스 제거
     @Index(name = "idx_transaction_date", columnList = "transactionDate"),
-    @Index(name = "idx_stock_id", columnList = "stock_id"),
-    @Index(name = "idx_type", columnList = "type"),
     @Index(name = "idx_stock_date", columnList = "stock_id, transactionDate"),
-    @Index(name = "idx_type_date", columnList = "type, transactionDate"),
-    @Index(name = "idx_created_at", columnList = "createdAt"),
-    @Index(name = "idx_updated_at", columnList = "updatedAt"),
-    @Index(name = "idx_transaction_account_id", columnList = "account_id"),
     @Index(name = "idx_transaction_account_stock", columnList = "account_id, stock_id"),
     @Index(name = "idx_transaction_account_date", columnList = "account_id, transactionDate"),
     @Index(name = "idx_transaction_fifo", columnList = "account_id, stock_id, type, transactionDate, remainingQuantity")

@@ -2,6 +2,7 @@ package com.trading.journal.service;
 
 import com.trading.journal.entity.HistoricalPrice;
 import com.trading.journal.repository.HistoricalPriceRepository;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -33,6 +34,7 @@ public class StockPriceService {
     private final HistoricalPriceRepository historicalPriceRepository;
 
     @Cacheable(value = "stockPrice", key = "#symbol")
+    @CircuitBreaker(name = "yahooFinance", fallbackMethod = "getCurrentPriceFallback")
     public BigDecimal getCurrentPrice(String symbol) {
         try {
             Stock stock = YahooFinance.get(symbol);
@@ -43,7 +45,28 @@ public class StockPriceService {
         }
     }
 
+    /**
+     * Circuit Breaker 폴백: 가격을 가져올 수 없을 때 로컬 DB에서 최신 가격 조회
+     */
+    private BigDecimal getCurrentPriceFallback(String symbol, Throwable t) {
+        log.warn("Circuit breaker fallback for getCurrentPrice: symbol={}, error={}", symbol, t.getMessage());
+
+        // 로컬 DB에서 최신 가격 조회 시도
+        Optional<LocalDate> latestDate = historicalPriceRepository.findLatestPriceDateBySymbol(symbol);
+        if (latestDate.isPresent()) {
+            Optional<HistoricalPrice> price = historicalPriceRepository.findBySymbolAndPriceDate(symbol, latestDate.get());
+            if (price.isPresent()) {
+                log.info("Using cached price from {} for symbol {}", latestDate.get(), symbol);
+                return price.get().getClosePrice();
+            }
+        }
+
+        log.error("No fallback price available for symbol: {}", symbol);
+        throw new RuntimeException("Failed to fetch stock price and no fallback available", t);
+    }
+
     @Cacheable(value = "stockInfo", key = "#symbol")
+    @CircuitBreaker(name = "yahooFinance", fallbackMethod = "getStockInfoFallback")
     public Stock getStockInfo(String symbol) {
         IOException lastException = null;
 
@@ -55,7 +78,6 @@ public class StockPriceService {
                 // Yahoo Finance API에서 null을 반환하는 경우도 있음
                 if (stock == null || stock.getName() == null) {
                     log.warn("Stock info not found for symbol: {}", symbol);
-                    // 기본 Stock 객체 생성 - Yahoo Finance API가 실패해도 작동하도록
                     return createDefaultStock(symbol);
                 }
 
@@ -89,7 +111,14 @@ public class StockPriceService {
         }
 
         log.error("Failed to fetch stock info after {} attempts for symbol: {}", MAX_RETRIES, symbol);
-        // 모든 시도가 실패해도 기본 Stock 객체 반환
+        throw new RuntimeException("Failed to fetch stock info after " + MAX_RETRIES + " attempts", lastException);
+    }
+
+    /**
+     * Circuit Breaker 폴백: Stock 정보를 가져올 수 없을 때 기본 객체 반환
+     */
+    private Stock getStockInfoFallback(String symbol, Throwable t) {
+        log.warn("Circuit breaker fallback for getStockInfo: symbol={}, error={}", symbol, t.getMessage());
         return createDefaultStock(symbol);
     }
 
@@ -270,6 +299,7 @@ public class StockPriceService {
     }
 
     @Cacheable(value = "stockPrice", key = "#symbol + '_prev'")
+    @CircuitBreaker(name = "yahooFinance", fallbackMethod = "getPreviousCloseFallback")
     public BigDecimal getPreviousClose(String symbol) {
         try {
             Stock stock = YahooFinance.get(symbol);
@@ -278,6 +308,25 @@ public class StockPriceService {
             log.error("Failed to fetch previous close for symbol: {}", symbol, e);
             throw new RuntimeException("Failed to fetch previous close", e);
         }
+    }
+
+    /**
+     * Circuit Breaker 폴백: 전일 종가를 가져올 수 없을 때 로컬 DB에서 조회
+     */
+    private BigDecimal getPreviousCloseFallback(String symbol, Throwable t) {
+        log.warn("Circuit breaker fallback for getPreviousClose: symbol={}, error={}", symbol, t.getMessage());
+
+        Optional<LocalDate> latestDate = historicalPriceRepository.findLatestPriceDateBySymbol(symbol);
+        if (latestDate.isPresent()) {
+            Optional<HistoricalPrice> price = historicalPriceRepository.findBySymbolAndPriceDate(symbol, latestDate.get());
+            if (price.isPresent()) {
+                log.info("Using cached previous close from {} for symbol {}", latestDate.get(), symbol);
+                return price.get().getClosePrice();
+            }
+        }
+
+        log.error("No fallback previous close available for symbol: {}", symbol);
+        throw new RuntimeException("Failed to fetch previous close and no fallback available", t);
     }
 
     /**
