@@ -3,6 +3,7 @@ let equityChart, drawdownChart, monthlyChart;
 let selectedStrategy = null;
 let strategies = [];
 let currentResult = null;
+let templates = [];
 
 $(document).ready(function() {
     if (!checkAuth()) {
@@ -25,8 +26,17 @@ $(document).ready(function() {
     // 전략 목록 로드
     loadStrategies();
 
+    // 템플릿 목록 로드
+    loadTemplates();
+
     // 차트 초기화
     initializeCharts();
+
+    // 색상 선택 이벤트
+    $(document).on('click', '.color-btn', function() {
+        $(this).closest('.d-flex').find('.color-btn').removeClass('selected');
+        $(this).addClass('selected');
+    });
 });
 
 function loadStrategies() {
@@ -772,4 +782,323 @@ function applyBestParams() {
     }
 
     alert('최적 파라미터가 적용되었습니다.');
+}
+
+// === 템플릿 기능 ===
+
+function loadTemplates() {
+    $.ajax({
+        url: `${API_BASE_URL}/templates/list`,
+        method: 'GET',
+        success: function(data) {
+            templates = data;
+            renderTemplateList(data);
+        },
+        error: function(xhr) {
+            console.error('템플릿 목록 로드 실패:', xhr);
+        }
+    });
+}
+
+function renderTemplateList(templates) {
+    const $container = $('#templateList');
+    $container.empty();
+
+    if (!templates || templates.length === 0) {
+        $container.html('<div class="text-muted">템플릿이 없습니다.</div>');
+        return;
+    }
+
+    templates.forEach(function(t) {
+        const colorClass = t.color ? 'btn-' + t.color : 'btn-primary';
+        const defaultBadge = t.isDefault ? '<i class="bi bi-star-fill text-warning ms-1"></i>' : '';
+        const html = `
+            <button class="btn btn-sm ${colorClass} template-btn"
+                    data-id="${t.id}"
+                    onclick="applyTemplate(${t.id})"
+                    title="${t.strategyTypeLabel}">
+                ${t.name}${defaultBadge}
+            </button>
+        `;
+        $container.append(html);
+    });
+}
+
+function applyTemplate(templateId) {
+    $.ajax({
+        url: `${API_BASE_URL}/templates/${templateId}/apply`,
+        method: 'POST',
+        success: function(config) {
+            // 전략 선택
+            if (config.strategyType) {
+                selectStrategy(config.strategyType);
+            }
+
+            // 파라미터 적용
+            if (config.parameters) {
+                setTimeout(function() {
+                    for (var key in config.parameters) {
+                        if (config.parameters.hasOwnProperty(key)) {
+                            var input = $('#paramInputs [data-param="' + key + '"]');
+                            if (input.length) {
+                                input.val(config.parameters[key]);
+                            }
+                        }
+                    }
+                }, 100);
+            }
+
+            // 리스크 설정 적용
+            if (config.positionSizePercent) {
+                $('#positionSize').val(config.positionSizePercent);
+                $('#positionSizeValue').text(config.positionSizePercent);
+            }
+            if (config.stopLossPercent) {
+                $('#stopLoss').val(config.stopLossPercent);
+            }
+            if (config.takeProfitPercent) {
+                $('#takeProfit').val(config.takeProfitPercent);
+            }
+            if (config.commissionRate) {
+                $('#commission').val(config.commissionRate);
+            }
+
+            // 템플릿 목록 새로고침 (사용 횟수 업데이트)
+            loadTemplates();
+        },
+        error: function(xhr) {
+            console.error('템플릿 적용 실패:', xhr);
+            alert('템플릿 적용에 실패했습니다.');
+        }
+    });
+}
+
+function saveCurrentAsTemplate() {
+    if (!selectedStrategy) {
+        alert('먼저 전략을 선택해주세요.');
+        return;
+    }
+
+    // 저장 모달 초기화
+    $('#templateName').val('');
+    $('#templateDescription').val('');
+    $('#templateDefault').prop('checked', false);
+    $('#colorPicker .color-btn').removeClass('selected');
+    $('#colorPicker .color-btn[data-color="primary"]').addClass('selected');
+
+    // 모달 표시
+    var modal = new bootstrap.Modal(document.getElementById('saveTemplateModal'));
+    modal.show();
+}
+
+function confirmSaveTemplate() {
+    const name = $('#templateName').val().trim();
+    if (!name) {
+        alert('템플릿 이름을 입력해주세요.');
+        return;
+    }
+
+    const selectedColor = $('#colorPicker .color-btn.selected').data('color') || 'primary';
+
+    const request = {
+        name: name,
+        description: $('#templateDescription').val(),
+        strategyType: selectedStrategy,
+        parameters: getStrategyParams(),
+        positionSizePercent: parseFloat($('#positionSize').val()),
+        stopLossPercent: $('#stopLoss').val() ? parseFloat($('#stopLoss').val()) : null,
+        takeProfitPercent: $('#takeProfit').val() ? parseFloat($('#takeProfit').val()) : null,
+        commissionRate: parseFloat($('#commission').val()),
+        isDefault: $('#templateDefault').is(':checked'),
+        color: selectedColor
+    };
+
+    $.ajax({
+        url: `${API_BASE_URL}/templates`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(request),
+        success: function(data) {
+            bootstrap.Modal.getInstance(document.getElementById('saveTemplateModal')).hide();
+            loadTemplates();
+            alert('템플릿이 저장되었습니다.');
+        },
+        error: function(xhr) {
+            console.error('템플릿 저장 실패:', xhr);
+            alert('템플릿 저장에 실패했습니다: ' + (xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : '알 수 없는 오류'));
+        }
+    });
+}
+
+// 템플릿 관리 모달이 열릴 때
+$('#templateModal').on('show.bs.modal', function() {
+    loadTemplateTable();
+});
+
+function loadTemplateTable() {
+    $.ajax({
+        url: `${API_BASE_URL}/templates`,
+        method: 'GET',
+        success: function(data) {
+            renderTemplateTable(data);
+        },
+        error: function(xhr) {
+            console.error('템플릿 목록 로드 실패:', xhr);
+        }
+    });
+}
+
+function renderTemplateTable(templates) {
+    const $tbody = $('#templateTableBody');
+    $tbody.empty();
+
+    if (!templates || templates.length === 0) {
+        $tbody.html('<tr><td colspan="5" class="text-center text-muted">템플릿이 없습니다.</td></tr>');
+        return;
+    }
+
+    templates.forEach(function(t) {
+        const defaultBadge = t.isDefault ? '<i class="bi bi-star-fill text-warning"></i>' : '';
+        const colorBadge = t.color ? `<span class="badge bg-${t.color}">&nbsp;</span>` : '';
+
+        $tbody.append(`
+            <tr>
+                <td>${colorBadge} ${t.name}</td>
+                <td>${t.strategyTypeLabel || t.strategyType}</td>
+                <td class="text-center">${defaultBadge}</td>
+                <td class="text-center">${t.usageCount || 0}회</td>
+                <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="editTemplate(${t.id})" title="수정">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="duplicateTemplate(${t.id})" title="복사">
+                            <i class="bi bi-copy"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="deleteTemplate(${t.id})" title="삭제">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `);
+    });
+}
+
+function editTemplate(id) {
+    $.ajax({
+        url: `${API_BASE_URL}/templates/${id}`,
+        method: 'GET',
+        success: function(t) {
+            $('#editTemplateId').val(t.id);
+            $('#editTemplateName').val(t.name);
+            $('#editTemplateDescription').val(t.description || '');
+            $('#editTemplateDefault').prop('checked', t.isDefault);
+
+            $('#editColorPicker .color-btn').removeClass('selected');
+            var colorBtn = $('#editColorPicker .color-btn[data-color="' + (t.color || 'primary') + '"]');
+            if (colorBtn.length) {
+                colorBtn.addClass('selected');
+            } else {
+                $('#editColorPicker .color-btn[data-color="primary"]').addClass('selected');
+            }
+
+            // 템플릿 관리 모달 닫기
+            bootstrap.Modal.getInstance(document.getElementById('templateModal')).hide();
+
+            // 수정 모달 표시
+            var modal = new bootstrap.Modal(document.getElementById('editTemplateModal'));
+            modal.show();
+        },
+        error: function(xhr) {
+            console.error('템플릿 로드 실패:', xhr);
+            alert('템플릿 정보를 불러올 수 없습니다.');
+        }
+    });
+}
+
+function confirmEditTemplate() {
+    const id = $('#editTemplateId').val();
+    const name = $('#editTemplateName').val().trim();
+
+    if (!name) {
+        alert('템플릿 이름을 입력해주세요.');
+        return;
+    }
+
+    const selectedColor = $('#editColorPicker .color-btn.selected').data('color') || 'primary';
+
+    // 기존 템플릿 정보 가져오기
+    $.ajax({
+        url: `${API_BASE_URL}/templates/${id}`,
+        method: 'GET',
+        success: function(original) {
+            const request = {
+                name: name,
+                description: $('#editTemplateDescription').val(),
+                strategyType: original.strategyType,
+                parameters: original.parameters,
+                positionSizePercent: original.positionSizePercent,
+                stopLossPercent: original.stopLossPercent,
+                takeProfitPercent: original.takeProfitPercent,
+                commissionRate: original.commissionRate,
+                isDefault: $('#editTemplateDefault').is(':checked'),
+                color: selectedColor
+            };
+
+            $.ajax({
+                url: `${API_BASE_URL}/templates/${id}`,
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(request),
+                success: function(data) {
+                    bootstrap.Modal.getInstance(document.getElementById('editTemplateModal')).hide();
+                    loadTemplates();
+
+                    // 관리 모달 다시 열기
+                    var modal = new bootstrap.Modal(document.getElementById('templateModal'));
+                    modal.show();
+                    loadTemplateTable();
+                },
+                error: function(xhr) {
+                    console.error('템플릿 수정 실패:', xhr);
+                    alert('템플릿 수정에 실패했습니다.');
+                }
+            });
+        }
+    });
+}
+
+function duplicateTemplate(id) {
+    if (!confirm('이 템플릿을 복사하시겠습니까?')) return;
+
+    $.ajax({
+        url: `${API_BASE_URL}/templates/${id}/duplicate`,
+        method: 'POST',
+        success: function(data) {
+            loadTemplates();
+            loadTemplateTable();
+        },
+        error: function(xhr) {
+            console.error('템플릿 복사 실패:', xhr);
+            alert('템플릿 복사에 실패했습니다.');
+        }
+    });
+}
+
+function deleteTemplate(id) {
+    if (!confirm('정말 이 템플릿을 삭제하시겠습니까?')) return;
+
+    $.ajax({
+        url: `${API_BASE_URL}/templates/${id}`,
+        method: 'DELETE',
+        success: function() {
+            loadTemplates();
+            loadTemplateTable();
+        },
+        error: function(xhr) {
+            console.error('템플릿 삭제 실패:', xhr);
+            alert('템플릿 삭제에 실패했습니다.');
+        }
+    });
 }

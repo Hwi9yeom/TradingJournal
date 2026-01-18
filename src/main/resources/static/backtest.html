@@ -180,6 +180,26 @@
                     </div>
                 </div>
 
+                <!-- 전략 템플릿 -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-bookmark-star text-warning"></i> 내 템플릿</h5>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#templateModal">
+                            <i class="bi bi-gear"></i> 관리
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="templateList" class="d-flex flex-wrap gap-2">
+                            <!-- 템플릿 버튼들 -->
+                            <div class="text-muted">템플릿이 없습니다.</div>
+                        </div>
+                        <hr class="my-3">
+                        <button class="btn btn-outline-success btn-sm w-100" onclick="saveCurrentAsTemplate()">
+                            <i class="bi bi-plus-circle me-1"></i>현재 설정 저장
+                        </button>
+                    </div>
+                </div>
+
                 <!-- 전략 선택 -->
                 <div class="card mb-4">
                     <div class="card-header">
@@ -479,6 +499,128 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
                     <button type="button" class="btn btn-primary" onclick="applyBestParams()">
                         <i class="bi bi-check-circle me-1"></i>최적 파라미터 적용
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 템플릿 관리 모달 -->
+    <div class="modal fade" id="templateModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-bookmark-star text-warning me-2"></i>템플릿 관리</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>이름</th>
+                                    <th>전략</th>
+                                    <th class="text-center">기본</th>
+                                    <th class="text-center">사용 횟수</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="templateTableBody">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">템플릿이 없습니다.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 템플릿 저장 모달 -->
+    <div class="modal fade" id="saveTemplateModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-bookmark-plus text-success me-2"></i>템플릿 저장</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">템플릿 이름</label>
+                        <input type="text" class="form-control" id="templateName" placeholder="예: 내 MA 전략">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">설명 (선택)</label>
+                        <textarea class="form-control" id="templateDescription" rows="2" placeholder="템플릿에 대한 설명"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">색상</label>
+                        <div class="d-flex gap-2" id="colorPicker">
+                            <button type="button" class="btn btn-sm btn-primary color-btn selected" data-color="primary"></button>
+                            <button type="button" class="btn btn-sm btn-success color-btn" data-color="success"></button>
+                            <button type="button" class="btn btn-sm btn-warning color-btn" data-color="warning"></button>
+                            <button type="button" class="btn btn-sm btn-danger color-btn" data-color="danger"></button>
+                            <button type="button" class="btn btn-sm btn-info color-btn" data-color="info"></button>
+                            <button type="button" class="btn btn-sm btn-secondary color-btn" data-color="secondary"></button>
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="templateDefault">
+                        <label class="form-check-label" for="templateDefault">기본 템플릿으로 설정</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-success" onclick="confirmSaveTemplate()">
+                        <i class="bi bi-check-circle me-1"></i>저장
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 템플릿 수정 모달 -->
+    <div class="modal fade" id="editTemplateModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil text-primary me-2"></i>템플릿 수정</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editTemplateId">
+                    <div class="mb-3">
+                        <label class="form-label">템플릿 이름</label>
+                        <input type="text" class="form-control" id="editTemplateName">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">설명</label>
+                        <textarea class="form-control" id="editTemplateDescription" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">색상</label>
+                        <div class="d-flex gap-2" id="editColorPicker">
+                            <button type="button" class="btn btn-sm btn-primary color-btn" data-color="primary"></button>
+                            <button type="button" class="btn btn-sm btn-success color-btn" data-color="success"></button>
+                            <button type="button" class="btn btn-sm btn-warning color-btn" data-color="warning"></button>
+                            <button type="button" class="btn btn-sm btn-danger color-btn" data-color="danger"></button>
+                            <button type="button" class="btn btn-sm btn-info color-btn" data-color="info"></button>
+                            <button type="button" class="btn btn-sm btn-secondary color-btn" data-color="secondary"></button>
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="editTemplateDefault">
+                        <label class="form-check-label" for="editTemplateDefault">기본 템플릿으로 설정</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmEditTemplate()">
+                        <i class="bi bi-check-circle me-1"></i>저장
                     </button>
                 </div>
             </div>

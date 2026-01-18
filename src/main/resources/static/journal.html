@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>트레이딩 일지 - Trading Journal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px 12px 0 0 !important;
+            font-weight: 600;
+        }
+        .card-header.morning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .card-header.evening {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .card-header.plan {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .card-header.review {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        .card-header.summary {
+            background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+        }
+
+        /* 날짜 네비게이션 */
+        .date-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+        .date-nav .btn {
+            padding: 8px 16px;
+        }
+        .current-date {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+        }
+        .day-of-week {
+            font-size: 1rem;
+            color: #6c757d;
+            margin-left: 8px;
+        }
+
+        /* 감정 선택 */
+        .emotion-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .emotion-btn {
+            padding: 8px 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .emotion-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        .emotion-btn.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        /* 점수 선택 */
+        .score-selector {
+            display: flex;
+            gap: 8px;
+        }
+        .score-btn {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #dee2e6;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.2s;
+        }
+        .score-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        .score-btn.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        /* 텍스트영역 */
+        .journal-textarea {
+            min-height: 120px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            resize: vertical;
+        }
+        .journal-textarea:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        /* 거래 요약 */
+        .trade-summary {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+        .summary-item {
+            padding: 15px 20px;
+        }
+        .summary-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .summary-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        .positive { color: #28a745; }
+        .negative { color: #dc3545; }
+
+        /* 캘린더 모달 */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .calendar-day:hover {
+            background: #f0f0f0;
+        }
+        .calendar-day.has-journal {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+        }
+        .calendar-day.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .calendar-day.today {
+            border: 2px solid #667eea;
+        }
+        .calendar-day.other-month {
+            color: #ccc;
+        }
+        .calendar-header {
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.8rem;
+        }
+
+        /* 태그 입력 */
+        .tag-input-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: white;
+        }
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            background: #e9ecef;
+            border-radius: 16px;
+            font-size: 0.85rem;
+        }
+        .tag .remove {
+            margin-left: 6px;
+            cursor: pointer;
+            color: #6c757d;
+        }
+        .tag .remove:hover {
+            color: #dc3545;
+        }
+        .tag-input {
+            border: none;
+            outline: none;
+            flex: 1;
+            min-width: 100px;
+        }
+
+        /* 버튼 스타일 */
+        .btn-save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 12px 32px;
+            font-weight: 600;
+        }
+        .btn-save:hover {
+            background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+            color: white;
+        }
+        .btn-delete {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+            border: none;
+            color: white;
+        }
+
+        /* 통계 탭 */
+        .stats-card {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .stats-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .stats-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        /* 알림 */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">
+                <i class="bi bi-journal-richtext me-2"></i>Trading Journal
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="index.html">투자기록</a>
+                <a class="nav-link" href="dashboard.html">대시보드</a>
+                <a class="nav-link" href="statistics.html">통계분석</a>
+                <a class="nav-link active" href="journal.html">일지</a>
+                <a class="nav-link" href="patterns.html">패턴</a>
+                <a class="nav-link" href="backtest.html">백테스트</a>
+                <a class="nav-link" href="risk.html">리스크</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+        <!-- 날짜 네비게이션 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="date-nav">
+                                <button class="btn btn-outline-secondary" id="prev-day">
+                                    <i class="bi bi-chevron-left"></i> 이전
+                                </button>
+                                <div>
+                                    <span class="current-date" id="current-date">2025-01-18</span>
+                                    <span class="day-of-week" id="day-of-week">(토요일)</span>
+                                </div>
+                                <button class="btn btn-outline-secondary" id="next-day">
+                                    다음 <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                            <div>
+                                <button class="btn btn-outline-primary me-2" id="today-btn">
+                                    <i class="bi bi-calendar-check me-1"></i>오늘
+                                </button>
+                                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#calendarModal">
+                                    <i class="bi bi-calendar3 me-1"></i>달력
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 탭 네비게이션 -->
+        <ul class="nav nav-tabs mb-4" id="journalTabs">
+            <li class="nav-item">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-write">
+                    <i class="bi bi-pencil me-1"></i>일지 작성
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-stats">
+                    <i class="bi bi-graph-up me-1"></i>일지 통계
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history">
+                    <i class="bi bi-clock-history me-1"></i>최근 일지
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- 일지 작성 탭 -->
+            <div class="tab-pane fade show active" id="tab-write">
+                <div class="row">
+                    <!-- 왼쪽 컬럼 -->
+                    <div class="col-md-8">
+                        <!-- 시장 개요 -->
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-graph-up-arrow me-2"></i>시장 개요
+                            </div>
+                            <div class="card-body">
+                                <textarea class="form-control journal-textarea" id="market-overview"
+                                    placeholder="오늘의 시장 상황을 기록하세요. (예: 코스피 상승, 미국 선물 강세, 특이사항 등)"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- 오늘의 거래 계획 -->
+                        <div class="card">
+                            <div class="card-header plan">
+                                <i class="bi bi-list-check me-2"></i>오늘의 거래 계획
+                            </div>
+                            <div class="card-body">
+                                <textarea class="form-control journal-textarea" id="trading-plan"
+                                    placeholder="오늘의 거래 계획을 기록하세요. (예: 관심 종목, 진입 조건, 손절/익절 전략 등)"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- 실행 리뷰 -->
+                        <div class="card">
+                            <div class="card-header review">
+                                <i class="bi bi-check2-square me-2"></i>실행 리뷰
+                            </div>
+                            <div class="card-body">
+                                <textarea class="form-control journal-textarea" id="execution-review"
+                                    placeholder="계획대로 실행했는지 리뷰하세요. (예: 계획 준수 여부, 즉흥적 거래, 감정적 결정 등)"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- 오늘의 교훈 -->
+                        <div class="card">
+                            <div class="card-header" style="background: linear-gradient(135deg, #f5af19 0%, #f12711 100%);">
+                                <i class="bi bi-lightbulb me-2"></i>오늘의 교훈
+                            </div>
+                            <div class="card-body">
+                                <textarea class="form-control journal-textarea" id="lessons-learned"
+                                    placeholder="오늘 거래에서 배운 점을 기록하세요."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- 내일 계획 -->
+                        <div class="card">
+                            <div class="card-header" style="background: linear-gradient(135deg, #00c6fb 0%, #005bea 100%);">
+                                <i class="bi bi-calendar-plus me-2"></i>내일 계획
+                            </div>
+                            <div class="card-body">
+                                <textarea class="form-control journal-textarea" id="tomorrow-plan"
+                                    placeholder="내일의 거래 계획이나 관심 종목을 미리 기록하세요."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 오른쪽 컬럼 -->
+                    <div class="col-md-4">
+                        <!-- 오전 감정 상태 -->
+                        <div class="card">
+                            <div class="card-header morning">
+                                <i class="bi bi-sunrise me-2"></i>오전 감정 상태
+                            </div>
+                            <div class="card-body">
+                                <div class="emotion-selector" id="morning-emotion">
+                                    <!-- 동적으로 생성 -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 오후 감정 상태 -->
+                        <div class="card">
+                            <div class="card-header evening">
+                                <i class="bi bi-sunset me-2"></i>오후 감정 상태
+                            </div>
+                            <div class="card-body">
+                                <div class="emotion-selector" id="evening-emotion">
+                                    <!-- 동적으로 생성 -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 점수 -->
+                        <div class="card">
+                            <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                <i class="bi bi-star me-2"></i>오늘의 점수
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">집중도</label>
+                                    <div class="score-selector" id="focus-score">
+                                        <button class="score-btn" data-score="1">1</button>
+                                        <button class="score-btn" data-score="2">2</button>
+                                        <button class="score-btn" data-score="3">3</button>
+                                        <button class="score-btn" data-score="4">4</button>
+                                        <button class="score-btn" data-score="5">5</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="form-label fw-bold">규율 준수</label>
+                                    <div class="score-selector" id="discipline-score">
+                                        <button class="score-btn" data-score="1">1</button>
+                                        <button class="score-btn" data-score="2">2</button>
+                                        <button class="score-btn" data-score="3">3</button>
+                                        <button class="score-btn" data-score="4">4</button>
+                                        <button class="score-btn" data-score="5">5</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 태그 -->
+                        <div class="card">
+                            <div class="card-header" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);">
+                                <i class="bi bi-tags me-2"></i>태그
+                            </div>
+                            <div class="card-body">
+                                <div class="tag-input-container" id="tags-container">
+                                    <input type="text" class="tag-input" id="tag-input" placeholder="태그 입력 후 Enter">
+                                </div>
+                                <small class="text-muted mt-2 d-block">Enter를 눌러 태그를 추가하세요</small>
+                            </div>
+                        </div>
+
+                        <!-- 오늘의 거래 요약 -->
+                        <div class="card">
+                            <div class="card-header summary">
+                                <i class="bi bi-clipboard-data me-2"></i>오늘의 거래 요약
+                            </div>
+                            <div class="card-body">
+                                <div class="trade-summary">
+                                    <div class="summary-item">
+                                        <div class="summary-value" id="trade-count">-</div>
+                                        <div class="summary-label">거래</div>
+                                    </div>
+                                    <div class="summary-item">
+                                        <div class="summary-value" id="trade-profit">-</div>
+                                        <div class="summary-label">손익</div>
+                                    </div>
+                                    <div class="summary-item">
+                                        <div class="summary-value" id="trade-win-rate">-</div>
+                                        <div class="summary-label">승률</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 저장/삭제 버튼 -->
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-save btn-lg" id="save-btn">
+                                <i class="bi bi-check-circle me-2"></i>저장
+                            </button>
+                            <button class="btn btn-outline-danger" id="delete-btn" style="display: none;">
+                                <i class="bi bi-trash me-2"></i>삭제
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 일지 통계 탭 -->
+            <div class="tab-pane fade" id="tab-stats">
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <div class="stats-value" id="stats-total-journals">-</div>
+                            <div class="stats-label">총 일지 수</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <div class="stats-value" id="stats-avg-focus">-</div>
+                            <div class="stats-label">평균 집중도</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <div class="stats-value" id="stats-avg-discipline">-</div>
+                            <div class="stats-label">평균 규율 준수</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <div class="stats-value" id="stats-streak">-</div>
+                            <div class="stats-label">연속 작성일</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- 감정 분포 -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header morning">
+                                <i class="bi bi-emoji-smile me-2"></i>오전 감정 분포
+                            </div>
+                            <div class="card-body" id="morning-emotion-stats">
+                                <div class="text-center text-muted py-4">통계 데이터를 불러오는 중...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header evening">
+                                <i class="bi bi-emoji-smile me-2"></i>오후 감정 분포
+                            </div>
+                            <div class="card-body" id="evening-emotion-stats">
+                                <div class="text-center text-muted py-4">통계 데이터를 불러오는 중...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- 최근 교훈 -->
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header" style="background: linear-gradient(135deg, #f5af19 0%, #f12711 100%);">
+                                <i class="bi bi-lightbulb me-2"></i>최근 교훈
+                            </div>
+                            <div class="card-body" id="recent-lessons">
+                                <div class="text-center text-muted py-4">데이터를 불러오는 중...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 최근 일지 탭 -->
+            <div class="tab-pane fade" id="tab-history">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-clock-history me-2"></i>최근 30일 일지
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>날짜</th>
+                                        <th>오전 감정</th>
+                                        <th>오후 감정</th>
+                                        <th>집중도</th>
+                                        <th>규율</th>
+                                        <th>거래</th>
+                                        <th>손익</th>
+                                        <th>내용</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="journal-history">
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted py-4">데이터를 불러오는 중...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 달력 모달 -->
+    <div class="modal fade" id="calendarModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-calendar3 me-2"></i>날짜 선택
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <button class="btn btn-outline-secondary btn-sm" id="cal-prev-month">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <span class="fw-bold" id="cal-month-year">2025년 1월</span>
+                        <button class="btn btn-outline-secondary btn-sm" id="cal-next-month">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                    <div class="calendar-grid mb-2">
+                        <div class="calendar-header">일</div>
+                        <div class="calendar-header">월</div>
+                        <div class="calendar-header">화</div>
+                        <div class="calendar-header">수</div>
+                        <div class="calendar-header">목</div>
+                        <div class="calendar-header">금</div>
+                        <div class="calendar-header">토</div>
+                    </div>
+                    <div class="calendar-grid" id="calendar-days">
+                        <!-- 동적으로 생성 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container">
+        <div class="toast" id="notification-toast" role="alert">
+            <div class="toast-header">
+                <i class="bi bi-bell me-2"></i>
+                <strong class="me-auto">알림</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toast-message"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="auth.js"></script>
+    <script src="journal.js"></script>
+</body>
+</html>
