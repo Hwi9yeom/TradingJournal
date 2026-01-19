@@ -1,16 +1,18 @@
 package com.trading.journal.controller;
 
 import com.trading.journal.dto.PeriodAnalysisDto;
+import com.trading.journal.dto.PortfolioTreemapDto;
 import com.trading.journal.dto.StockAnalysisDto;
 import com.trading.journal.dto.TaxCalculationDto;
-import com.trading.journal.repository.TransactionRepository;
 import com.trading.journal.service.AnalysisService;
 import com.trading.journal.service.BenchmarkService;
+import com.trading.journal.service.PortfolioAnalysisService;
 import com.trading.journal.service.RiskMetricsService;
 import com.trading.journal.service.SectorAnalysisService;
 import com.trading.journal.service.StockAnalysisService;
 import com.trading.journal.service.TaxCalculationService;
 import com.trading.journal.service.TradingPatternService;
+import com.trading.journal.service.TradingStatisticsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -59,8 +61,11 @@ class AnalysisControllerTest {
     private TaxCalculationService taxCalculationService;
 
     @MockitoBean
-    private TransactionRepository transactionRepository;
-    
+    private TradingStatisticsService tradingStatisticsService;
+
+    @MockitoBean
+    private PortfolioAnalysisService portfolioAnalysisService;
+
     @Test
     void analyzePeriod_ShouldReturnPeriodAnalysis() throws Exception {
         PeriodAnalysisDto analysis = PeriodAnalysisDto.builder()
@@ -215,12 +220,95 @@ class AnalysisControllerTest {
             .estimatedTax(new BigDecimal("200000"))
             .taxRate(new BigDecimal("22"))
             .build();
-        
+
         when(taxCalculationService.calculateTax(anyInt())).thenReturn(taxCalculation);
-        
+
         mockMvc.perform(get("/api/analysis/tax/current"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.taxYear").value(currentYear))
             .andExpect(jsonPath("$.estimatedTax").value(200000));
+    }
+
+    // ==================== Portfolio Treemap Tests ====================
+
+    @Test
+    void getPortfolioTreemap_ShouldReturnTreemapData() throws Exception {
+        PortfolioTreemapDto treemap = PortfolioTreemapDto.builder()
+            .period("1D")
+            .totalInvestment(new BigDecimal("10000000"))
+            .totalPerformance(new BigDecimal("2.50"))
+            .cells(Arrays.asList(
+                PortfolioTreemapDto.TreemapCell.builder()
+                    .symbol("AAPL")
+                    .name("Apple Inc.")
+                    .investmentAmount(new BigDecimal("5000000"))
+                    .performancePercent(new BigDecimal("3.25"))
+                    .currentPrice(new BigDecimal("185.50"))
+                    .priceChange(new BigDecimal("5.75"))
+                    .sector("TECH")
+                    .hasData(true)
+                    .build(),
+                PortfolioTreemapDto.TreemapCell.builder()
+                    .symbol("MSFT")
+                    .name("Microsoft Corp.")
+                    .investmentAmount(new BigDecimal("5000000"))
+                    .performancePercent(new BigDecimal("1.75"))
+                    .currentPrice(new BigDecimal("420.00"))
+                    .priceChange(new BigDecimal("7.25"))
+                    .sector("TECH")
+                    .hasData(true)
+                    .build()
+            ))
+            .build();
+
+        when(portfolioAnalysisService.getPortfolioTreemap(anyString())).thenReturn(treemap);
+
+        mockMvc.perform(get("/api/analysis/portfolio/treemap")
+                .param("period", "1D"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.period").value("1D"))
+            .andExpect(jsonPath("$.totalInvestment").value(10000000))
+            .andExpect(jsonPath("$.totalPerformance").value(2.50))
+            .andExpect(jsonPath("$.cells").isArray())
+            .andExpect(jsonPath("$.cells[0].symbol").value("AAPL"))
+            .andExpect(jsonPath("$.cells[0].performancePercent").value(3.25))
+            .andExpect(jsonPath("$.cells[0].hasData").value(true))
+            .andExpect(jsonPath("$.cells[1].symbol").value("MSFT"));
+    }
+
+    @Test
+    void getPortfolioTreemap_WithDefaultPeriod_ShouldReturn1D() throws Exception {
+        PortfolioTreemapDto treemap = PortfolioTreemapDto.builder()
+            .period("1D")
+            .totalInvestment(BigDecimal.ZERO)
+            .totalPerformance(BigDecimal.ZERO)
+            .cells(Arrays.asList())
+            .build();
+
+        when(portfolioAnalysisService.getPortfolioTreemap("1D")).thenReturn(treemap);
+
+        mockMvc.perform(get("/api/analysis/portfolio/treemap"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.period").value("1D"));
+    }
+
+    @Test
+    void getPortfolioTreemap_WithDifferentPeriods_ShouldWork() throws Exception {
+        String[] periods = {"1D", "1W", "1M", "MTD", "3M", "6M", "1Y"};
+
+        for (String period : periods) {
+            PortfolioTreemapDto treemap = PortfolioTreemapDto.builder()
+                .period(period)
+                .totalInvestment(BigDecimal.ZERO)
+                .cells(Arrays.asList())
+                .build();
+
+            when(portfolioAnalysisService.getPortfolioTreemap(period)).thenReturn(treemap);
+
+            mockMvc.perform(get("/api/analysis/portfolio/treemap")
+                    .param("period", period))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.period").value(period));
+        }
     }
 }

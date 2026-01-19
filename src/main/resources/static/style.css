@@ -620,3 +620,54 @@ h1, h2, h3, h4, h5, h6 {
 
 .w-100 { width: 100% !important; }
 .h-100 { height: 100% !important; }
+
+/* === Portfolio Treemap (Finviz Style) === */
+#portfolio-treemap {
+    background-color: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    min-height: 400px;
+}
+
+#portfolio-treemap svg {
+    display: block;
+    width: 100%;
+}
+
+#portfolio-treemap text {
+    pointer-events: none;
+    user-select: none;
+    font-family: var(--font-family-base);
+}
+
+#portfolio-treemap rect {
+    transition: stroke 0.15s ease, stroke-width 0.15s ease;
+}
+
+.treemap-tooltip {
+    font-family: var(--font-family-base);
+    line-height: 1.5;
+}
+
+/* Treemap Period Selector */
+#treemap-period-selector .btn {
+    min-width: 45px;
+}
+
+#treemap-period-selector .btn.active {
+    background-color: var(--color-primary);
+    color: var(--color-text-inverse);
+    border-color: var(--color-primary);
+}
+
+/* Responsive Treemap */
+@media (max-width: 768px) {
+    #portfolio-treemap {
+        min-height: 300px;
+    }
+
+    #treemap-period-selector .btn {
+        padding: 0.25rem 0.4rem;
+        font-size: 0.75rem;
+        min-width: 35px;
+    }
+}

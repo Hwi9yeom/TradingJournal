@@ -174,274 +174,123 @@ public class AnalysisService {
 
     /**
      * Equity Curve (누적 수익 곡선) 계산
-     * 시간에 따른 포트폴리오 가치와 누적 수익률을 계산
+     * accountId가 null이면 전체, 있으면 해당 계좌만 조회
      */
-    @Cacheable(value = "analysis", key = "'equity_curve_' + #startDate + '_' + #endDate")
+    @Cacheable(value = "analysis", key = "'equity_curve_' + #accountId + '_' + #startDate + '_' + #endDate")
+    public EquityCurveDto calculateEquityCurve(Long accountId, LocalDate startDate, LocalDate endDate) {
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<Transaction> transactions = (accountId == null)
+                ? transactionRepository.findByDateRange(startDateTime, endDateTime)
+                : transactionRepository.findByAccountIdAndDateRange(accountId, startDateTime, endDateTime);
+        transactions.sort(Comparator.comparing(Transaction::getTransactionDate));
+
+        if (transactions.isEmpty()) {
+            return emptyEquityCurve();
+        }
+
+        // 일별 투자금/가치 계산
+        Map<LocalDate, BigDecimal> dailyInvestment = new TreeMap<>();
+        Map<LocalDate, BigDecimal> dailyValue = new TreeMap<>();
+        BigDecimal runningInvestment = BigDecimal.ZERO;
+        BigDecimal runningValue = BigDecimal.ZERO;
+
+        for (Transaction tx : transactions) {
+            LocalDate date = tx.getTransactionDate().toLocalDate();
+            if (tx.getType() == TransactionType.BUY) {
+                runningInvestment = runningInvestment.add(tx.getTotalAmount());
+                runningValue = runningValue.add(tx.getTotalAmount());
+            } else {
+                BigDecimal pnl = tx.getRealizedPnl() != null ? tx.getRealizedPnl() : BigDecimal.ZERO;
+                BigDecimal cost = tx.getCostBasis() != null ? tx.getCostBasis() : tx.getTotalAmount();
+                runningValue = runningValue.subtract(cost).add(pnl);
+            }
+            dailyInvestment.put(date, runningInvestment);
+            dailyValue.put(date, runningValue);
+        }
+
+        // 결과 리스트 구성
+        List<String> labels = new ArrayList<>();
+        List<BigDecimal> values = new ArrayList<>();
+        List<BigDecimal> cumulativeReturns = new ArrayList<>();
+        List<BigDecimal> dailyReturns = new ArrayList<>();
+
+        BigDecimal lastValue = BigDecimal.ZERO;
+        BigDecimal lastInvestment = BigDecimal.ZERO;
+        BigDecimal prevValue = null;
+        BigDecimal initialInvestment = null;
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            if (dailyValue.containsKey(d)) {
+                lastValue = dailyValue.get(d);
+                lastInvestment = dailyInvestment.get(d);
+            }
+            if (initialInvestment == null && lastInvestment.compareTo(BigDecimal.ZERO) > 0) {
+                initialInvestment = lastInvestment;
+            }
+
+            labels.add(d.format(fmt));
+            values.add(lastValue);
+            cumulativeReturns.add(calcReturnPct(lastValue.subtract(lastInvestment), lastInvestment));
+            dailyReturns.add(prevValue != null ? calcReturnPct(lastValue.subtract(prevValue), prevValue) : BigDecimal.ZERO);
+            prevValue = lastValue;
+        }
+
+        BigDecimal totalReturn = initialInvestment != null
+                ? calcReturnPct(lastValue.subtract(initialInvestment), initialInvestment)
+                : BigDecimal.ZERO;
+        BigDecimal cagr = calcCagr(initialInvestment, lastValue, startDate, endDate);
+
+        return EquityCurveDto.builder()
+                .labels(labels)
+                .values(values)
+                .cumulativeReturns(cumulativeReturns)
+                .dailyReturns(dailyReturns)
+                .initialInvestment(initialInvestment != null ? initialInvestment : BigDecimal.ZERO)
+                .finalValue(lastValue)
+                .totalReturn(totalReturn)
+                .cagr(cagr)
+                .build();
+    }
+
+    // 전체 계좌용 오버로드 (하위 호환성)
     public EquityCurveDto calculateEquityCurve(LocalDate startDate, LocalDate endDate) {
-        LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
-
-        List<Transaction> transactions = transactionRepository.findByDateRange(startDateTime, endDateTime);
-        transactions.sort(Comparator.comparing(Transaction::getTransactionDate));
-
-        if (transactions.isEmpty()) {
-            return EquityCurveDto.builder()
-                    .labels(new ArrayList<>())
-                    .values(new ArrayList<>())
-                    .cumulativeReturns(new ArrayList<>())
-                    .dailyReturns(new ArrayList<>())
-                    .initialInvestment(BigDecimal.ZERO)
-                    .finalValue(BigDecimal.ZERO)
-                    .totalReturn(BigDecimal.ZERO)
-                    .cagr(BigDecimal.ZERO)
-                    .build();
-        }
-
-        // 일별 포트폴리오 가치 계산
-        Map<LocalDate, BigDecimal> dailyInvestment = new TreeMap<>();
-        Map<LocalDate, BigDecimal> dailyValue = new TreeMap<>();
-        BigDecimal runningInvestment = BigDecimal.ZERO;
-        BigDecimal runningValue = BigDecimal.ZERO;
-
-        for (Transaction transaction : transactions) {
-            LocalDate date = transaction.getTransactionDate().toLocalDate();
-            BigDecimal amount = transaction.getTotalAmount();
-
-            if (transaction.getType() == TransactionType.BUY) {
-                runningInvestment = runningInvestment.add(amount);
-                runningValue = runningValue.add(amount);
-            } else {
-                // 매도 시: 실현 손익 반영
-                BigDecimal realizedPnl = transaction.getRealizedPnl() != null
-                        ? transaction.getRealizedPnl() : BigDecimal.ZERO;
-                runningValue = runningValue.subtract(transaction.getCostBasis() != null
-                        ? transaction.getCostBasis() : amount);
-                runningValue = runningValue.add(realizedPnl);
-            }
-
-            dailyInvestment.put(date, runningInvestment);
-            dailyValue.put(date, runningValue);
-        }
-
-        // 날짜 범위 채우기 및 누적 수익률 계산
-        List<String> labels = new ArrayList<>();
-        List<BigDecimal> values = new ArrayList<>();
-        List<BigDecimal> cumulativeReturns = new ArrayList<>();
-        List<BigDecimal> dailyReturns = new ArrayList<>();
-
-        LocalDate current = startDate;
-        BigDecimal lastValue = BigDecimal.ZERO;
-        BigDecimal lastInvestment = BigDecimal.ZERO;
-        BigDecimal previousValue = null;
-        BigDecimal initialInvestment = null;
-
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-
-        while (!current.isAfter(endDate)) {
-            if (dailyValue.containsKey(current)) {
-                lastValue = dailyValue.get(current);
-                lastInvestment = dailyInvestment.get(current);
-            }
-
-            if (initialInvestment == null && lastInvestment.compareTo(BigDecimal.ZERO) > 0) {
-                initialInvestment = lastInvestment;
-            }
-
-            labels.add(current.format(formatter));
-            values.add(lastValue);
-
-            // 누적 수익률 계산
-            BigDecimal cumulativeReturn = BigDecimal.ZERO;
-            if (lastInvestment.compareTo(BigDecimal.ZERO) > 0) {
-                cumulativeReturn = lastValue.subtract(lastInvestment)
-                        .divide(lastInvestment, 4, RoundingMode.HALF_UP)
-                        .multiply(new BigDecimal("100"));
-            }
-            cumulativeReturns.add(cumulativeReturn);
-
-            // 일간 수익률 계산
-            BigDecimal dailyReturn = BigDecimal.ZERO;
-            if (previousValue != null && previousValue.compareTo(BigDecimal.ZERO) > 0) {
-                dailyReturn = lastValue.subtract(previousValue)
-                        .divide(previousValue, 4, RoundingMode.HALF_UP)
-                        .multiply(new BigDecimal("100"));
-            }
-            dailyReturns.add(dailyReturn);
-            previousValue = lastValue;
-
-            current = current.plusDays(1);
-        }
-
-        // 전체 수익률 및 CAGR 계산
-        BigDecimal totalReturn = BigDecimal.ZERO;
-        BigDecimal cagr = BigDecimal.ZERO;
-
-        if (initialInvestment != null && initialInvestment.compareTo(BigDecimal.ZERO) > 0) {
-            totalReturn = lastValue.subtract(initialInvestment)
-                    .divide(initialInvestment, 4, RoundingMode.HALF_UP)
-                    .multiply(new BigDecimal("100"));
-
-            // CAGR = ((Final / Initial) ^ (1/years)) - 1
-            long days = ChronoUnit.DAYS.between(startDate, endDate);
-            if (days > 0 && lastValue.compareTo(BigDecimal.ZERO) > 0) {
-                double years = days / 365.0;
-                double ratio = lastValue.divide(initialInvestment, 6, RoundingMode.HALF_UP).doubleValue();
-                if (ratio > 0 && years > 0) {
-                    double cagrValue = (Math.pow(ratio, 1.0 / years) - 1) * 100;
-                    cagr = BigDecimal.valueOf(cagrValue).setScale(2, RoundingMode.HALF_UP);
-                }
-            }
-        }
-
-        return EquityCurveDto.builder()
-                .labels(labels)
-                .values(values)
-                .cumulativeReturns(cumulativeReturns)
-                .dailyReturns(dailyReturns)
-                .initialInvestment(initialInvestment != null ? initialInvestment : BigDecimal.ZERO)
-                .finalValue(lastValue)
-                .totalReturn(totalReturn)
-                .cagr(cagr)
-                .build();
+        return calculateEquityCurve(null, startDate, endDate);
     }
 
-    /**
-     * 계좌별 Equity Curve 조회 (벤치마크 비교용)
-     */
+    // 계좌별 조회 (벤치마크 비교용)
     public EquityCurveDto getEquityCurve(Long accountId, LocalDate startDate, LocalDate endDate) {
-        if (accountId == null) {
-            return calculateEquityCurve(startDate, endDate);
-        }
-        return calculateEquityCurveByAccount(accountId, startDate, endDate);
+        return calculateEquityCurve(accountId, startDate, endDate);
     }
 
-    /**
-     * 계좌별 Equity Curve 계산
-     */
-    private EquityCurveDto calculateEquityCurveByAccount(Long accountId, LocalDate startDate, LocalDate endDate) {
-        LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
-
-        List<Transaction> transactions = transactionRepository.findByAccountIdAndDateRange(accountId, startDateTime, endDateTime);
-        transactions.sort(Comparator.comparing(Transaction::getTransactionDate));
-
-        if (transactions.isEmpty()) {
-            return EquityCurveDto.builder()
-                    .labels(new ArrayList<>())
-                    .values(new ArrayList<>())
-                    .cumulativeReturns(new ArrayList<>())
-                    .dailyReturns(new ArrayList<>())
-                    .initialInvestment(BigDecimal.ZERO)
-                    .finalValue(BigDecimal.ZERO)
-                    .totalReturn(BigDecimal.ZERO)
-                    .cagr(BigDecimal.ZERO)
-                    .build();
-        }
-
-        // 일별 포트폴리오 가치 계산
-        Map<LocalDate, BigDecimal> dailyInvestment = new TreeMap<>();
-        Map<LocalDate, BigDecimal> dailyValue = new TreeMap<>();
-        BigDecimal runningInvestment = BigDecimal.ZERO;
-        BigDecimal runningValue = BigDecimal.ZERO;
-
-        for (Transaction transaction : transactions) {
-            LocalDate date = transaction.getTransactionDate().toLocalDate();
-            BigDecimal amount = transaction.getTotalAmount();
-
-            if (transaction.getType() == TransactionType.BUY) {
-                runningInvestment = runningInvestment.add(amount);
-                runningValue = runningValue.add(amount);
-            } else {
-                BigDecimal realizedPnl = transaction.getRealizedPnl() != null
-                        ? transaction.getRealizedPnl() : BigDecimal.ZERO;
-                runningValue = runningValue.subtract(transaction.getCostBasis() != null
-                        ? transaction.getCostBasis() : amount);
-                runningValue = runningValue.add(realizedPnl);
-            }
-
-            dailyInvestment.put(date, runningInvestment);
-            dailyValue.put(date, runningValue);
-        }
-
-        // 날짜 범위 채우기 및 누적 수익률 계산
-        List<String> labels = new ArrayList<>();
-        List<BigDecimal> values = new ArrayList<>();
-        List<BigDecimal> cumulativeReturns = new ArrayList<>();
-        List<BigDecimal> dailyReturns = new ArrayList<>();
-
-        LocalDate current = startDate;
-        BigDecimal lastValue = BigDecimal.ZERO;
-        BigDecimal lastInvestment = BigDecimal.ZERO;
-        BigDecimal previousValue = null;
-        BigDecimal initialInvestment = null;
-
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-
-        while (!current.isAfter(endDate)) {
-            if (dailyValue.containsKey(current)) {
-                lastValue = dailyValue.get(current);
-                lastInvestment = dailyInvestment.get(current);
-            }
-
-            if (initialInvestment == null && lastInvestment.compareTo(BigDecimal.ZERO) > 0) {
-                initialInvestment = lastInvestment;
-            }
-
-            labels.add(current.format(formatter));
-            values.add(lastValue);
-
-            // 누적 수익률 계산
-            BigDecimal cumulativeReturn = BigDecimal.ZERO;
-            if (lastInvestment.compareTo(BigDecimal.ZERO) > 0) {
-                cumulativeReturn = lastValue.subtract(lastInvestment)
-                        .divide(lastInvestment, 4, RoundingMode.HALF_UP)
-                        .multiply(new BigDecimal("100"));
-            }
-            cumulativeReturns.add(cumulativeReturn);
-
-            // 일간 수익률 계산
-            BigDecimal dailyReturn = BigDecimal.ZERO;
-            if (previousValue != null && previousValue.compareTo(BigDecimal.ZERO) > 0) {
-                dailyReturn = lastValue.subtract(previousValue)
-                        .divide(previousValue, 4, RoundingMode.HALF_UP)
-                        .multiply(new BigDecimal("100"));
-            }
-            dailyReturns.add(dailyReturn);
-            previousValue = lastValue;
-
-            current = current.plusDays(1);
-        }
-
-        // 전체 수익률 및 CAGR 계산
-        BigDecimal totalReturn = BigDecimal.ZERO;
-        BigDecimal cagr = BigDecimal.ZERO;
-
-        if (initialInvestment != null && initialInvestment.compareTo(BigDecimal.ZERO) > 0) {
-            totalReturn = lastValue.subtract(initialInvestment)
-                    .divide(initialInvestment, 4, RoundingMode.HALF_UP)
-                    .multiply(new BigDecimal("100"));
-
-            long days = ChronoUnit.DAYS.between(startDate, endDate);
-            if (days > 0 && lastValue.compareTo(BigDecimal.ZERO) > 0) {
-                double years = days / 365.0;
-                double ratio = lastValue.divide(initialInvestment, 6, RoundingMode.HALF_UP).doubleValue();
-                if (ratio > 0 && years > 0) {
-                    double cagrValue = (Math.pow(ratio, 1.0 / years) - 1) * 100;
-                    cagr = BigDecimal.valueOf(cagrValue).setScale(2, RoundingMode.HALF_UP);
-                }
-            }
-        }
-
+    private EquityCurveDto emptyEquityCurve() {
         return EquityCurveDto.builder()
-                .labels(labels)
-                .values(values)
-                .cumulativeReturns(cumulativeReturns)
-                .dailyReturns(dailyReturns)
-                .initialInvestment(initialInvestment != null ? initialInvestment : BigDecimal.ZERO)
-                .finalValue(lastValue)
-                .totalReturn(totalReturn)
-                .cagr(cagr)
+                .labels(new ArrayList<>())
+                .values(new ArrayList<>())
+                .cumulativeReturns(new ArrayList<>())
+                .dailyReturns(new ArrayList<>())
+                .initialInvestment(BigDecimal.ZERO)
+                .finalValue(BigDecimal.ZERO)
+                .totalReturn(BigDecimal.ZERO)
+                .cagr(BigDecimal.ZERO)
                 .build();
+    }
+
+    private BigDecimal calcReturnPct(BigDecimal diff, BigDecimal base) {
+        if (base == null || base.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
+        return diff.divide(base, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
+    }
+
+    private BigDecimal calcCagr(BigDecimal initial, BigDecimal finalVal, LocalDate start, LocalDate end) {
+        if (initial == null || initial.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
+        long days = ChronoUnit.DAYS.between(start, end);
+        if (days <= 0 || finalVal.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
+        double years = days / 365.0;
+        double ratio = finalVal.divide(initial, 6, RoundingMode.HALF_UP).doubleValue();
+        if (ratio <= 0) return BigDecimal.ZERO;
+        return BigDecimal.valueOf((Math.pow(ratio, 1.0 / years) - 1) * 100).setScale(2, RoundingMode.HALF_UP);
     }
 
     /**

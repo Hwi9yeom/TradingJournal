@@ -545,4 +545,223 @@ public class TradingStatisticsService {
         if (amount == null) return "0원";
         return String.format("%,.0f원", amount);
     }
+
+    /**
+     * 전체 거래 통계 조회 (AnalysisController에서 이동)
+     */
+    public Map<String, Object> getOverallStatistics() {
+        List<Transaction> allTx = transactionRepository.findAll();
+        Map<String, Object> stats = new HashMap<>();
+
+        stats.put("totalTrades", allTx.size());
+        stats.put("uniqueStocks", allTx.stream().map(Transaction::getStock).distinct().count());
+
+        List<Transaction> sells = allTx.stream()
+                .filter(t -> t.getType() == TransactionType.SELL)
+                .toList();
+
+        int wins = 0;
+        double totalReturnPct = 0;
+        double maxReturnPct = Double.MIN_VALUE;
+
+        for (Transaction sell : sells) {
+            List<Transaction> buys = allTx.stream()
+                    .filter(t -> t.getType() == TransactionType.BUY
+                            && t.getStock().equals(sell.getStock())
+                            && t.getTransactionDate().isBefore(sell.getTransactionDate()))
+                    .toList();
+
+            if (!buys.isEmpty()) {
+                BigDecimal avgBuy = buys.stream()
+                        .map(Transaction::getPrice)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(BigDecimal.valueOf(buys.size()), 2, RoundingMode.HALF_UP);
+
+                double ret = sell.getPrice().subtract(avgBuy)
+                        .divide(avgBuy, 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100))
+                        .doubleValue();
+
+                if (ret > 0) wins++;
+                totalReturnPct += ret;
+                maxReturnPct = Math.max(maxReturnPct, ret);
+            }
+        }
+
+        stats.put("avgHoldingPeriod", calcAvgHoldingPeriod(allTx));
+        stats.put("winRate", sells.isEmpty() ? 0 : (double) wins / sells.size() * 100);
+        stats.put("avgReturn", sells.isEmpty() ? 0 : totalReturnPct / sells.size());
+        stats.put("maxReturn", maxReturnPct == Double.MIN_VALUE ? 0 : maxReturnPct);
+        stats.put("sharpeRatio", calcSharpeRatio(allTx));
+        stats.put("maxDrawdown", calcMaxDrawdown(allTx));
+
+        return stats;
+    }
+
+    private double calcAvgHoldingPeriod(List<Transaction> transactions) {
+        Map<String, List<Transaction>> byStock = transactions.stream()
+                .collect(Collectors.groupingBy(t -> t.getStock().getSymbol()));
+
+        long totalDays = 0;
+        int completedTrades = 0;
+
+        for (List<Transaction> stockTx : byStock.values()) {
+            var buys = stockTx.stream()
+                    .filter(t -> t.getType() == TransactionType.BUY)
+                    .sorted(Comparator.comparing(Transaction::getTransactionDate))
+                    .toList();
+            var sells = stockTx.stream()
+                    .filter(t -> t.getType() == TransactionType.SELL)
+                    .sorted(Comparator.comparing(Transaction::getTransactionDate))
+                    .toList();
+
+            for (Transaction sell : sells) {
+                for (Transaction buy : buys) {
+                    if (buy.getTransactionDate().isBefore(sell.getTransactionDate())) {
+                        totalDays += java.time.temporal.ChronoUnit.DAYS.between(
+                                buy.getTransactionDate().toLocalDate(),
+                                sell.getTransactionDate().toLocalDate());
+                        completedTrades++;
+                        break;
+                    }
+                }
+            }
+        }
+        return completedTrades > 0 ? (double) totalDays / completedTrades : 0;
+    }
+
+    private double calcSharpeRatio(List<Transaction> transactions) {
+        if (transactions.isEmpty()) return 0;
+
+        Map<String, List<Transaction>> monthly = transactions.stream()
+                .collect(Collectors.groupingBy(t ->
+                        t.getTransactionDate().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"))));
+
+        List<Double> monthlyReturns = new ArrayList<>();
+        for (List<Transaction> monthTx : monthly.values()) {
+            BigDecimal buy = monthTx.stream()
+                    .filter(t -> t.getType() == TransactionType.BUY)
+                    .map(Transaction::getTotalAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal sell = monthTx.stream()
+                    .filter(t -> t.getType() == TransactionType.SELL)
+                    .map(Transaction::getTotalAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            if (buy.compareTo(BigDecimal.ZERO) > 0) {
+                monthlyReturns.add(sell.subtract(buy).divide(buy, 4, RoundingMode.HALF_UP).doubleValue());
+            }
+        }
+
+        if (monthlyReturns.size() < 2) return 0;
+
+        double avg = monthlyReturns.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+        double variance = monthlyReturns.stream().mapToDouble(r -> Math.pow(r - avg, 2)).average().orElse(0);
+        double stdDev = Math.sqrt(variance);
+
+        return stdDev != 0 ? (avg - 0.02 / 12) / stdDev : 0;
+    }
+
+    private double calcMaxDrawdown(List<Transaction> transactions) {
+        if (transactions.isEmpty()) return 0;
+
+        transactions.sort(Comparator.comparing(Transaction::getTransactionDate));
+
+        BigDecimal running = BigDecimal.ZERO;
+        BigDecimal peak = BigDecimal.ZERO;
+        double maxDD = 0;
+
+        for (Transaction tx : transactions) {
+            running = (tx.getType() == TransactionType.BUY)
+                    ? running.add(tx.getTotalAmount())
+                    : running.subtract(tx.getTotalAmount());
+
+            if (running.compareTo(peak) > 0) peak = running;
+
+            if (peak.compareTo(BigDecimal.ZERO) > 0) {
+                double dd = peak.subtract(running).divide(peak, 4, RoundingMode.HALF_UP).doubleValue() * 100;
+                maxDD = Math.max(maxDD, dd);
+            }
+        }
+        return maxDD;
+    }
+
+    /**
+     * 자산 히스토리 조회
+     */
+    public Map<String, Object> getAssetHistory(LocalDate startDate, LocalDate endDate) {
+        List<Transaction> transactions = transactionRepository.findByDateRange(
+                startDate.atStartOfDay(), endDate.atTime(23, 59, 59));
+
+        Map<LocalDate, BigDecimal> dailyValues = new TreeMap<>();
+        BigDecimal running = BigDecimal.ZERO;
+
+        transactions.sort(Comparator.comparing(Transaction::getTransactionDate));
+
+        for (Transaction tx : transactions) {
+            LocalDate date = tx.getTransactionDate().toLocalDate();
+            running = (tx.getType() == TransactionType.BUY)
+                    ? running.add(tx.getTotalAmount())
+                    : running.subtract(tx.getTotalAmount());
+            dailyValues.put(date, running);
+        }
+
+        List<String> labels = new ArrayList<>();
+        List<BigDecimal> values = new ArrayList<>();
+        BigDecimal lastValue = BigDecimal.ZERO;
+
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            if (dailyValues.containsKey(d)) {
+                lastValue = dailyValues.get(d);
+            }
+            labels.add(d.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+            values.add(lastValue);
+        }
+
+        Map<String, Object> history = new HashMap<>();
+        history.put("labels", labels);
+        history.put("values", values);
+        return history;
+    }
+
+    /**
+     * 월별 수익률 조회
+     */
+    public List<Map<String, Object>> getMonthlyReturns() {
+        List<Transaction> allTx = transactionRepository.findAll();
+
+        Map<String, List<Transaction>> byMonth = allTx.stream()
+                .collect(Collectors.groupingBy(t ->
+                        t.getTransactionDate().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"))));
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Map.Entry<String, List<Transaction>> entry : byMonth.entrySet()) {
+            String month = entry.getKey();
+            List<Transaction> txs = entry.getValue();
+
+            BigDecimal buy = txs.stream()
+                    .filter(t -> t.getType() == TransactionType.BUY)
+                    .map(Transaction::getTotalAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal sell = txs.stream()
+                    .filter(t -> t.getType() == TransactionType.SELL)
+                    .map(Transaction::getTotalAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal rate = buy.compareTo(BigDecimal.ZERO) > 0
+                    ? sell.subtract(buy).divide(buy, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
+                    : BigDecimal.ZERO;
+
+            Map<String, Object> monthData = new HashMap<>();
+            monthData.put("month", month);
+            monthData.put("returnRate", rate);
+            monthData.put("investment", buy);
+            result.add(monthData);
+        }
+
+        result.sort((a, b) -> ((String) a.get("month")).compareTo((String) b.get("month")));
+        return result;
+    }
 }

@@ -17,6 +17,9 @@ $(document).ready(function() {
     loadDrawdown('1Y');
     loadCorrelation('1Y');
     loadRiskMetrics('1Y');
+
+    // Initialize Portfolio Treemap
+    initializeTreemap();
 });
 
 function loadDashboardData() {
@@ -1295,3 +1298,292 @@ $(document).ready(function() {
         $('#reportStartDate').val(startOfYear.toISOString().split('T')[0]);
     });
 });
+
+// ==================== 포트폴리오 트리맵 (Finviz 스타일) ====================
+
+let currentTreemapPeriod = '1D';
+
+const PERIOD_LABELS = {
+    '1D': '1일',
+    '1W': '1주',
+    '1M': '1개월',
+    'MTD': '이번달',
+    '3M': '3개월',
+    '6M': '6개월',
+    '1Y': '1년'
+};
+
+function initializeTreemap() {
+    // 기본 기간으로 트리맵 로드
+    loadPortfolioTreemap('1D');
+
+    // 기간 선택 버튼 이벤트 핸들러
+    $('#treemap-period-selector button').on('click', function() {
+        $('#treemap-period-selector button').removeClass('active');
+        $(this).addClass('active');
+        const period = $(this).data('period');
+        loadPortfolioTreemap(period);
+    });
+
+    // 윈도우 리사이즈 시 트리맵 재렌더링
+    let resizeTimeout;
+    $(window).on('resize', function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function() {
+            if (window.treemapData) {
+                renderTreemap(window.treemapData);
+            }
+        }, 250);
+    });
+}
+
+function loadPortfolioTreemap(period) {
+    currentTreemapPeriod = period;
+    $('#treemap-period-label').text(PERIOD_LABELS[period] || period);
+
+    $.ajax({
+        url: `${API_BASE_URL}/analysis/portfolio/treemap`,
+        method: 'GET',
+        data: { period: period },
+        success: function(data) {
+            window.treemapData = data;
+            updateTreemapSummary(data);
+            renderTreemap(data);
+            $('#treemap-empty').hide();
+            $('#portfolio-treemap').show();
+        },
+        error: function(xhr) {
+            console.error('Failed to load treemap:', xhr);
+            $('#portfolio-treemap').hide();
+            $('#treemap-empty').show();
+        }
+    });
+}
+
+function updateTreemapSummary(data) {
+    $('#treemap-total-investment').text(formatCurrency(data.totalInvestment || 0));
+
+    const avgPerf = parseFloat(data.totalPerformance || 0);
+    $('#treemap-avg-performance')
+        .text((avgPerf >= 0 ? '+' : '') + avgPerf.toFixed(2) + '%')
+        .removeClass('text-success text-danger text-muted')
+        .addClass(avgPerf > 0 ? 'text-success' : (avgPerf < 0 ? 'text-danger' : 'text-muted'));
+}
+
+function renderTreemap(data) {
+    const container = document.getElementById('portfolio-treemap');
+    if (!container) return;
+
+    const width = container.clientWidth;
+    const height = 400;
+
+    // 기존 내용 제거
+    d3.select('#portfolio-treemap').selectAll('*').remove();
+
+    if (!data.cells || data.cells.length === 0) {
+        $('#portfolio-treemap').hide();
+        $('#treemap-empty').show();
+        return;
+    }
+
+    // SVG 생성
+    const svg = d3.select('#portfolio-treemap')
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+    // 계층 구조 데이터 준비
+    const hierarchyData = {
+        name: 'Portfolio',
+        children: data.cells.map(cell => ({
+            name: cell.symbol,
+            fullName: cell.name || cell.symbol,
+            value: Math.max(parseFloat(cell.investmentAmount) || 1, 1), // 최소값 1
+            performance: parseFloat(cell.performancePercent) || 0,
+            currentPrice: parseFloat(cell.currentPrice) || 0,
+            priceChange: parseFloat(cell.priceChange) || 0,
+            sector: cell.sector || 'UNKNOWN',
+            hasData: cell.hasData !== false
+        }))
+    };
+
+    // 트리맵 레이아웃 생성
+    const treemap = d3.treemap()
+        .size([width, height])
+        .padding(2)
+        .round(true);
+
+    const root = d3.hierarchy(hierarchyData)
+        .sum(d => d.value)
+        .sort((a, b) => b.value - a.value);
+
+    treemap(root);
+
+    // 셀 그룹 생성
+    const cells = svg.selectAll('g')
+        .data(root.leaves())
+        .enter()
+        .append('g')
+        .attr('transform', d => `translate(${d.x0},${d.y0})`);
+
+    // 셀 사각형 추가
+    cells.append('rect')
+        .attr('width', d => Math.max(d.x1 - d.x0, 0))
+        .attr('height', d => Math.max(d.y1 - d.y0, 0))
+        .attr('fill', d => getTreemapColor(d.data.performance, d.data.hasData))
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 1)
+        .attr('rx', 3)
+        .style('cursor', 'pointer')
+        .on('mouseover', function(event, d) {
+            showTreemapTooltip(event, d);
+            d3.select(this)
+                .attr('stroke', '#000')
+                .attr('stroke-width', 2);
+        })
+        .on('mouseout', function() {
+            hideTreemapTooltip();
+            d3.select(this)
+                .attr('stroke', '#fff')
+                .attr('stroke-width', 1);
+        });
+
+    // 심볼 레이블 추가
+    cells.append('text')
+        .attr('x', d => (d.x1 - d.x0) / 2)
+        .attr('y', d => (d.y1 - d.y0) / 2 - 6)
+        .attr('text-anchor', 'middle')
+        .attr('fill', d => getTreemapTextColor(d.data.performance, d.data.hasData))
+        .attr('font-size', d => {
+            const cellWidth = d.x1 - d.x0;
+            return Math.min(Math.max(cellWidth / 6, 9), 14) + 'px';
+        })
+        .attr('font-weight', 'bold')
+        .text(d => {
+            const cellWidth = d.x1 - d.x0;
+            if (cellWidth < 40) return '';
+            if (cellWidth < 60) return d.data.name.substring(0, 3);
+            return d.data.name;
+        });
+
+    // 수익률 레이블 추가
+    cells.append('text')
+        .attr('x', d => (d.x1 - d.x0) / 2)
+        .attr('y', d => (d.y1 - d.y0) / 2 + 10)
+        .attr('text-anchor', 'middle')
+        .attr('fill', d => getTreemapTextColor(d.data.performance, d.data.hasData))
+        .attr('font-size', d => {
+            const cellWidth = d.x1 - d.x0;
+            return Math.min(Math.max(cellWidth / 7, 8), 12) + 'px';
+        })
+        .text(d => {
+            const cellWidth = d.x1 - d.x0;
+            const cellHeight = d.y1 - d.y0;
+            if (cellWidth < 50 || cellHeight < 35) return '';
+            if (!d.data.hasData) return 'N/A';
+            const perf = d.data.performance;
+            return (perf >= 0 ? '+' : '') + perf.toFixed(2) + '%';
+        });
+}
+
+function getTreemapColor(performance, hasData) {
+    if (!hasData || performance === null || performance === undefined) {
+        return '#6c757d'; // Gray for no data
+    }
+
+    // -10% 이하 또는 +10% 이상은 최대 색상 강도
+    const clampedPerf = Math.max(-10, Math.min(10, performance));
+
+    if (clampedPerf < 0) {
+        // 음수: Gray (#6c757d) -> Red (#dc3545)
+        const intensity = Math.abs(clampedPerf) / 10;
+        return d3.interpolateRgb('#6c757d', '#dc3545')(intensity);
+    } else if (clampedPerf > 0) {
+        // 양수: Gray (#6c757d) -> Green (#198754)
+        const intensity = clampedPerf / 10;
+        return d3.interpolateRgb('#6c757d', '#198754')(intensity);
+    }
+
+    return '#6c757d'; // 0%는 회색
+}
+
+function getTreemapTextColor(performance, hasData) {
+    if (!hasData) return '#fff';
+    if (performance === null || performance === undefined) return '#fff';
+    if (Math.abs(performance) > 4) return '#fff';
+    return '#212529';
+}
+
+function showTreemapTooltip(event, d) {
+    // 기존 툴팁 제거
+    d3.select('.treemap-tooltip').remove();
+
+    const perfText = d.data.hasData
+        ? (d.data.performance >= 0 ? '+' : '') + d.data.performance.toFixed(2) + '%'
+        : '데이터 없음';
+
+    const perfColor = d.data.performance >= 0 ? '#22c55e' : '#ef4444';
+    const priceChangeText = d.data.priceChange >= 0
+        ? '+' + formatCurrency(d.data.priceChange)
+        : formatCurrency(d.data.priceChange);
+
+    const tooltip = d3.select('body')
+        .append('div')
+        .attr('class', 'treemap-tooltip')
+        .style('position', 'absolute')
+        .style('background', 'rgba(0,0,0,0.9)')
+        .style('color', '#fff')
+        .style('padding', '12px')
+        .style('border-radius', '6px')
+        .style('font-size', '12px')
+        .style('z-index', '10000')
+        .style('pointer-events', 'none')
+        .style('box-shadow', '0 4px 6px rgba(0,0,0,0.3)')
+        .style('max-width', '250px');
+
+    tooltip.html(`
+        <div style="font-weight: bold; margin-bottom: 6px; font-size: 14px;">
+            ${d.data.name} <span style="font-weight: normal; color: #aaa;">(${d.data.fullName})</span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            <span style="color: #aaa;">수익률:</span>
+            <span style="color: ${perfColor}; font-weight: bold;">${perfText}</span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            <span style="color: #aaa;">투자금액:</span>
+            <span>${formatCurrency(d.value)}</span>
+        </div>
+        <div style="margin-bottom: 4px;">
+            <span style="color: #aaa;">현재가:</span>
+            <span>${formatCurrency(d.data.currentPrice)}</span>
+            <span style="color: ${d.data.priceChange >= 0 ? '#22c55e' : '#ef4444'}; font-size: 11px;">
+                (${priceChangeText})
+            </span>
+        </div>
+        <div>
+            <span style="color: #aaa;">섹터:</span>
+            <span>${d.data.sector}</span>
+        </div>
+    `);
+
+    // 툴팁 위치 계산 (화면 밖으로 나가지 않도록)
+    const tooltipNode = tooltip.node();
+    const tooltipRect = tooltipNode.getBoundingClientRect();
+    let left = event.pageX + 15;
+    let top = event.pageY - 10;
+
+    if (left + tooltipRect.width > window.innerWidth) {
+        left = event.pageX - tooltipRect.width - 15;
+    }
+    if (top + tooltipRect.height > window.innerHeight + window.scrollY) {
+        top = event.pageY - tooltipRect.height - 10;
+    }
+
+    tooltip
+        .style('left', left + 'px')
+        .style('top', top + 'px');
+}
+
+function hideTreemapTooltip() {
+    d3.select('.treemap-tooltip').remove();
+}
