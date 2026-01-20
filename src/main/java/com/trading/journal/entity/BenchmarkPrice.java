@@ -1,17 +1,15 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import lombok.*;
 
-/**
- * 벤치마크 지수 가격 데이터
- */
+/** 벤치마크 지수 가격 데이터 */
 @Entity
-@Table(name = "benchmark_prices",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"benchmark", "price_date"}))
+@Table(
+        name = "benchmark_prices",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"benchmark", "price_date"}))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -52,6 +50,5 @@ public class BenchmarkPrice {
     private BigDecimal dailyReturn;
 
     /** 거래량 */
-    @Column
-    private Long volume;
+    @Column private Long volume;
 }

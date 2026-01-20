@@ -1,8 +1,6 @@
 package com.trading.journal.exception;
 
-/**
- * 외부 API 호출 중 발생하는 예외
- */
+/** 외부 API 호출 중 발생하는 예외 */
 public class ExternalApiException extends RuntimeException {
 
     private final String apiName;
@@ -30,8 +28,11 @@ public class ExternalApiException extends RuntimeException {
         this.endpoint = endpoint;
     }
 
-    public ExternalApiException(String apiName, String endpoint, Integer statusCode, String message) {
-        super(String.format("%s API 호출 실패 [%s, HTTP %d]: %s", apiName, endpoint, statusCode, message));
+    public ExternalApiException(
+            String apiName, String endpoint, Integer statusCode, String message) {
+        super(
+                String.format(
+                        "%s API 호출 실패 [%s, HTTP %d]: %s", apiName, endpoint, statusCode, message));
         this.apiName = apiName;
         this.statusCode = statusCode;
         this.endpoint = endpoint;

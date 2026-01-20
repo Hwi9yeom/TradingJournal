@@ -3,11 +3,8 @@ package com.trading.journal.ai.dto;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
-/**
- * AI 전략 최적화 제안 DTO
- */
+/** AI 전략 최적화 제안 DTO */
 public class AISuggestionDto {
 
     private Long backtestId;
@@ -41,8 +38,10 @@ public class AISuggestionDto {
         this.weaknesses.add(weakness);
     }
 
-    public void addParameterSuggestion(String parameter, String currentValue, String suggestedValue, String reason) {
-        this.parameterSuggestions.add(new ParameterSuggestion(parameter, currentValue, suggestedValue, reason));
+    public void addParameterSuggestion(
+            String parameter, String currentValue, String suggestedValue, String reason) {
+        this.parameterSuggestions.add(
+                new ParameterSuggestion(parameter, currentValue, suggestedValue, reason));
     }
 
     public void addRecommendation(String recommendation) {
@@ -53,9 +52,7 @@ public class AISuggestionDto {
         this.riskWarnings.add(warning);
     }
 
-    /**
-     * 파라미터 변경 제안
-     */
+    /** 파라미터 변경 제안 */
     public static class ParameterSuggestion {
         private String parameterName;
         private String currentValue;
@@ -64,7 +61,8 @@ public class AISuggestionDto {
 
         public ParameterSuggestion() {}
 
-        public ParameterSuggestion(String parameterName, String currentValue, String suggestedValue, String reason) {
+        public ParameterSuggestion(
+                String parameterName, String currentValue, String suggestedValue, String reason) {
             this.parameterName = parameterName;
             this.currentValue = currentValue;
             this.suggestedValue = suggestedValue;

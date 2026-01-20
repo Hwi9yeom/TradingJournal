@@ -1,8 +1,6 @@
 package com.trading.journal.entity;
 
-/**
- * 목표 상태
- */
+/** 목표 상태 */
 public enum GoalStatus {
     /** 진행 중 */
     ACTIVE,

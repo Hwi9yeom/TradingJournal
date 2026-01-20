@@ -4,6 +4,14 @@ import com.trading.journal.entity.HistoricalPrice;
 import com.trading.journal.exception.PriceDataException;
 import com.trading.journal.repository.HistoricalPriceRepository;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -13,15 +21,6 @@ import yahoofinance.Stock;
 import yahoofinance.YahooFinance;
 import yahoofinance.histquotes.HistoricalQuote;
 import yahoofinance.histquotes.Interval;
-
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -46,16 +45,19 @@ public class StockPriceService {
         }
     }
 
-    /**
-     * Circuit Breaker 폴백: 가격을 가져올 수 없을 때 로컬 DB에서 최신 가격 조회
-     */
+    /** Circuit Breaker 폴백: 가격을 가져올 수 없을 때 로컬 DB에서 최신 가격 조회 */
     private BigDecimal getCurrentPriceFallback(String symbol, Throwable t) {
-        log.warn("Circuit breaker fallback for getCurrentPrice: symbol={}, error={}", symbol, t.getMessage());
+        log.warn(
+                "Circuit breaker fallback for getCurrentPrice: symbol={}, error={}",
+                symbol,
+                t.getMessage());
 
         // 로컬 DB에서 최신 가격 조회 시도
-        Optional<LocalDate> latestDate = historicalPriceRepository.findLatestPriceDateBySymbol(symbol);
+        Optional<LocalDate> latestDate =
+                historicalPriceRepository.findLatestPriceDateBySymbol(symbol);
         if (latestDate.isPresent()) {
-            Optional<HistoricalPrice> price = historicalPriceRepository.findBySymbolAndPriceDate(symbol, latestDate.get());
+            Optional<HistoricalPrice> price =
+                    historicalPriceRepository.findBySymbolAndPriceDate(symbol, latestDate.get());
             if (price.isPresent()) {
                 log.info("Using cached price from {} for symbol {}", latestDate.get(), symbol);
                 return price.get().getClosePrice();
@@ -73,7 +75,11 @@ public class StockPriceService {
 
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                log.debug("Fetching stock info for symbol: {} (attempt {}/{})", symbol, attempt, MAX_RETRIES);
+                log.debug(
+                        "Fetching stock info for symbol: {} (attempt {}/{})",
+                        symbol,
+                        attempt,
+                        MAX_RETRIES);
                 Stock stock = YahooFinance.get(symbol);
 
                 // Yahoo Finance API에서 null을 반환하는 경우도 있음
@@ -96,8 +102,12 @@ public class StockPriceService {
                         break;
                     }
                 } else {
-                    log.error("Failed to fetch stock info for symbol: {} (attempt {}/{})",
-                            symbol, attempt, MAX_RETRIES, e);
+                    log.error(
+                            "Failed to fetch stock info for symbol: {} (attempt {}/{})",
+                            symbol,
+                            attempt,
+                            MAX_RETRIES,
+                            e);
                 }
 
                 if (attempt < MAX_RETRIES) {
@@ -111,15 +121,18 @@ public class StockPriceService {
             }
         }
 
-        log.error("Failed to fetch stock info after {} attempts for symbol: {}", MAX_RETRIES, symbol);
-        throw new PriceDataException(symbol, "Yahoo Finance", MAX_RETRIES + "회 시도 후 종목 정보 조회 실패", lastException);
+        log.error(
+                "Failed to fetch stock info after {} attempts for symbol: {}", MAX_RETRIES, symbol);
+        throw new PriceDataException(
+                symbol, "Yahoo Finance", MAX_RETRIES + "회 시도 후 종목 정보 조회 실패", lastException);
     }
 
-    /**
-     * Circuit Breaker 폴백: Stock 정보를 가져올 수 없을 때 기본 객체 반환
-     */
+    /** Circuit Breaker 폴백: Stock 정보를 가져올 수 없을 때 기본 객체 반환 */
     private Stock getStockInfoFallback(String symbol, Throwable t) {
-        log.warn("Circuit breaker fallback for getStockInfo: symbol={}, error={}", symbol, t.getMessage());
+        log.warn(
+                "Circuit breaker fallback for getStockInfo: symbol={}, error={}",
+                symbol,
+                t.getMessage());
         return createDefaultStock(symbol);
     }
 
@@ -134,26 +147,26 @@ public class StockPriceService {
     }
 
     /**
-     * 과거 가격 데이터 조회 (로컬 DB 우선, API 폴백)
-     * 1. 먼저 로컬 DB에서 데이터를 조회
-     * 2. 데이터가 충분하면 DB 데이터 반환
-     * 3. 데이터가 부족하면 Yahoo Finance API 호출 후 DB 저장
+     * 과거 가격 데이터 조회 (로컬 DB 우선, API 폴백) 1. 먼저 로컬 DB에서 데이터를 조회 2. 데이터가 충분하면 DB 데이터 반환 3. 데이터가 부족하면
+     * Yahoo Finance API 호출 후 DB 저장
      */
     @Cacheable(value = "historicalQuotes", key = "#symbol + '_' + #from + '_' + #to")
     public List<HistoricalQuote> getHistoricalQuotes(String symbol, LocalDate from, LocalDate to) {
         log.debug("Fetching historical quotes for {} from {} to {}", symbol, from, to);
 
         // 1. 로컬 DB에서 데이터 조회
-        List<HistoricalPrice> cachedPrices = historicalPriceRepository
-                .findBySymbolAndPriceDateBetweenOrderByPriceDateAsc(symbol, from, to);
+        List<HistoricalPrice> cachedPrices =
+                historicalPriceRepository.findBySymbolAndPriceDateBetweenOrderByPriceDateAsc(
+                        symbol, from, to);
 
         // 2. 데이터 커버리지 확인
         long expectedDays = calculateTradingDays(from, to);
         long actualDays = cachedPrices.size();
         double coverage = expectedDays > 0 ? (double) actualDays / expectedDays * 100 : 0;
 
-        log.debug("Cache coverage for {}: {}/{} days ({}%)", symbol, actualDays, expectedDays,
-                String.format("%.1f", coverage));
+        log.debug(
+                "Cache coverage for {}: {}/{} days ({}%)",
+                symbol, actualDays, expectedDays, String.format("%.1f", coverage));
 
         // 3. 충분한 데이터가 있으면 DB 데이터 반환
         if (coverage >= MIN_COVERAGE_PERCENT && actualDays > 0) {
@@ -162,7 +175,9 @@ public class StockPriceService {
         }
 
         // 4. API에서 데이터 조회
-        log.info("Fetching from Yahoo Finance API for {} (coverage {}%)", symbol, String.format("%.1f", coverage));
+        log.info(
+                "Fetching from Yahoo Finance API for {} (coverage {}%)",
+                symbol, String.format("%.1f", coverage));
         List<HistoricalQuote> quotes = fetchFromYahooFinance(symbol, from, to);
 
         // 5. DB에 저장 (비동기로 처리해도 됨)
@@ -173,19 +188,16 @@ public class StockPriceService {
         return quotes;
     }
 
-    /**
-     * 예상 거래일 수 계산 (주말 제외, 대략적인 추정)
-     */
+    /** 예상 거래일 수 계산 (주말 제외, 대략적인 추정) */
     private long calculateTradingDays(LocalDate from, LocalDate to) {
         long totalDays = ChronoUnit.DAYS.between(from, to) + 1;
         // 대략 주 5일 거래로 추정 (공휴일 미고려)
         return (long) (totalDays * 5.0 / 7.0);
     }
 
-    /**
-     * Yahoo Finance API에서 데이터 조회
-     */
-    private List<HistoricalQuote> fetchFromYahooFinance(String symbol, LocalDate from, LocalDate to) {
+    /** Yahoo Finance API에서 데이터 조회 */
+    private List<HistoricalQuote> fetchFromYahooFinance(
+            String symbol, LocalDate from, LocalDate to) {
         IOException lastException = null;
 
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -199,14 +211,20 @@ public class StockPriceService {
                 Stock stock = YahooFinance.get(symbol);
                 List<HistoricalQuote> quotes = stock.getHistory(fromCal, toCal, Interval.DAILY);
 
-                log.info("Successfully fetched {} quotes from Yahoo Finance for {}",
-                        quotes != null ? quotes.size() : 0, symbol);
+                log.info(
+                        "Successfully fetched {} quotes from Yahoo Finance for {}",
+                        quotes != null ? quotes.size() : 0,
+                        symbol);
                 return quotes != null ? quotes : Collections.emptyList();
 
             } catch (IOException e) {
                 lastException = e;
-                log.warn("Yahoo Finance API call failed for {} (attempt {}/{}): {}",
-                        symbol, attempt, MAX_RETRIES, e.getMessage());
+                log.warn(
+                        "Yahoo Finance API call failed for {} (attempt {}/{}): {}",
+                        symbol,
+                        attempt,
+                        MAX_RETRIES,
+                        e.getMessage());
 
                 if (e.getMessage() != null && e.getMessage().contains("429")) {
                     try {
@@ -228,13 +246,14 @@ public class StockPriceService {
             }
         }
 
-        log.error("Failed to fetch historical quotes after {} attempts for symbol: {}", MAX_RETRIES, symbol);
+        log.error(
+                "Failed to fetch historical quotes after {} attempts for symbol: {}",
+                MAX_RETRIES,
+                symbol);
         throw new PriceDataException(symbol, "Yahoo Finance", "과거 가격 데이터 조회 실패", lastException);
     }
 
-    /**
-     * 가격 데이터를 로컬 DB에 저장
-     */
+    /** 가격 데이터를 로컬 DB에 저장 */
     @Transactional
     public void saveToDatabase(String symbol, List<HistoricalQuote> quotes) {
         log.debug("Saving {} quotes to database for {}", quotes.size(), symbol);
@@ -244,24 +263,25 @@ public class StockPriceService {
         for (HistoricalQuote quote : quotes) {
             if (quote.getClose() == null) continue;
 
-            LocalDate priceDate = quote.getDate().toInstant()
-                    .atZone(ZoneId.systemDefault()).toLocalDate();
+            LocalDate priceDate =
+                    quote.getDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
 
             // 이미 존재하는 데이터는 건너뛰기
             if (historicalPriceRepository.findBySymbolAndPriceDate(symbol, priceDate).isPresent()) {
                 continue;
             }
 
-            HistoricalPrice price = HistoricalPrice.builder()
-                    .symbol(symbol)
-                    .priceDate(priceDate)
-                    .openPrice(quote.getOpen())
-                    .highPrice(quote.getHigh())
-                    .lowPrice(quote.getLow())
-                    .closePrice(quote.getClose())
-                    .adjClose(quote.getAdjClose())
-                    .volume(quote.getVolume())
-                    .build();
+            HistoricalPrice price =
+                    HistoricalPrice.builder()
+                            .symbol(symbol)
+                            .priceDate(priceDate)
+                            .openPrice(quote.getOpen())
+                            .highPrice(quote.getHigh())
+                            .lowPrice(quote.getLow())
+                            .closePrice(quote.getClose())
+                            .adjClose(quote.getAdjClose())
+                            .volume(quote.getVolume())
+                            .build();
 
             pricesToSave.add(price);
         }
@@ -272,9 +292,7 @@ public class StockPriceService {
         }
     }
 
-    /**
-     * 로컬 DB 데이터를 HistoricalQuote 객체로 변환
-     */
+    /** 로컬 DB 데이터를 HistoricalQuote 객체로 변환 */
     private List<HistoricalQuote> convertToHistoricalQuotes(List<HistoricalPrice> cachedPrices) {
         return cachedPrices.stream()
                 .map(this::convertToHistoricalQuote)
@@ -283,7 +301,8 @@ public class StockPriceService {
 
     private HistoricalQuote convertToHistoricalQuote(HistoricalPrice price) {
         Calendar cal = Calendar.getInstance();
-        cal.setTime(Date.from(price.getPriceDate().atStartOfDay(ZoneId.systemDefault()).toInstant()));
+        cal.setTime(
+                Date.from(price.getPriceDate().atStartOfDay(ZoneId.systemDefault()).toInstant()));
 
         // HistoricalQuote(String symbol, Calendar date, BigDecimal open, BigDecimal low,
         //                 BigDecimal high, BigDecimal close, BigDecimal adjClose, Long volume)
@@ -295,8 +314,7 @@ public class StockPriceService {
                 price.getHighPrice(),
                 price.getClosePrice(),
                 price.getAdjClose(),
-                price.getVolume()
-        );
+                price.getVolume());
     }
 
     @Cacheable(value = "stockPrice", key = "#symbol + '_prev'")
@@ -311,17 +329,23 @@ public class StockPriceService {
         }
     }
 
-    /**
-     * Circuit Breaker 폴백: 전일 종가를 가져올 수 없을 때 로컬 DB에서 조회
-     */
+    /** Circuit Breaker 폴백: 전일 종가를 가져올 수 없을 때 로컬 DB에서 조회 */
     private BigDecimal getPreviousCloseFallback(String symbol, Throwable t) {
-        log.warn("Circuit breaker fallback for getPreviousClose: symbol={}, error={}", symbol, t.getMessage());
+        log.warn(
+                "Circuit breaker fallback for getPreviousClose: symbol={}, error={}",
+                symbol,
+                t.getMessage());
 
-        Optional<LocalDate> latestDate = historicalPriceRepository.findLatestPriceDateBySymbol(symbol);
+        Optional<LocalDate> latestDate =
+                historicalPriceRepository.findLatestPriceDateBySymbol(symbol);
         if (latestDate.isPresent()) {
-            Optional<HistoricalPrice> price = historicalPriceRepository.findBySymbolAndPriceDate(symbol, latestDate.get());
+            Optional<HistoricalPrice> price =
+                    historicalPriceRepository.findBySymbolAndPriceDate(symbol, latestDate.get());
             if (price.isPresent()) {
-                log.info("Using cached previous close from {} for symbol {}", latestDate.get(), symbol);
+                log.info(
+                        "Using cached previous close from {} for symbol {}",
+                        latestDate.get(),
+                        symbol);
                 return price.get().getClosePrice();
             }
         }
@@ -330,9 +354,7 @@ public class StockPriceService {
         throw new PriceDataException(symbol, "전일 종가 대체 데이터 없음");
     }
 
-    /**
-     * 캐시 상태 조회 (디버깅용)
-     */
+    /** 캐시 상태 조회 (디버깅용) */
     public Map<String, Object> getCacheStatus(String symbol) {
         Map<String, Object> status = new HashMap<>();
 
@@ -348,9 +370,7 @@ public class StockPriceService {
         return status;
     }
 
-    /**
-     * 특정 심볼의 캐시 강제 갱신
-     */
+    /** 특정 심볼의 캐시 강제 갱신 */
     @Transactional
     public void refreshCache(String symbol, LocalDate from, LocalDate to) {
         log.info("Refreshing cache for {} from {} to {}", symbol, from, to);

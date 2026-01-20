@@ -1,8 +1,6 @@
 package com.trading.journal.exception;
 
-/**
- * 백테스트 실행 중 발생하는 예외
- */
+/** 백테스트 실행 중 발생하는 예외 */
 public class BacktestExecutionException extends RuntimeException {
 
     private final String strategyName;
@@ -26,8 +24,11 @@ public class BacktestExecutionException extends RuntimeException {
         this.symbol = symbol;
     }
 
-    public BacktestExecutionException(String strategyName, String symbol, String message, Throwable cause) {
-        super(String.format("백테스트 실행 실패 [전략: %s, 종목: %s]: %s", strategyName, symbol, message), cause);
+    public BacktestExecutionException(
+            String strategyName, String symbol, String message, Throwable cause) {
+        super(
+                String.format("백테스트 실행 실패 [전략: %s, 종목: %s]: %s", strategyName, symbol, message),
+                cause);
         this.strategyName = strategyName;
         this.symbol = symbol;
     }

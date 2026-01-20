@@ -1,35 +1,27 @@
 package com.trading.journal.strategy.impl;
 
 import com.trading.journal.strategy.TradingStrategy;
-import lombok.Builder;
-import lombok.Data;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.Builder;
+import lombok.Data;
 
-/**
- * 모멘텀 전략
- * - N일 수익률이 양수로 전환: 매수
- * - N일 수익률이 음수로 전환: 매도
- */
+/** 모멘텀 전략 - N일 수익률이 양수로 전환: 매수 - N일 수익률이 음수로 전환: 매도 */
 @Data
 @Builder
 public class MomentumStrategy implements TradingStrategy {
 
     /** 모멘텀 기간 */
-    @Builder.Default
-    private int period = 20;
+    @Builder.Default private int period = 20;
 
     /** 매수 진입 임계값 (%) */
-    @Builder.Default
-    private double entryThreshold = 0.0;
+    @Builder.Default private double entryThreshold = 0.0;
 
     /** 매도 청산 임계값 (%) */
-    @Builder.Default
-    private double exitThreshold = 0.0;
+    @Builder.Default private double exitThreshold = 0.0;
 
     @Override
     public Signal generateSignal(List<PriceData> prices, int index) {
@@ -56,9 +48,7 @@ public class MomentumStrategy implements TradingStrategy {
         return Signal.HOLD;
     }
 
-    /**
-     * 모멘텀 계산 (N일 수익률 %)
-     */
+    /** 모멘텀 계산 (N일 수익률 %) */
     private BigDecimal calculateMomentum(List<PriceData> prices, int index) {
         BigDecimal currentPrice = prices.get(index).getClose();
         BigDecimal pastPrice = prices.get(index - period).getClose();
@@ -67,7 +57,8 @@ public class MomentumStrategy implements TradingStrategy {
             return BigDecimal.ZERO;
         }
 
-        return currentPrice.subtract(pastPrice)
+        return currentPrice
+                .subtract(pastPrice)
                 .divide(pastPrice, 6, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100));
     }
@@ -93,7 +84,8 @@ public class MomentumStrategy implements TradingStrategy {
 
     @Override
     public String getDescription() {
-        return String.format("%d일 모멘텀(수익률)이 %.1f%% 돌파 시 매수, %.1f%% 하향 돌파 시 매도",
+        return String.format(
+                "%d일 모멘텀(수익률)이 %.1f%% 돌파 시 매수, %.1f%% 하향 돌파 시 매도",
                 period, entryThreshold, exitThreshold);
     }
 

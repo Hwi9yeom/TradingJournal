@@ -1,24 +1,22 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import lombok.*;
 
-/**
- * 트레이드 플랜 엔티티
- * 거래 전 계획을 수립하고 추적하는 엔티티
- */
+/** 트레이드 플랜 엔티티 거래 전 계획을 수립하고 추적하는 엔티티 */
 @Entity
-@Table(name = "trade_plans", indexes = {
-    @Index(name = "idx_trade_plan_status", columnList = "status"),
-    @Index(name = "idx_trade_plan_account", columnList = "account_id"),
-    @Index(name = "idx_trade_plan_stock", columnList = "stock_id"),
-    @Index(name = "idx_trade_plan_valid_until", columnList = "validUntil"),
-    @Index(name = "idx_trade_plan_created", columnList = "createdAt")
-})
+@Table(
+        name = "trade_plans",
+        indexes = {
+            @Index(name = "idx_trade_plan_status", columnList = "status"),
+            @Index(name = "idx_trade_plan_account", columnList = "account_id"),
+            @Index(name = "idx_trade_plan_stock", columnList = "stock_id"),
+            @Index(name = "idx_trade_plan_valid_until", columnList = "validUntil"),
+            @Index(name = "idx_trade_plan_created", columnList = "createdAt")
+        })
 @Getter
 @Setter
 @NoArgsConstructor
@@ -169,8 +167,7 @@ public class TradePlan {
 
     // ===== 메타 정보 =====
 
-    @Version
-    private Long version;
+    @Version private Long version;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -188,9 +185,7 @@ public class TradePlan {
         calculateDerivedFields();
     }
 
-    /**
-     * 파생 필드 계산 (리스크 금액, R:R 비율 등)
-     */
+    /** 파생 필드 계산 (리스크 금액, R:R 비율 등) */
     public void calculateDerivedFields() {
         if (plannedEntryPrice != null && plannedStopLossPrice != null && plannedQuantity != null) {
             // 리스크 금액 = |진입가 - 손절가| × 수량
@@ -202,17 +197,18 @@ public class TradePlan {
 
             // R:R 비율
             if (plannedTakeProfitPrice != null && riskPerShare.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal rewardPerShare = plannedTakeProfitPrice.subtract(plannedEntryPrice).abs();
-                this.plannedRiskRewardRatio = rewardPerShare.divide(riskPerShare, 4, RoundingMode.HALF_UP);
+                BigDecimal rewardPerShare =
+                        plannedTakeProfitPrice.subtract(plannedEntryPrice).abs();
+                this.plannedRiskRewardRatio =
+                        rewardPerShare.divide(riskPerShare, 4, RoundingMode.HALF_UP);
             }
         }
     }
 
-    /**
-     * 만료 여부 확인
-     */
+    /** 만료 여부 확인 */
     public boolean isExpired() {
-        return validUntil != null && LocalDateTime.now().isAfter(validUntil)
-               && status == TradePlanStatus.PLANNED;
+        return validUntil != null
+                && LocalDateTime.now().isAfter(validUntil)
+                && status == TradePlanStatus.PLANNED;
     }
 }

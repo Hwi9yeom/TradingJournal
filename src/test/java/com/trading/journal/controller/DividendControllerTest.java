@@ -1,41 +1,38 @@
 package com.trading.journal.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.trading.journal.dto.DividendDto;
-import com.trading.journal.dto.DividendSummaryDto;
-import com.trading.journal.service.DividendService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import com.trading.journal.config.TestSecurityConfig;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.List;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.trading.journal.config.TestSecurityConfig;
+import com.trading.journal.dto.DividendDto;
+import com.trading.journal.dto.DividendSummaryDto;
+import com.trading.journal.service.DividendService;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
 @WebMvcTest(DividendController.class)
 @Import(TestSecurityConfig.class)
 class DividendControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-    @MockitoBean
-    private DividendService dividendService;
+    @MockitoBean private DividendService dividendService;
 
     private ObjectMapper objectMapper;
     private DividendDto mockDividendDto;
@@ -45,43 +42,45 @@ class DividendControllerTest {
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
-        mockDividendDto = DividendDto.builder()
-                .id(1L)
-                .stockId(1L)
-                .stockSymbol("AAPL")
-                .stockName("Apple Inc.")
-                .exDividendDate(LocalDate.now().minusDays(30))
-                .paymentDate(LocalDate.now())
-                .dividendPerShare(new BigDecimal("0.25"))
-                .quantity(new BigDecimal("100"))
-                .totalAmount(new BigDecimal("25.00"))
-                .taxAmount(new BigDecimal("3.75"))
-                .netAmount(new BigDecimal("21.25"))
-                .taxRate(new BigDecimal("15.0"))
-                .memo("분기 배당")
-                .build();
+        mockDividendDto =
+                DividendDto.builder()
+                        .id(1L)
+                        .stockId(1L)
+                        .stockSymbol("AAPL")
+                        .stockName("Apple Inc.")
+                        .exDividendDate(LocalDate.now().minusDays(30))
+                        .paymentDate(LocalDate.now())
+                        .dividendPerShare(new BigDecimal("0.25"))
+                        .quantity(new BigDecimal("100"))
+                        .totalAmount(new BigDecimal("25.00"))
+                        .taxAmount(new BigDecimal("3.75"))
+                        .netAmount(new BigDecimal("21.25"))
+                        .taxRate(new BigDecimal("15.0"))
+                        .memo("분기 배당")
+                        .build();
     }
 
     @Test
     @DisplayName("배당금 기록 생성")
     void createDividend_Success() throws Exception {
         // Given
-        DividendDto requestDto = DividendDto.builder()
-                .stockId(1L)
-                .exDividendDate(LocalDate.now().minusDays(30))
-                .paymentDate(LocalDate.now())
-                .dividendPerShare(new BigDecimal("0.25"))
-                .quantity(new BigDecimal("100"))
-                .memo("분기 배당")
-                .build();
+        DividendDto requestDto =
+                DividendDto.builder()
+                        .stockId(1L)
+                        .exDividendDate(LocalDate.now().minusDays(30))
+                        .paymentDate(LocalDate.now())
+                        .dividendPerShare(new BigDecimal("0.25"))
+                        .quantity(new BigDecimal("100"))
+                        .memo("분기 배당")
+                        .build();
 
-        when(dividendService.createDividend(any(DividendDto.class)))
-                .thenReturn(mockDividendDto);
+        when(dividendService.createDividend(any(DividendDto.class))).thenReturn(mockDividendDto);
 
         // When & Then
-        mockMvc.perform(post("/api/dividends")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(requestDto)))
+        mockMvc.perform(
+                        post("/api/dividends")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDto)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.stockSymbol").value("AAPL"))
@@ -96,35 +95,38 @@ class DividendControllerTest {
     @DisplayName("배당금 수정")
     void updateDividend() throws Exception {
         // Given
-        DividendDto updateDto = DividendDto.builder()
-                .dividendPerShare(new BigDecimal("0.30"))
-                .quantity(new BigDecimal("120"))
-                .memo("수정된 배당")
-                .build();
+        DividendDto updateDto =
+                DividendDto.builder()
+                        .dividendPerShare(new BigDecimal("0.30"))
+                        .quantity(new BigDecimal("120"))
+                        .memo("수정된 배당")
+                        .build();
 
-        DividendDto updatedDividend = DividendDto.builder()
-                .id(1L)
-                .stockId(1L)
-                .stockSymbol("AAPL")
-                .stockName("Apple Inc.")
-                .exDividendDate(LocalDate.now().minusDays(30))
-                .paymentDate(LocalDate.now())
-                .dividendPerShare(new BigDecimal("0.30"))
-                .quantity(new BigDecimal("120"))
-                .totalAmount(new BigDecimal("36.00"))
-                .taxAmount(new BigDecimal("5.40"))
-                .netAmount(new BigDecimal("30.60"))
-                .taxRate(new BigDecimal("15.0"))
-                .memo("수정된 배당")
-                .build();
+        DividendDto updatedDividend =
+                DividendDto.builder()
+                        .id(1L)
+                        .stockId(1L)
+                        .stockSymbol("AAPL")
+                        .stockName("Apple Inc.")
+                        .exDividendDate(LocalDate.now().minusDays(30))
+                        .paymentDate(LocalDate.now())
+                        .dividendPerShare(new BigDecimal("0.30"))
+                        .quantity(new BigDecimal("120"))
+                        .totalAmount(new BigDecimal("36.00"))
+                        .taxAmount(new BigDecimal("5.40"))
+                        .netAmount(new BigDecimal("30.60"))
+                        .taxRate(new BigDecimal("15.0"))
+                        .memo("수정된 배당")
+                        .build();
 
         when(dividendService.updateDividend(eq(1L), any(DividendDto.class)))
                 .thenReturn(updatedDividend);
 
         // When & Then
-        mockMvc.perform(put("/api/dividends/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateDto)))
+        mockMvc.perform(
+                        put("/api/dividends/1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(updateDto)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.dividendPerShare").value(0.30))
@@ -141,8 +143,7 @@ class DividendControllerTest {
         doNothing().when(dividendService).deleteDividend(1L);
 
         // When & Then
-        mockMvc.perform(delete("/api/dividends/1"))
-                .andExpect(status().isNoContent());
+        mockMvc.perform(delete("/api/dividends/1")).andExpect(status().isNoContent());
 
         verify(dividendService).deleteDividend(1L);
     }
@@ -167,7 +168,7 @@ class DividendControllerTest {
     void getDividends_Default() throws Exception {
         // Given
         List<DividendDto> dividends = Arrays.asList(mockDividendDto);
-        
+
         when(dividendService.getDividendsByPeriod(any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(dividends);
 
@@ -189,8 +190,7 @@ class DividendControllerTest {
         when(dividendService.getDividendsByStock("AAPL")).thenReturn(dividends);
 
         // When & Then
-        mockMvc.perform(get("/api/dividends")
-                        .param("symbol", "AAPL"))
+        mockMvc.perform(get("/api/dividends").param("symbol", "AAPL"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0].stockSymbol").value("AAPL"));
@@ -205,13 +205,14 @@ class DividendControllerTest {
         LocalDate startDate = LocalDate.of(2024, 1, 1);
         LocalDate endDate = LocalDate.of(2024, 12, 31);
         List<DividendDto> dividends = Arrays.asList(mockDividendDto);
-        
+
         when(dividendService.getDividendsByPeriod(startDate, endDate)).thenReturn(dividends);
 
         // When & Then
-        mockMvc.perform(get("/api/dividends")
-                        .param("startDate", "2024-01-01")
-                        .param("endDate", "2024-12-31"))
+        mockMvc.perform(
+                        get("/api/dividends")
+                                .param("startDate", "2024-01-01")
+                                .param("endDate", "2024-12-31"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0].id").value(1));
@@ -223,13 +224,14 @@ class DividendControllerTest {
     @DisplayName("배당금 요약 정보 조회")
     void getDividendSummary() throws Exception {
         // Given
-        DividendSummaryDto summary = DividendSummaryDto.builder()
-                .totalDividends(new BigDecimal("1000.00"))
-                .totalTax(new BigDecimal("150.00"))
-                .yearlyDividends(new BigDecimal("500.00"))
-                .monthlyAverage(new BigDecimal("41.67"))
-                .dividendYield(new BigDecimal("3.50"))
-                .build();
+        DividendSummaryDto summary =
+                DividendSummaryDto.builder()
+                        .totalDividends(new BigDecimal("1000.00"))
+                        .totalTax(new BigDecimal("150.00"))
+                        .yearlyDividends(new BigDecimal("500.00"))
+                        .monthlyAverage(new BigDecimal("41.67"))
+                        .dividendYield(new BigDecimal("3.50"))
+                        .build();
 
         when(dividendService.getDividendSummary()).thenReturn(summary);
 

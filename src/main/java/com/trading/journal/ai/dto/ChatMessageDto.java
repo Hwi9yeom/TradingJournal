@@ -2,10 +2,7 @@ package com.trading.journal.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
-/**
- * 채팅 메시지 DTO
- * Ollama chat API 형식
- */
+/** 채팅 메시지 DTO Ollama chat API 형식 */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ChatMessageDto {
 

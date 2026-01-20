@@ -6,13 +6,6 @@ import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
 import com.trading.journal.exception.ExportException;
 import com.trading.journal.repository.TransactionRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.ss.util.CellRangeAddress;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.stereotype.Service;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -22,10 +15,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.stereotype.Service;
 
-/**
- * 데이터 내보내기 서비스
- */
+/** 데이터 내보내기 서비스 */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -39,7 +36,8 @@ public class ExportService {
 
     // 날짜 포맷
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final DateTimeFormatter DATETIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter DATETIME_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     // 시트 이름
     private static final String SHEET_TRANSACTIONS = "거래 내역";
@@ -48,11 +46,21 @@ public class ExportService {
     private static final String SHEET_GOALS = "목표 현황";
 
     // 헤더 배열
-    private static final String[] HEADERS_TRANSACTIONS = {"거래일", "종목코드", "종목명", "거래유형", "수량", "단가", "거래금액", "수수료", "메모"};
-    private static final String[] HEADERS_TRANSACTIONS_SHORT = {"거래일", "종목코드", "종목명", "거래유형", "수량", "단가", "거래금액", "수수료"};
-    private static final String[] HEADERS_HOLDINGS = {"종목코드", "종목명", "수량", "평균단가", "현재가", "평가금액", "손익", "수익률"};
-    private static final String[] HEADERS_GOALS_FULL = {"목표명", "유형", "상태", "시작값", "현재값", "목표값", "진행률", "시작일", "마감일", "남은일수"};
-    private static final String[] HEADERS_GOALS_SHORT = {"목표명", "유형", "상태", "현재값", "목표값", "진행률", "마감일"};
+    private static final String[] HEADERS_TRANSACTIONS = {
+        "거래일", "종목코드", "종목명", "거래유형", "수량", "단가", "거래금액", "수수료", "메모"
+    };
+    private static final String[] HEADERS_TRANSACTIONS_SHORT = {
+        "거래일", "종목코드", "종목명", "거래유형", "수량", "단가", "거래금액", "수수료"
+    };
+    private static final String[] HEADERS_HOLDINGS = {
+        "종목코드", "종목명", "수량", "평균단가", "현재가", "평가금액", "손익", "수익률"
+    };
+    private static final String[] HEADERS_GOALS_FULL = {
+        "목표명", "유형", "상태", "시작값", "현재값", "목표값", "진행률", "시작일", "마감일", "남은일수"
+    };
+    private static final String[] HEADERS_GOALS_SHORT = {
+        "목표명", "유형", "상태", "현재값", "목표값", "진행률", "마감일"
+    };
 
     // 셀 스타일 관련
     private static final String CURRENCY_FORMAT = "#,##0";
@@ -68,9 +76,7 @@ public class ExportService {
 
     // ==================== 거래 내역 내보내기 ====================
 
-    /**
-     * 거래 내역 Excel 내보내기
-     */
+    /** 거래 내역 Excel 내보내기 */
     public byte[] exportTransactionsToExcel(LocalDate startDate, LocalDate endDate) {
         log.debug("거래 내역 Excel 내보내기 시작 - 기간: {} ~ {}", startDate, endDate);
 
@@ -101,9 +107,7 @@ public class ExportService {
         }
     }
 
-    /**
-     * 거래 내역 CSV 내보내기
-     */
+    /** 거래 내역 CSV 내보내기 */
     public byte[] exportTransactionsToCsv(LocalDate startDate, LocalDate endDate) {
         log.debug("거래 내역 CSV 내보내기 시작 - 기간: {} ~ {}", startDate, endDate);
 
@@ -111,7 +115,8 @@ public class ExportService {
         log.debug("내보낼 거래 내역 수: {}", transactions.size());
 
         try (ByteArrayOutputStream out = new ByteArrayOutputStream();
-             CSVWriter writer = new CSVWriter(new OutputStreamWriter(out, StandardCharsets.UTF_8))) {
+                CSVWriter writer =
+                        new CSVWriter(new OutputStreamWriter(out, StandardCharsets.UTF_8))) {
 
             out.write(UTF8_BOM);
             writer.writeNext(HEADERS_TRANSACTIONS);
@@ -133,9 +138,7 @@ public class ExportService {
 
     // ==================== 포트폴리오 분석 내보내기 ====================
 
-    /**
-     * 포트폴리오 분석 Excel 내보내기
-     */
+    /** 포트폴리오 분석 Excel 내보내기 */
     public byte[] exportPortfolioAnalysisToExcel() {
         log.debug("포트폴리오 분석 Excel 내보내기 시작");
 
@@ -171,9 +174,11 @@ public class ExportService {
 
         // 요약 데이터
         addSummaryRow(sheet, rowNum++, "총 투자금액", summary.getTotalInvestment(), styles.currency());
-        addSummaryRow(sheet, rowNum++, "현재 평가금액", summary.getTotalCurrentValue(), styles.currency());
+        addSummaryRow(
+                sheet, rowNum++, "현재 평가금액", summary.getTotalCurrentValue(), styles.currency());
         addSummaryRow(sheet, rowNum++, "총 손익", summary.getTotalProfitLoss(), styles.currency());
-        addSummaryRowPercent(sheet, rowNum++, "수익률", summary.getTotalProfitLossPercent(), styles.percent());
+        addSummaryRowPercent(
+                sheet, rowNum++, "수익률", summary.getTotalProfitLossPercent(), styles.percent());
         addSummaryRow(sheet, rowNum++, "실현 손익", summary.getTotalRealizedPnl(), styles.currency());
 
         BigDecimal unrealizedPnl = calculateUnrealizedPnl(summary);
@@ -188,7 +193,8 @@ public class ExportService {
     private void createHoldingsSheet(Workbook workbook, ExcelStyles styles) {
         Sheet sheet = workbook.createSheet(SHEET_HOLDINGS);
         PortfolioSummaryDto summary = portfolioAnalysisService.getPortfolioSummary();
-        List<PortfolioDto> holdings = summary.getHoldings() != null ? summary.getHoldings() : List.of();
+        List<PortfolioDto> holdings =
+                summary.getHoldings() != null ? summary.getHoldings() : List.of();
 
         createHeaderRow(sheet, HEADERS_HOLDINGS, styles.header());
 
@@ -202,9 +208,7 @@ public class ExportService {
 
     // ==================== 목표 진행 상황 내보내기 ====================
 
-    /**
-     * 목표 진행 상황 Excel 내보내기
-     */
+    /** 목표 진행 상황 Excel 내보내기 */
     public byte[] exportGoalsToExcel() {
         log.debug("목표 현황 Excel 내보내기 시작");
 
@@ -236,9 +240,7 @@ public class ExportService {
 
     // ==================== 종합 리포트 내보내기 ====================
 
-    /**
-     * 종합 리포트 Excel 내보내기 (모든 데이터 포함)
-     */
+    /** 종합 리포트 Excel 내보내기 (모든 데이터 포함) */
     public byte[] exportFullReportToExcel(LocalDate startDate, LocalDate endDate) {
         log.debug("종합 리포트 Excel 내보내기 시작 - 기간: {} ~ {}", startDate, endDate);
 
@@ -260,8 +262,8 @@ public class ExportService {
         }
     }
 
-    private void createTransactionsSheet(Workbook workbook, ExcelStyles styles,
-                                          LocalDate startDate, LocalDate endDate) {
+    private void createTransactionsSheet(
+            Workbook workbook, ExcelStyles styles, LocalDate startDate, LocalDate endDate) {
         Sheet sheet = workbook.createSheet(SHEET_TRANSACTIONS);
         List<Transaction> transactions = getTransactions(startDate, endDate);
 
@@ -300,7 +302,8 @@ public class ExportService {
         }
     }
 
-    private void createTransactionRow(Sheet sheet, int rowNum, Transaction tx, ExcelStyles styles, boolean includeMemo) {
+    private void createTransactionRow(
+            Sheet sheet, int rowNum, Transaction tx, ExcelStyles styles, boolean includeMemo) {
         Row row = sheet.createRow(rowNum);
         int col = 0;
 
@@ -320,24 +323,27 @@ public class ExportService {
 
     private String[] createTransactionCsvRow(Transaction tx) {
         BigDecimal amount = calculateAmount(tx);
-        return new String[]{
-                formatDateTime(tx.getTransactionDate()),
-                getStockSymbol(tx),
-                getStockName(tx),
-                getTransactionTypeLabel(tx.getType()),
-                getStringValue(tx.getQuantity()),
-                getStringValue(tx.getPrice()),
-                getStringValue(amount),
-                getStringValue(tx.getCommission()),
-                tx.getNotes() != null ? tx.getNotes() : ""
+        return new String[] {
+            formatDateTime(tx.getTransactionDate()),
+            getStockSymbol(tx),
+            getStockName(tx),
+            getTransactionTypeLabel(tx.getType()),
+            getStringValue(tx.getQuantity()),
+            getStringValue(tx.getPrice()),
+            getStringValue(amount),
+            getStringValue(tx.getCommission()),
+            tx.getNotes() != null ? tx.getNotes() : ""
         };
     }
 
-    private void createHoldingRow(Sheet sheet, int rowNum, PortfolioDto holding, ExcelStyles styles) {
+    private void createHoldingRow(
+            Sheet sheet, int rowNum, PortfolioDto holding, ExcelStyles styles) {
         Row row = sheet.createRow(rowNum);
 
-        row.createCell(0).setCellValue(holding.getStockSymbol() != null ? holding.getStockSymbol() : "");
-        row.createCell(1).setCellValue(holding.getStockName() != null ? holding.getStockName() : "");
+        row.createCell(0)
+                .setCellValue(holding.getStockSymbol() != null ? holding.getStockSymbol() : "");
+        row.createCell(1)
+                .setCellValue(holding.getStockName() != null ? holding.getStockName() : "");
         row.createCell(2).setCellValue(getDoubleValue(holding.getQuantity()));
         createCurrencyCell(row, 3, holding.getAveragePrice(), styles.currency());
         createCurrencyCell(row, 4, holding.getCurrentPrice(), styles.currency());
@@ -359,7 +365,8 @@ public class ExportService {
         createPercentCell(row, col++, goal.getProgressPercent(), styles.percent());
         createDateCell(row, col++, goal.getStartDate(), styles.date());
         createDateCell(row, col++, goal.getDeadline(), styles.date());
-        row.createCell(col).setCellValue(goal.getDaysRemaining() != null ? goal.getDaysRemaining() : 0);
+        row.createCell(col)
+                .setCellValue(goal.getDaysRemaining() != null ? goal.getDaysRemaining() : 0);
     }
 
     private void createGoalRowShort(Sheet sheet, int rowNum, GoalDto goal, ExcelStyles styles) {
@@ -402,18 +409,16 @@ public class ExportService {
 
     // ==================== 스타일 관련 ====================
 
-    /**
-     * Excel 스타일 묶음 레코드
-     */
-    private record ExcelStyles(CellStyle header, CellStyle date, CellStyle currency, CellStyle percent) {}
+    /** Excel 스타일 묶음 레코드 */
+    private record ExcelStyles(
+            CellStyle header, CellStyle date, CellStyle currency, CellStyle percent) {}
 
     private ExcelStyles createExcelStyles(Workbook workbook) {
         return new ExcelStyles(
                 createHeaderStyle(workbook),
                 createDateStyle(workbook),
                 createCurrencyStyle(workbook),
-                createPercentStyle(workbook)
-        );
+                createPercentStyle(workbook));
     }
 
     private CellStyle createHeaderStyle(Workbook workbook) {
@@ -503,7 +508,8 @@ public class ExportService {
         return dateTime != null ? dateTime.format(DATETIME_FORMAT) : "";
     }
 
-    private void addSummaryRow(Sheet sheet, int rowNum, String label, BigDecimal value, CellStyle style) {
+    private void addSummaryRow(
+            Sheet sheet, int rowNum, String label, BigDecimal value, CellStyle style) {
         Row row = sheet.createRow(rowNum);
         row.createCell(0).setCellValue(label);
         Cell valueCell = row.createCell(1);
@@ -513,7 +519,8 @@ public class ExportService {
         }
     }
 
-    private void addSummaryRowPercent(Sheet sheet, int rowNum, String label, BigDecimal value, CellStyle style) {
+    private void addSummaryRowPercent(
+            Sheet sheet, int rowNum, String label, BigDecimal value, CellStyle style) {
         Row row = sheet.createRow(rowNum);
         row.createCell(0).setCellValue(label);
         Cell valueCell = row.createCell(1);

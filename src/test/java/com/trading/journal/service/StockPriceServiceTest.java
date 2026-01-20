@@ -1,5 +1,17 @@
 package com.trading.journal.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,25 +25,10 @@ import yahoofinance.histquotes.HistoricalQuote;
 import yahoofinance.histquotes.Interval;
 import yahoofinance.quotes.stock.StockQuote;
 
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class StockPriceServiceTest {
 
-    @InjectMocks
-    private StockPriceService stockPriceService;
+    @InjectMocks private StockPriceService stockPriceService;
 
     private Stock mockStock;
     private StockQuote mockQuote;
@@ -66,7 +63,8 @@ class StockPriceServiceTest {
     void getCurrentPrice_Failure() throws IOException {
         // Given
         try (MockedStatic<YahooFinance> yahooFinanceMock = mockStatic(YahooFinance.class)) {
-            yahooFinanceMock.when(() -> YahooFinance.get("INVALID"))
+            yahooFinanceMock
+                    .when(() -> YahooFinance.get("INVALID"))
                     .thenThrow(new IOException("Failed to fetch"));
 
             // When & Then
@@ -123,11 +121,11 @@ class StockPriceServiceTest {
         // Given
         LocalDate from = LocalDate.now().minusDays(7);
         LocalDate to = LocalDate.now();
-        
+
         HistoricalQuote quote1 = mock(HistoricalQuote.class);
         HistoricalQuote quote2 = mock(HistoricalQuote.class);
         List<HistoricalQuote> expectedQuotes = Arrays.asList(quote1, quote2);
-        
+
         when(mockStock.getHistory(any(Calendar.class), any(Calendar.class), eq(Interval.DAILY)))
                 .thenReturn(expectedQuotes);
 
@@ -151,7 +149,8 @@ class StockPriceServiceTest {
         LocalDate to = LocalDate.now();
 
         try (MockedStatic<YahooFinance> yahooFinanceMock = mockStatic(YahooFinance.class)) {
-            yahooFinanceMock.when(() -> YahooFinance.get("INVALID"))
+            yahooFinanceMock
+                    .when(() -> YahooFinance.get("INVALID"))
                     .thenThrow(new IOException("Failed to fetch"));
 
             // When & Then

@@ -1,17 +1,14 @@
 package com.trading.journal.dto;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Map;
-
-/**
- * 전략 템플릿 DTO
- */
+/** 전략 템플릿 DTO */
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,8 +20,8 @@ public class StrategyTemplateDto {
     private String name;
     private String description;
     private String strategyType;
-    private String strategyTypeLabel;   // 전략 종류 한글명
-    private Map<String, Object> parameters;  // JSON → Map 변환
+    private String strategyTypeLabel; // 전략 종류 한글명
+    private Map<String, Object> parameters; // JSON → Map 변환
     private BigDecimal positionSizePercent;
     private BigDecimal stopLossPercent;
     private BigDecimal takeProfitPercent;
@@ -35,9 +32,7 @@ public class StrategyTemplateDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    /**
-     * 템플릿 생성/수정 요청 DTO
-     */
+    /** 템플릿 생성/수정 요청 DTO */
     @Data
     @Builder
     @NoArgsConstructor
@@ -56,9 +51,7 @@ public class StrategyTemplateDto {
         private String color;
     }
 
-    /**
-     * 템플릿 목록 아이템 (간소화)
-     */
+    /** 템플릿 목록 아이템 (간소화) */
     @Data
     @Builder
     @NoArgsConstructor
@@ -73,9 +66,7 @@ public class StrategyTemplateDto {
         private String color;
     }
 
-    /**
-     * 백테스트 설정으로 변환
-     */
+    /** 백테스트 설정으로 변환 */
     @Data
     @Builder
     @NoArgsConstructor
@@ -89,9 +80,7 @@ public class StrategyTemplateDto {
         private BigDecimal commissionRate;
     }
 
-    /**
-     * 전략 종류 정보
-     */
+    /** 전략 종류 정보 */
     @Data
     @Builder
     @NoArgsConstructor
@@ -103,9 +92,7 @@ public class StrategyTemplateDto {
         private Map<String, ParameterInfo> defaultParameters;
     }
 
-    /**
-     * 파라미터 정보
-     */
+    /** 파라미터 정보 */
     @Data
     @Builder
     @NoArgsConstructor
@@ -113,7 +100,7 @@ public class StrategyTemplateDto {
     public static class ParameterInfo {
         private String name;
         private String label;
-        private String type;        // number, boolean, select
+        private String type; // number, boolean, select
         private Object defaultValue;
         private Object min;
         private Object max;

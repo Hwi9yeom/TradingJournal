@@ -1,65 +1,49 @@
 package com.trading.journal.strategy;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-
-/**
- * 트레이딩 전략 인터페이스
- */
+/** 트레이딩 전략 인터페이스 */
 public interface TradingStrategy {
 
     /**
      * 시그널 생성
+     *
      * @param prices 가격 데이터 리스트
      * @param index 현재 인덱스
      * @return 매매 시그널
      */
     Signal generateSignal(List<PriceData> prices, int index);
 
-    /**
-     * 전략 이름 반환
-     */
+    /** 전략 이름 반환 */
     String getName();
 
-    /**
-     * 전략 유형 반환
-     */
+    /** 전략 유형 반환 */
     StrategyType getType();
 
-    /**
-     * 전략 파라미터 반환
-     */
+    /** 전략 파라미터 반환 */
     Map<String, Object> getParameters();
 
-    /**
-     * 전략 설명 반환
-     */
+    /** 전략 설명 반환 */
     String getDescription();
 
-    /**
-     * 최소 필요 데이터 수
-     */
+    /** 최소 필요 데이터 수 */
     int getMinimumDataPoints();
 
-    /**
-     * 매매 시그널
-     */
+    /** 매매 시그널 */
     enum Signal {
-        BUY,        // 매수 시그널
-        SELL,       // 매도 시그널
-        HOLD        // 관망
+        BUY, // 매수 시그널
+        SELL, // 매도 시그널
+        HOLD // 관망
     }
 
-    /**
-     * 전략 유형
-     */
+    /** 전략 유형 */
     enum StrategyType {
         MOVING_AVERAGE("이동평균", "이동평균선 기반 전략"),
         RSI("RSI", "상대강도지수 기반 전략"),
@@ -85,9 +69,7 @@ public interface TradingStrategy {
         }
     }
 
-    /**
-     * 가격 데이터
-     */
+    /** 가격 데이터 */
     @Data
     @Builder
     @NoArgsConstructor
@@ -100,17 +82,15 @@ public interface TradingStrategy {
         private BigDecimal close;
         private Long volume;
 
-        /**
-         * 전형적 가격 (Typical Price)
-         */
+        /** 전형적 가격 (Typical Price) */
         public BigDecimal getTypicalPrice() {
-            return high.add(low).add(close).divide(BigDecimal.valueOf(3), 4, java.math.RoundingMode.HALF_UP);
+            return high.add(low)
+                    .add(close)
+                    .divide(BigDecimal.valueOf(3), 4, java.math.RoundingMode.HALF_UP);
         }
     }
 
-    /**
-     * 시그널 결과
-     */
+    /** 시그널 결과 */
     @Data
     @Builder
     @NoArgsConstructor
@@ -120,7 +100,7 @@ public interface TradingStrategy {
         private BigDecimal price;
         private LocalDate date;
         private String reason;
-        private BigDecimal strength;  // 시그널 강도 (0~1)
-        private Map<String, Object> indicators;  // 관련 지표 값
+        private BigDecimal strength; // 시그널 강도 (0~1)
+        private Map<String, Object> indicators; // 관련 지표 값
     }
 }

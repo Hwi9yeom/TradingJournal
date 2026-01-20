@@ -1,21 +1,18 @@
 package com.trading.journal.dto;
 
 import com.trading.journal.strategy.TradingStrategy;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-/**
- * 백테스트 요청 DTO
- */
+/** 백테스트 요청 DTO */
 @Data
 @Builder
 @NoArgsConstructor
@@ -47,20 +44,16 @@ public class BacktestRequestDto {
     private BigDecimal initialCapital;
 
     /** 거래당 투자 비율 (%) */
-    @Builder.Default
-    private BigDecimal positionSizePercent = BigDecimal.valueOf(100);
+    @Builder.Default private BigDecimal positionSizePercent = BigDecimal.valueOf(100);
 
     /** 최대 동시 포지션 수 */
-    @Builder.Default
-    private Integer maxPositions = 1;
+    @Builder.Default private Integer maxPositions = 1;
 
     /** 수수료율 (%) */
-    @Builder.Default
-    private BigDecimal commissionRate = BigDecimal.valueOf(0.015);
+    @Builder.Default private BigDecimal commissionRate = BigDecimal.valueOf(0.015);
 
     /** 슬리피지 (%) */
-    @Builder.Default
-    private BigDecimal slippage = BigDecimal.valueOf(0.1);
+    @Builder.Default private BigDecimal slippage = BigDecimal.valueOf(0.1);
 
     /** 손절 비율 (%) - null이면 손절 없음 */
     private BigDecimal stopLossPercent;

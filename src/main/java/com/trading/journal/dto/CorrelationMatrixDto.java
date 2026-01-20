@@ -1,17 +1,13 @@
 package com.trading.journal.dto;
 
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.util.List;
-
-/**
- * 종목 간 상관관계 매트릭스 DTO
- * 보유 종목들의 수익률 상관관계를 분석하여 분산투자 효과 측정
- */
+/** 종목 간 상관관계 매트릭스 DTO 보유 종목들의 수익률 상관관계를 분석하여 분산투자 효과 측정 */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

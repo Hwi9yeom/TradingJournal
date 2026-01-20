@@ -1,16 +1,13 @@
 package com.trading.journal.dto;
 
 import jakarta.validation.constraints.*;
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
-/**
- * 포지션 사이징 계산 요청 DTO
- */
+/** 포지션 사이징 계산 요청 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -44,12 +41,9 @@ public class PositionSizingRequestDto {
     private BigDecimal riskPercent;
 
     /** 포지션 사이징 방법 */
-    @Builder.Default
-    private PositionSizingMethod method = PositionSizingMethod.FIXED_FRACTIONAL;
+    @Builder.Default private PositionSizingMethod method = PositionSizingMethod.FIXED_FRACTIONAL;
 
-    /**
-     * 포지션 사이징 방법
-     */
+    /** 포지션 사이징 방법 */
     public enum PositionSizingMethod {
         /** 고정 비율법: 자본의 X%를 리스크로 */
         FIXED_FRACTIONAL,

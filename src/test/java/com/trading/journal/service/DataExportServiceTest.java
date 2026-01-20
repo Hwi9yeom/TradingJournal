@@ -1,7 +1,14 @@
 package com.trading.journal.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
 import com.trading.journal.dto.TransactionDto;
 import com.trading.journal.entity.TransactionType;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,53 +17,43 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class DataExportServiceTest {
 
-    @Mock
-    private TransactionService transactionService;
+    @Mock private TransactionService transactionService;
 
-    @InjectMocks
-    private DataExportService dataExportService;
+    @InjectMocks private DataExportService dataExportService;
 
     private List<TransactionDto> mockTransactions;
 
     @BeforeEach
     void setUp() {
-        mockTransactions = Arrays.asList(
-                TransactionDto.builder()
-                        .id(1L)
-                        .stockSymbol("AAPL")
-                        .stockName("Apple Inc.")
-                        .type(TransactionType.BUY)
-                        .quantity(new BigDecimal("10"))
-                        .price(new BigDecimal("150.00"))
-                        .totalAmount(new BigDecimal("1505.00"))
-                        .commission(new BigDecimal("5.00"))
-                        .transactionDate(LocalDateTime.of(2024, 1, 1, 10, 0))
-                        .notes("Test transaction")
-                        .build(),
-                TransactionDto.builder()
-                        .id(2L)
-                        .stockSymbol("GOOGL")
-                        .stockName("Alphabet Inc.")
-                        .type(TransactionType.SELL)
-                        .quantity(new BigDecimal("5"))
-                        .price(new BigDecimal("2000.00"))
-                        .totalAmount(new BigDecimal("9990.00"))
-                        .commission(new BigDecimal("10.00"))
-                        .transactionDate(LocalDateTime.of(2024, 1, 2, 15, 30))
-                        .notes("Partial sell")
-                        .build()
-        );
+        mockTransactions =
+                Arrays.asList(
+                        TransactionDto.builder()
+                                .id(1L)
+                                .stockSymbol("AAPL")
+                                .stockName("Apple Inc.")
+                                .type(TransactionType.BUY)
+                                .quantity(new BigDecimal("10"))
+                                .price(new BigDecimal("150.00"))
+                                .totalAmount(new BigDecimal("1505.00"))
+                                .commission(new BigDecimal("5.00"))
+                                .transactionDate(LocalDateTime.of(2024, 1, 1, 10, 0))
+                                .notes("Test transaction")
+                                .build(),
+                        TransactionDto.builder()
+                                .id(2L)
+                                .stockSymbol("GOOGL")
+                                .stockName("Alphabet Inc.")
+                                .type(TransactionType.SELL)
+                                .quantity(new BigDecimal("5"))
+                                .price(new BigDecimal("2000.00"))
+                                .totalAmount(new BigDecimal("9990.00"))
+                                .commission(new BigDecimal("10.00"))
+                                .transactionDate(LocalDateTime.of(2024, 1, 2, 15, 30))
+                                .notes("Partial sell")
+                                .build());
     }
 
     @Test
@@ -71,7 +68,7 @@ class DataExportServiceTest {
         // Then
         assertThat(csvData).isNotNull();
         assertThat(csvData).isNotEmpty();
-        
+
         String csvContent = new String(csvData, java.nio.charset.StandardCharsets.UTF_8);
         assertThat(csvContent).contains("거래일시");
         assertThat(csvContent).contains("종목코드");
@@ -138,21 +135,21 @@ class DataExportServiceTest {
     @DisplayName("CSV Export - null 값 처리")
     void exportTransactionsToCsv_NullValues() {
         // Given
-        List<TransactionDto> transactionsWithNulls = Arrays.asList(
-                TransactionDto.builder()
-                        .id(1L)
-                        .stockSymbol("AAPL")
-                        .stockName("Apple Inc.")
-                        .type(TransactionType.BUY)
-                        .quantity(new BigDecimal("10"))
-                        .price(new BigDecimal("150.00"))
-                        .totalAmount(new BigDecimal("1500.00"))
-                        .commission(null) // null commission
-                        .transactionDate(LocalDateTime.now())
-                        .notes(null) // null notes
-                        .build()
-        );
-        
+        List<TransactionDto> transactionsWithNulls =
+                Arrays.asList(
+                        TransactionDto.builder()
+                                .id(1L)
+                                .stockSymbol("AAPL")
+                                .stockName("Apple Inc.")
+                                .type(TransactionType.BUY)
+                                .quantity(new BigDecimal("10"))
+                                .price(new BigDecimal("150.00"))
+                                .totalAmount(new BigDecimal("1500.00"))
+                                .commission(null) // null commission
+                                .transactionDate(LocalDateTime.now())
+                                .notes(null) // null notes
+                                .build());
+
         when(transactionService.getAllTransactions()).thenReturn(transactionsWithNulls);
 
         // When

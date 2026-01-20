@@ -4,6 +4,7 @@ import com.trading.journal.dto.*;
 import com.trading.journal.entity.User;
 import com.trading.journal.repository.UserRepository;
 import com.trading.journal.security.JwtTokenProvider;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -13,8 +14,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -28,20 +27,20 @@ public class AuthService {
 
     @Transactional
     public JwtResponseDto login(LoginRequestDto loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getUsername(),
-                        loginRequest.getPassword()
-                )
-        );
+        Authentication authentication =
+                authenticationManager.authenticate(
+                        new UsernamePasswordAuthenticationToken(
+                                loginRequest.getUsername(), loginRequest.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         String accessToken = tokenProvider.generateAccessToken(authentication);
         String refreshToken = tokenProvider.generateRefreshToken(authentication);
 
-        User user = userRepository.findByUsername(loginRequest.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user =
+                userRepository
+                        .findByUsername(loginRequest.getUsername())
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
@@ -64,8 +63,10 @@ public class AuthService {
         String username = tokenProvider.getUsernameFromToken(refreshToken);
         String newAccessToken = tokenProvider.generateAccessToken(username);
 
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user =
+                userRepository
+                        .findByUsername(username)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         return JwtResponseDto.builder()
                 .accessToken(newAccessToken)
@@ -80,8 +81,10 @@ public class AuthService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
 
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user =
+                userRepository
+                        .findByUsername(username)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         return UserInfoDto.builder()
                 .id(user.getId())
@@ -97,8 +100,10 @@ public class AuthService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
 
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user =
+                userRepository
+                        .findByUsername(username)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         if (!passwordEncoder.matches(passwordChangeDto.getCurrentPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Current password is incorrect");

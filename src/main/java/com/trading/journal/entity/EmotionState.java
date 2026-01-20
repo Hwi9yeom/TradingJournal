@@ -1,8 +1,6 @@
 package com.trading.journal.entity;
 
-/**
- * 거래 시 감정 상태
- */
+/** 거래 시 감정 상태 */
 public enum EmotionState {
     CONFIDENT("자신감", "확신을 가지고 거래"),
     FEARFUL("두려움", "불안하고 조심스러운 상태"),

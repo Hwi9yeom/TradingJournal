@@ -1,5 +1,6 @@
 package com.trading.journal.ai.config;
 
+import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -7,12 +8,7 @@ import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
-import java.time.Duration;
-
-/**
- * Ollama LLM 서버 연결 설정
- * 로컬에서 실행되는 Ollama 서버와 통신하기 위한 설정
- */
+/** Ollama LLM 서버 연결 설정 로컬에서 실행되는 Ollama 서버와 통신하기 위한 설정 */
 @Configuration
 @ConfigurationProperties(prefix = "ollama")
 public class OllamaConfig {
@@ -25,15 +21,18 @@ public class OllamaConfig {
 
     @Bean
     public WebClient ollamaWebClient() {
-        HttpClient httpClient = HttpClient.create()
-                .responseTimeout(Duration.ofSeconds(timeoutSeconds));
+        HttpClient httpClient =
+                HttpClient.create().responseTimeout(Duration.ofSeconds(timeoutSeconds));
 
         return WebClient.builder()
                 .baseUrl(baseUrl)
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .codecs(configurer -> configurer
-                        .defaultCodecs()
-                        .maxInMemorySize(16 * 1024 * 1024)) // 16MB for large responses
+                .codecs(
+                        configurer ->
+                                configurer
+                                        .defaultCodecs()
+                                        .maxInMemorySize(
+                                                16 * 1024 * 1024)) // 16MB for large responses
                 .build();
     }
 

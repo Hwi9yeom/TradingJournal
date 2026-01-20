@@ -2,18 +2,15 @@ package com.trading.journal.dto;
 
 import com.trading.journal.entity.GoalStatus;
 import com.trading.journal.entity.GoalType;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
-/**
- * 투자 목표 DTO
- */
+/** 투자 목표 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

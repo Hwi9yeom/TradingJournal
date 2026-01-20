@@ -2,9 +2,7 @@ package com.trading.journal.config;
 
 import java.math.BigDecimal;
 
-/**
- * 트레이딩 저널 애플리케이션의 상수 정의
- */
+/** 트레이딩 저널 애플리케이션의 상수 정의 */
 public final class TradingConstants {
 
     private TradingConstants() {
@@ -15,38 +13,26 @@ public final class TradingConstants {
     // 금융 계산 관련 상수
     // ============================================
 
-    /**
-     * 연간 거래일 수 (주말 및 공휴일 제외)
-     */
+    /** 연간 거래일 수 (주말 및 공휴일 제외) */
     public static final int TRADING_DAYS_PER_YEAR = 252;
 
-    /**
-     * 무위험 이자율 (연간, 기본값 3%)
-     */
+    /** 무위험 이자율 (연간, 기본값 3%) */
     public static final BigDecimal DEFAULT_RISK_FREE_RATE = new BigDecimal("0.03");
 
-    /**
-     * 백분율 변환 계수
-     */
+    /** 백분율 변환 계수 */
     public static final BigDecimal PERCENT_MULTIPLIER = new BigDecimal("100");
 
     // ============================================
     // 세금 관련 상수 (한국 주식 양도소득세 2024년 기준)
     // ============================================
 
-    /**
-     * 기본공제액 (250만원)
-     */
+    /** 기본공제액 (250만원) */
     public static final BigDecimal TAX_BASIC_DEDUCTION = new BigDecimal("2500000");
 
-    /**
-     * 양도소득세율 (22%, 지방소득세 포함)
-     */
+    /** 양도소득세율 (22%, 지방소득세 포함) */
     public static final BigDecimal TAX_RATE = new BigDecimal("0.22");
 
-    /**
-     * 장기보유 기준일 (1년 = 365일)
-     */
+    /** 장기보유 기준일 (1년 = 365일) */
     public static final int LONG_TERM_HOLDING_DAYS = 365;
 
     // ============================================
@@ -162,14 +148,10 @@ public final class TradingConstants {
     public static final class Alert {
         private Alert() {}
 
-        /**
-         * 기본 알림 만료 기간 (일)
-         */
+        /** 기본 알림 만료 기간 (일) */
         public static final int DEFAULT_EXPIRY_DAYS = 7;
 
-        /**
-         * 목표 달성 마일스톤 (%)
-         */
+        /** 목표 달성 마일스톤 (%) */
         public static final int[] GOAL_MILESTONES = {25, 50, 75, 100};
     }
 
@@ -180,30 +162,22 @@ public final class TradingConstants {
     public static final class Data {
         private Data() {}
 
-        /**
-         * BigDecimal 계산 시 기본 소수점 자릿수
-         */
+        /** BigDecimal 계산 시 기본 소수점 자릿수 */
         public static final int DEFAULT_SCALE = 4;
+
         public static final int CURRENCY_SCALE = 0;
         public static final int PERCENT_SCALE = 2;
         public static final int HIGH_PRECISION_SCALE = 6;
         public static final int EXTREME_PRECISION_SCALE = 8;
 
-        /**
-         * 페이지네이션 기본값
-         */
+        /** 페이지네이션 기본값 */
         public static final int DEFAULT_PAGE_SIZE = 20;
+
         public static final int MAX_PAGE_SIZE = 100;
 
-        /**
-         * 지원되는 날짜 형식
-         */
+        /** 지원되는 날짜 형식 */
         public static final String[] SUPPORTED_DATE_FORMATS = {
-            "yyyy-MM-dd",
-            "yyyy/MM/dd",
-            "MM/dd/yyyy",
-            "dd-MM-yyyy",
-            "yyyyMMdd"
+            "yyyy-MM-dd", "yyyy/MM/dd", "MM/dd/yyyy", "dd-MM-yyyy", "yyyyMMdd"
         };
     }
 
@@ -214,25 +188,18 @@ public final class TradingConstants {
     public static final class Backtest {
         private Backtest() {}
 
-        /**
-         * 샘플 데이터 생성 시 기준 가격
-         */
+        /** 샘플 데이터 생성 시 기준 가격 */
         public static final BigDecimal SAMPLE_BASE_PRICE = new BigDecimal("100");
 
-        /**
-         * 샘플 데이터 변동 범위 (±3%)
-         */
+        /** 샘플 데이터 변동 범위 (±3%) */
         public static final double SAMPLE_CHANGE_RANGE = 0.06;
+
         public static final double SAMPLE_CHANGE_OFFSET = 0.48;
 
-        /**
-         * 진행률 로깅 간격 (%)
-         */
+        /** 진행률 로깅 간격 (%) */
         public static final int PROGRESS_LOG_INTERVAL_PERCENT = 10;
 
-        /**
-         * 연간 일수 (CAGR 계산용)
-         */
+        /** 연간 일수 (CAGR 계산용) */
         public static final double DAYS_PER_YEAR = 365.0;
     }
 }

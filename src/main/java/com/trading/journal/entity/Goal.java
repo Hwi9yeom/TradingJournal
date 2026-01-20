@@ -1,21 +1,20 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import lombok.*;
 
-/**
- * 투자 목표 엔티티
- */
+/** 투자 목표 엔티티 */
 @Entity
-@Table(name = "goals", indexes = {
-    @Index(name = "idx_goal_type", columnList = "goalType"),
-    @Index(name = "idx_goal_status", columnList = "status"),
-    @Index(name = "idx_goal_deadline", columnList = "deadline")
-})
+@Table(
+        name = "goals",
+        indexes = {
+            @Index(name = "idx_goal_type", columnList = "goalType"),
+            @Index(name = "idx_goal_status", columnList = "status"),
+            @Index(name = "idx_goal_deadline", columnList = "deadline")
+        })
 @Getter
 @Setter
 @NoArgsConstructor
@@ -74,16 +73,13 @@ public class Goal {
     private LocalDateTime completedAt;
 
     /** 알림 활성화 여부 */
-    @Builder.Default
-    private Boolean notificationEnabled = true;
+    @Builder.Default private Boolean notificationEnabled = true;
 
     /** 마일스톤 알림 간격 (%) - 예: 25면 25%, 50%, 75% 도달 시 알림 */
-    @Builder.Default
-    private Integer milestoneInterval = 25;
+    @Builder.Default private Integer milestoneInterval = 25;
 
     /** 마지막 마일스톤 달성 (%) */
-    @Builder.Default
-    private Integer lastMilestone = 0;
+    @Builder.Default private Integer lastMilestone = 0;
 
     /** 연결된 계좌 ID (선택적) */
     private Long accountId;
@@ -92,8 +88,7 @@ public class Goal {
     @Column(length = 2000)
     private String notes;
 
-    @Version
-    private Long version;
+    @Version private Long version;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -112,9 +107,7 @@ public class Goal {
         updatedAt = LocalDateTime.now();
     }
 
-    /**
-     * 진행률 계산 및 업데이트
-     */
+    /** 진행률 계산 및 업데이트 */
     public void updateProgress() {
         if (targetValue == null || targetValue.compareTo(BigDecimal.ZERO) == 0) {
             this.progressPercent = BigDecimal.ZERO;
@@ -127,36 +120,41 @@ public class Goal {
             BigDecimal totalGap = targetValue.subtract(startValue);
             BigDecimal currentGap = currentValue.subtract(startValue);
             if (totalGap.compareTo(BigDecimal.ZERO) != 0) {
-                progress = currentGap.divide(totalGap, 4, java.math.RoundingMode.HALF_UP)
-                        .multiply(BigDecimal.valueOf(100));
+                progress =
+                        currentGap
+                                .divide(totalGap, 4, java.math.RoundingMode.HALF_UP)
+                                .multiply(BigDecimal.valueOf(100));
             } else {
                 // startValue == targetValue: check if currentValue meets target
                 if (currentValue.compareTo(targetValue) >= 0) {
                     progress = BigDecimal.valueOf(100);
                 } else {
                     // Calculate progress as percentage of target reached
-                    progress = currentValue.divide(targetValue, 4, java.math.RoundingMode.HALF_UP)
-                            .multiply(BigDecimal.valueOf(100));
+                    progress =
+                            currentValue
+                                    .divide(targetValue, 4, java.math.RoundingMode.HALF_UP)
+                                    .multiply(BigDecimal.valueOf(100));
                 }
             }
         } else {
             // 단순 비율 계산
-            progress = currentValue.divide(targetValue, 4, java.math.RoundingMode.HALF_UP)
-                    .multiply(BigDecimal.valueOf(100));
+            progress =
+                    currentValue
+                            .divide(targetValue, 4, java.math.RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100));
         }
 
         this.progressPercent = progress.min(BigDecimal.valueOf(100)).max(BigDecimal.ZERO);
 
         // 목표 달성 확인
-        if (this.progressPercent.compareTo(BigDecimal.valueOf(100)) >= 0 && this.status == GoalStatus.ACTIVE) {
+        if (this.progressPercent.compareTo(BigDecimal.valueOf(100)) >= 0
+                && this.status == GoalStatus.ACTIVE) {
             this.status = GoalStatus.COMPLETED;
             this.completedAt = LocalDateTime.now();
         }
     }
 
-    /**
-     * 새로운 마일스톤 달성 여부 확인
-     */
+    /** 새로운 마일스톤 달성 여부 확인 */
     public boolean checkNewMilestone() {
         if (milestoneInterval == null || milestoneInterval <= 0) {
             return false;

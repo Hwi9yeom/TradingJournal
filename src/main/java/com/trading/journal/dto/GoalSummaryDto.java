@@ -1,17 +1,14 @@
 package com.trading.journal.dto;
 
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-
-/**
- * 목표 요약 DTO
- */
+/** 목표 요약 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

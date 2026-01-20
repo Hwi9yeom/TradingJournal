@@ -4,9 +4,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * AI 거래 복기 자동 생성 결과 DTO
- */
+/** AI 거래 복기 자동 생성 결과 DTO */
 public class AIReviewGenerationDto {
 
     private Long transactionId;

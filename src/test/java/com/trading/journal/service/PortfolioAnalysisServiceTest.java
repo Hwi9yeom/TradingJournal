@@ -1,11 +1,20 @@
 package com.trading.journal.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
+
 import com.trading.journal.dto.PortfolioDto;
 import com.trading.journal.dto.PortfolioSummaryDto;
 import com.trading.journal.entity.Portfolio;
 import com.trading.journal.entity.Stock;
 import com.trading.journal.repository.PortfolioRepository;
 import com.trading.journal.repository.TransactionRepository;
+import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,50 +23,32 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class PortfolioAnalysisServiceTest {
 
-    @Mock
-    private PortfolioRepository portfolioRepository;
+    @Mock private PortfolioRepository portfolioRepository;
 
-    @Mock
-    private TransactionRepository transactionRepository;
+    @Mock private TransactionRepository transactionRepository;
 
-    @Mock
-    private StockPriceService stockPriceService;
+    @Mock private StockPriceService stockPriceService;
 
-    @InjectMocks
-    private PortfolioAnalysisService portfolioAnalysisService;
+    @InjectMocks private PortfolioAnalysisService portfolioAnalysisService;
 
     private Stock mockStock;
     private Portfolio mockPortfolio;
 
     @BeforeEach
     void setUp() {
-        mockStock = Stock.builder()
-                .id(1L)
-                .symbol("AAPL")
-                .name("Apple Inc.")
-                .build();
+        mockStock = Stock.builder().id(1L).symbol("AAPL").name("Apple Inc.").build();
 
-        mockPortfolio = Portfolio.builder()
-                .id(1L)
-                .stock(mockStock)
-                .quantity(new BigDecimal("10"))
-                .averagePrice(new BigDecimal("150.00"))
-                .totalInvestment(new BigDecimal("1500.00"))
-                .build();
+        mockPortfolio =
+                Portfolio.builder()
+                        .id(1L)
+                        .stock(mockStock)
+                        .quantity(new BigDecimal("10"))
+                        .averagePrice(new BigDecimal("150.00"))
+                        .totalInvestment(new BigDecimal("1500.00"))
+                        .build();
     }
 
     @Test
@@ -78,7 +69,8 @@ class PortfolioAnalysisServiceTest {
         assertThat(summary.getTotalInvestment()).isEqualByComparingTo(new BigDecimal("1500.00"));
         assertThat(summary.getTotalCurrentValue()).isEqualByComparingTo(new BigDecimal("1600.00"));
         assertThat(summary.getTotalProfitLoss()).isEqualByComparingTo(new BigDecimal("100.00"));
-        assertThat(summary.getTotalProfitLossPercent()).isEqualByComparingTo(new BigDecimal("6.67"));
+        assertThat(summary.getTotalProfitLossPercent())
+                .isEqualByComparingTo(new BigDecimal("6.67"));
         assertThat(summary.getHoldings()).hasSize(1);
 
         PortfolioDto holding = summary.getHoldings().get(0);
@@ -91,19 +83,16 @@ class PortfolioAnalysisServiceTest {
     @DisplayName("포트폴리오 요약 조회 - 여러 종목")
     void getPortfolioSummary_MultipleStocks() {
         // Given
-        Stock stock2 = Stock.builder()
-                .id(2L)
-                .symbol("GOOGL")
-                .name("Alphabet Inc.")
-                .build();
+        Stock stock2 = Stock.builder().id(2L).symbol("GOOGL").name("Alphabet Inc.").build();
 
-        Portfolio portfolio2 = Portfolio.builder()
-                .id(2L)
-                .stock(stock2)
-                .quantity(new BigDecimal("5"))
-                .averagePrice(new BigDecimal("2000.00"))
-                .totalInvestment(new BigDecimal("10000.00"))
-                .build();
+        Portfolio portfolio2 =
+                Portfolio.builder()
+                        .id(2L)
+                        .stock(stock2)
+                        .quantity(new BigDecimal("5"))
+                        .averagePrice(new BigDecimal("2000.00"))
+                        .totalInvestment(new BigDecimal("10000.00"))
+                        .build();
 
         List<Portfolio> portfolios = Arrays.asList(mockPortfolio, portfolio2);
         when(portfolioRepository.findAll()).thenReturn(portfolios);
@@ -179,7 +168,8 @@ class PortfolioAnalysisServiceTest {
         // Given
         when(portfolioRepository.findAll()).thenReturn(Arrays.asList(mockPortfolio));
         when(transactionRepository.findAll()).thenReturn(Collections.emptyList());
-        when(stockPriceService.getCurrentPrice("AAPL")).thenThrow(new RuntimeException("API Error"));
+        when(stockPriceService.getCurrentPrice("AAPL"))
+                .thenThrow(new RuntimeException("API Error"));
 
         // When
         PortfolioSummaryDto summary = portfolioAnalysisService.getPortfolioSummary();
@@ -188,7 +178,7 @@ class PortfolioAnalysisServiceTest {
         assertThat(summary.getTotalInvestment()).isEqualByComparingTo(new BigDecimal("1500.00"));
         assertThat(summary.getTotalCurrentValue()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(summary.getTotalProfitLoss()).isEqualByComparingTo(new BigDecimal("-1500.00"));
-        
+
         PortfolioDto holding = summary.getHoldings().get(0);
         assertThat(holding.getCurrentPrice()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(holding.getCurrentValue()).isEqualByComparingTo(BigDecimal.ZERO);

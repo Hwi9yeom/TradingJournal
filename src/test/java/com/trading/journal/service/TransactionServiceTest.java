@@ -1,5 +1,11 @@
 package com.trading.journal.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.*;
+
 import com.trading.journal.dto.FifoResult;
 import com.trading.journal.dto.TransactionDto;
 import com.trading.journal.entity.Account;
@@ -9,6 +15,11 @@ import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
 import com.trading.journal.repository.StockRepository;
 import com.trading.journal.repository.TransactionRepository;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,41 +28,22 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class TransactionServiceTest {
 
-    @Mock
-    private TransactionRepository transactionRepository;
+    @Mock private TransactionRepository transactionRepository;
 
-    @Mock
-    private StockRepository stockRepository;
+    @Mock private StockRepository stockRepository;
 
-    @Mock
-    private PortfolioService portfolioService;
+    @Mock private PortfolioService portfolioService;
 
-    @Mock
-    private StockPriceService stockPriceService;
+    @Mock private StockPriceService stockPriceService;
 
-    @Mock
-    private AccountService accountService;
+    @Mock private AccountService accountService;
 
-    @Mock
-    private FifoCalculationService fifoCalculationService;
+    @Mock private FifoCalculationService fifoCalculationService;
 
-    @InjectMocks
-    private TransactionService transactionService;
+    @InjectMocks private TransactionService transactionService;
 
     private Account mockAccount;
     private Stock mockStock;
@@ -60,41 +52,40 @@ class TransactionServiceTest {
 
     @BeforeEach
     void setUp() {
-        mockAccount = Account.builder()
-                .id(1L)
-                .name("기본 계좌")
-                .accountType(AccountType.GENERAL)
-                .isDefault(true)
-                .build();
+        mockAccount =
+                Account.builder()
+                        .id(1L)
+                        .name("기본 계좌")
+                        .accountType(AccountType.GENERAL)
+                        .isDefault(true)
+                        .build();
 
-        mockStock = Stock.builder()
-                .id(1L)
-                .symbol("AAPL")
-                .name("Apple Inc.")
-                .exchange("NASDAQ")
-                .build();
+        mockStock =
+                Stock.builder().id(1L).symbol("AAPL").name("Apple Inc.").exchange("NASDAQ").build();
 
-        mockTransaction = Transaction.builder()
-                .id(1L)
-                .account(mockAccount)
-                .stock(mockStock)
-                .type(TransactionType.BUY)
-                .quantity(new BigDecimal("10"))
-                .price(new BigDecimal("150.00"))
-                .commission(new BigDecimal("5.00"))
-                .transactionDate(LocalDateTime.now())
-                .notes("Test transaction")
-                .build();
+        mockTransaction =
+                Transaction.builder()
+                        .id(1L)
+                        .account(mockAccount)
+                        .stock(mockStock)
+                        .type(TransactionType.BUY)
+                        .quantity(new BigDecimal("10"))
+                        .price(new BigDecimal("150.00"))
+                        .commission(new BigDecimal("5.00"))
+                        .transactionDate(LocalDateTime.now())
+                        .notes("Test transaction")
+                        .build();
 
-        mockTransactionDto = TransactionDto.builder()
-                .stockSymbol("AAPL")
-                .type(TransactionType.BUY)
-                .quantity(new BigDecimal("10"))
-                .price(new BigDecimal("150.00"))
-                .commission(new BigDecimal("5.00"))
-                .transactionDate(LocalDateTime.now())
-                .notes("Test transaction")
-                .build();
+        mockTransactionDto =
+                TransactionDto.builder()
+                        .stockSymbol("AAPL")
+                        .type(TransactionType.BUY)
+                        .quantity(new BigDecimal("10"))
+                        .price(new BigDecimal("150.00"))
+                        .commission(new BigDecimal("5.00"))
+                        .transactionDate(LocalDateTime.now())
+                        .notes("Test transaction")
+                        .build();
     }
 
     @Test
@@ -125,43 +116,43 @@ class TransactionServiceTest {
     @DisplayName("매도 거래 생성 - 새로운 종목")
     void createTransaction_NewStock_Sell() {
         // Given
-        TransactionDto sellDto = TransactionDto.builder()
-                .stockSymbol("TSLA")
-                .type(TransactionType.SELL)
-                .quantity(new BigDecimal("5"))
-                .price(new BigDecimal("200.00"))
-                .commission(new BigDecimal("3.00"))
-                .transactionDate(LocalDateTime.now())
-                .build();
+        TransactionDto sellDto =
+                TransactionDto.builder()
+                        .stockSymbol("TSLA")
+                        .type(TransactionType.SELL)
+                        .quantity(new BigDecimal("5"))
+                        .price(new BigDecimal("200.00"))
+                        .commission(new BigDecimal("3.00"))
+                        .transactionDate(LocalDateTime.now())
+                        .build();
 
-        Stock newStock = Stock.builder()
-                .id(2L)
-                .symbol("TSLA")
-                .name("Tesla Inc.")
-                .build();
+        Stock newStock = Stock.builder().id(2L).symbol("TSLA").name("Tesla Inc.").build();
 
-        Transaction sellTransaction = Transaction.builder()
-                .id(2L)
-                .account(mockAccount)
-                .stock(newStock)
-                .type(TransactionType.SELL)
-                .quantity(new BigDecimal("5"))
-                .price(new BigDecimal("200.00"))
-                .commission(new BigDecimal("3.00"))
-                .transactionDate(sellDto.getTransactionDate())
-                .build();
+        Transaction sellTransaction =
+                Transaction.builder()
+                        .id(2L)
+                        .account(mockAccount)
+                        .stock(newStock)
+                        .type(TransactionType.SELL)
+                        .quantity(new BigDecimal("5"))
+                        .price(new BigDecimal("200.00"))
+                        .commission(new BigDecimal("3.00"))
+                        .transactionDate(sellDto.getTransactionDate())
+                        .build();
 
-        FifoResult fifoResult = FifoResult.builder()
-                .realizedPnl(new BigDecimal("100.00"))
-                .costBasis(new BigDecimal("897.00"))
-                .consumptions(new java.util.ArrayList<>())
-                .build();
+        FifoResult fifoResult =
+                FifoResult.builder()
+                        .realizedPnl(new BigDecimal("100.00"))
+                        .costBasis(new BigDecimal("897.00"))
+                        .consumptions(new java.util.ArrayList<>())
+                        .build();
 
         when(accountService.getDefaultAccount()).thenReturn(mockAccount);
         when(stockRepository.findBySymbol("TSLA")).thenReturn(Optional.empty());
         when(stockRepository.save(any(Stock.class))).thenReturn(newStock);
         when(transactionRepository.save(any(Transaction.class))).thenReturn(sellTransaction);
-        when(fifoCalculationService.calculateFifoProfit(any(Transaction.class))).thenReturn(fifoResult);
+        when(fifoCalculationService.calculateFifoProfit(any(Transaction.class)))
+                .thenReturn(fifoResult);
 
         // When
         TransactionDto result = transactionService.createTransaction(sellDto);
@@ -177,7 +168,8 @@ class TransactionServiceTest {
         verify(stockRepository).save(any(Stock.class));
         verify(transactionRepository).save(any(Transaction.class));
         verify(fifoCalculationService).calculateFifoProfit(any(Transaction.class));
-        verify(fifoCalculationService).applyFifoResult(any(Transaction.class), any(FifoResult.class));
+        verify(fifoCalculationService)
+                .applyFifoResult(any(Transaction.class), any(FifoResult.class));
         verify(portfolioService).updatePortfolio(any(Transaction.class));
     }
 
@@ -244,17 +236,20 @@ class TransactionServiceTest {
     @DisplayName("거래 수정")
     void updateTransaction() {
         // Given
-        TransactionDto updateDto = TransactionDto.builder()
-                .quantity(new BigDecimal("20"))
-                .price(new BigDecimal("160.00"))
-                .commission(new BigDecimal("10.00"))
-                .transactionDate(LocalDateTime.now())
-                .notes("Updated transaction")
-                .build();
+        TransactionDto updateDto =
+                TransactionDto.builder()
+                        .quantity(new BigDecimal("20"))
+                        .price(new BigDecimal("160.00"))
+                        .commission(new BigDecimal("10.00"))
+                        .transactionDate(LocalDateTime.now())
+                        .notes("Updated transaction")
+                        .build();
 
         when(transactionRepository.findById(1L)).thenReturn(Optional.of(mockTransaction));
         when(transactionRepository.save(any(Transaction.class))).thenReturn(mockTransaction);
-        doNothing().when(fifoCalculationService).recalculateFifoForAccountStock(anyLong(), anyLong());
+        doNothing()
+                .when(fifoCalculationService)
+                .recalculateFifoForAccountStock(anyLong(), anyLong());
 
         // When
         TransactionDto result = transactionService.updateTransaction(1L, updateDto);
@@ -264,7 +259,7 @@ class TransactionServiceTest {
         verify(transactionRepository).findById(1L);
         verify(transactionRepository).save(any(Transaction.class));
         verify(fifoCalculationService).recalculateFifoForAccountStock(1L, 1L);
-        verify(portfolioService).recalculatePortfolio(1L, 1L);  // accountId, stockId
+        verify(portfolioService).recalculatePortfolio(1L, 1L); // accountId, stockId
     }
 
     @Test
@@ -272,7 +267,9 @@ class TransactionServiceTest {
     void deleteTransaction() {
         // Given
         when(transactionRepository.findById(1L)).thenReturn(Optional.of(mockTransaction));
-        doNothing().when(fifoCalculationService).recalculateFifoForAccountStock(anyLong(), anyLong());
+        doNothing()
+                .when(fifoCalculationService)
+                .recalculateFifoForAccountStock(anyLong(), anyLong());
 
         // When
         transactionService.deleteTransaction(1L);
@@ -281,7 +278,7 @@ class TransactionServiceTest {
         verify(transactionRepository).findById(1L);
         verify(transactionRepository).delete(mockTransaction);
         verify(fifoCalculationService).recalculateFifoForAccountStock(1L, 1L);
-        verify(portfolioService).recalculatePortfolio(1L, 1L);  // accountId, stockId
+        verify(portfolioService).recalculatePortfolio(1L, 1L); // accountId, stockId
     }
 
     @Test
@@ -294,7 +291,8 @@ class TransactionServiceTest {
         when(transactionRepository.findByDateRange(startDate, endDate)).thenReturn(transactions);
 
         // When
-        List<TransactionDto> result = transactionService.getTransactionsByDateRange(startDate, endDate);
+        List<TransactionDto> result =
+                transactionService.getTransactionsByDateRange(startDate, endDate);
 
         // Then
         assertThat(result).hasSize(1);

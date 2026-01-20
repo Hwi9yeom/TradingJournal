@@ -1,17 +1,15 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.*;
 
-/**
- * 계정별 리스크 관리 설정
- */
+/** 계정별 리스크 관리 설정 */
 @Entity
-@Table(name = "account_risk_settings", indexes = {
-    @Index(name = "idx_risk_settings_account", columnList = "account_id")
-})
+@Table(
+        name = "account_risk_settings",
+        indexes = {@Index(name = "idx_risk_settings_account", columnList = "account_id")})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -42,8 +40,7 @@ public class AccountRiskSettings {
     private BigDecimal maxWeeklyLossPercent = new BigDecimal("10.00");
 
     /** 최대 오픈 포지션 수 (기본 10) */
-    @Builder.Default
-    private Integer maxOpenPositions = 10;
+    @Builder.Default private Integer maxOpenPositions = 10;
 
     /** 최대 포지션 크기 % (기본 20%) */
     @Column(precision = 5, scale = 2)
@@ -65,12 +62,10 @@ public class AccountRiskSettings {
     private BigDecimal accountCapital;
 
     /** 일일 손실 한도 알림 활성화 */
-    @Builder.Default
-    private Boolean dailyLossAlertEnabled = true;
+    @Builder.Default private Boolean dailyLossAlertEnabled = true;
 
     /** 집중도 한도 알림 활성화 */
-    @Builder.Default
-    private Boolean concentrationAlertEnabled = true;
+    @Builder.Default private Boolean concentrationAlertEnabled = true;
 
     /** Kelly Criterion 비율 (기본 0.5 = Half Kelly) */
     @Column(precision = 3, scale = 2)

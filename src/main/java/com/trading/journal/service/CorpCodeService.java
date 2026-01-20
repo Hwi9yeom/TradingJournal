@@ -1,19 +1,16 @@
 package com.trading.journal.service;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.stereotype.Service;
-import org.yaml.snakeyaml.Yaml;
-
 import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.stereotype.Service;
+import org.yaml.snakeyaml.Yaml;
 
-/**
- * Service providing corporation code lookups loaded from a YAML configuration file.
- */
+/** Service providing corporation code lookups loaded from a YAML configuration file. */
 @Service
 @Slf4j
 public class CorpCodeService {
@@ -29,7 +26,8 @@ public class CorpCodeService {
                 Object codesObj = ((Map<?, ?>) corp).get("codes");
                 if (codesObj instanceof Map<?, ?> codes) {
                     for (Map.Entry<?, ?> entry : codes.entrySet()) {
-                        corpCodeMap.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+                        corpCodeMap.put(
+                                String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
                     }
                 }
             }

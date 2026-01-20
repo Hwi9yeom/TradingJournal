@@ -3,7 +3,11 @@ package com.trading.journal.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trading.journal.dto.DisclosureDto;
-import com.trading.journal.service.CorpCodeService;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,52 +16,53 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class DartApiService {
-    
+
     private final WebClient dartWebClient;
     private final ObjectMapper objectMapper;
     private final CorpCodeService corpCodeService;
-    
+
     @Value("${dart.api.key:}")
     private String apiKey;
-    
+
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-    
+    private static final DateTimeFormatter DATETIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
     /**
      * 회사별 공시 검색
+     *
      * @param corpCode 회사 고유번호
      * @param beginDate 시작일 (YYYYMMDD)
      * @param endDate 종료일 (YYYYMMDD)
      * @return 공시 목록
      */
-    public Mono<List<DisclosureDto>> getDisclosuresByCorpCode(String corpCode, LocalDate beginDate, LocalDate endDate) {
-        return dartWebClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/list.json")
-                        .queryParam("crtfc_key", apiKey)
-                        .queryParam("corp_code", corpCode)
-                        .queryParam("bgn_de", beginDate.format(DATE_FORMATTER))
-                        .queryParam("end_de", endDate.format(DATE_FORMATTER))
-                        .queryParam("page_count", 100)
-                        .build())
+    public Mono<List<DisclosureDto>> getDisclosuresByCorpCode(
+            String corpCode, LocalDate beginDate, LocalDate endDate) {
+        return dartWebClient
+                .get()
+                .uri(
+                        uriBuilder ->
+                                uriBuilder
+                                        .path("/list.json")
+                                        .queryParam("crtfc_key", apiKey)
+                                        .queryParam("corp_code", corpCode)
+                                        .queryParam("bgn_de", beginDate.format(DATE_FORMATTER))
+                                        .queryParam("end_de", endDate.format(DATE_FORMATTER))
+                                        .queryParam("page_count", 100)
+                                        .build())
                 .retrieve()
                 .bodyToMono(String.class)
                 .map(this::parseDisclosureList)
                 .doOnError(error -> log.error("DART API 호출 실패: {}", error.getMessage()));
     }
-    
+
     /**
      * 종목명으로 회사 코드 검색
+     *
      * @param corpName 회사명
      * @return 회사 코드
      */
@@ -68,64 +73,73 @@ public class DartApiService {
         }
         return Mono.error(new RuntimeException("회사 코드를 찾을 수 없습니다: " + corpName));
     }
-    
+
     /**
      * 최근 공시 조회 (전체 시장)
+     *
      * @param date 조회일
      * @return 공시 목록
      */
     public Flux<DisclosureDto> getRecentDisclosures(LocalDate date) {
-        return dartWebClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/list.json")
-                        .queryParam("crtfc_key", apiKey)
-                        .queryParam("bgn_de", date.format(DATE_FORMATTER))
-                        .queryParam("end_de", date.format(DATE_FORMATTER))
-                        .queryParam("page_count", 100)
-                        .queryParam("sort", "date")  // 날짜순 정렬
-                        .queryParam("sort_mth", "desc") // 내림차순
-                        .build())
+        return dartWebClient
+                .get()
+                .uri(
+                        uriBuilder ->
+                                uriBuilder
+                                        .path("/list.json")
+                                        .queryParam("crtfc_key", apiKey)
+                                        .queryParam("bgn_de", date.format(DATE_FORMATTER))
+                                        .queryParam("end_de", date.format(DATE_FORMATTER))
+                                        .queryParam("page_count", 100)
+                                        .queryParam("sort", "date") // 날짜순 정렬
+                                        .queryParam("sort_mth", "desc") // 내림차순
+                                        .build())
                 .retrieve()
                 .bodyToMono(String.class)
                 .flatMapMany(response -> Flux.fromIterable(parseDisclosureList(response)))
                 .doOnError(error -> log.error("최근 공시 조회 실패: {}", error.getMessage()));
     }
-    
+
     /**
      * 주요사항보고서 조회
+     *
      * @param corpCode 회사 고유번호
      * @param beginDate 시작일
      * @param endDate 종료일
      * @return 주요사항보고서 목록
      */
-    public Mono<List<DisclosureDto>> getMajorReports(String corpCode, LocalDate beginDate, LocalDate endDate) {
-        return dartWebClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/list.json")
-                        .queryParam("crtfc_key", apiKey)
-                        .queryParam("corp_code", corpCode)
-                        .queryParam("bgn_de", beginDate.format(DATE_FORMATTER))
-                        .queryParam("end_de", endDate.format(DATE_FORMATTER))
-                        .queryParam("pblntf_ty", "B") // 주요사항보고서
-                        .queryParam("page_count", 100)
-                        .build())
+    public Mono<List<DisclosureDto>> getMajorReports(
+            String corpCode, LocalDate beginDate, LocalDate endDate) {
+        return dartWebClient
+                .get()
+                .uri(
+                        uriBuilder ->
+                                uriBuilder
+                                        .path("/list.json")
+                                        .queryParam("crtfc_key", apiKey)
+                                        .queryParam("corp_code", corpCode)
+                                        .queryParam("bgn_de", beginDate.format(DATE_FORMATTER))
+                                        .queryParam("end_de", endDate.format(DATE_FORMATTER))
+                                        .queryParam("pblntf_ty", "B") // 주요사항보고서
+                                        .queryParam("page_count", 100)
+                                        .build())
                 .retrieve()
                 .bodyToMono(String.class)
                 .map(this::parseDisclosureList)
                 .doOnError(error -> log.error("주요사항보고서 조회 실패: {}", error.getMessage()));
     }
-    
+
     private List<DisclosureDto> parseDisclosureList(String jsonResponse) {
         List<DisclosureDto> disclosures = new ArrayList<>();
-        
+
         try {
             JsonNode root = objectMapper.readTree(jsonResponse);
-            
+
             if (!"000".equals(root.path("status").asText())) {
                 log.warn("DART API 오류 응답: {}", root.path("message").asText());
                 return disclosures;
             }
-            
+
             JsonNode list = root.path("list");
             if (list.isArray()) {
                 for (JsonNode item : list) {
@@ -136,14 +150,14 @@ public class DartApiService {
         } catch (Exception e) {
             log.error("공시 목록 파싱 실패: {}", e.getMessage());
         }
-        
+
         return disclosures;
     }
-    
+
     private DisclosureDto parseDisclosureItem(JsonNode item) {
         String rcpDt = item.path("rcpt_dt").asText();
         LocalDateTime receivedDate = parseDateTime(rcpDt);
-        
+
         return DisclosureDto.builder()
                 .corpCode(item.path("corp_code").asText())
                 .corpName(item.path("corp_name").asText())
@@ -156,7 +170,7 @@ public class DartApiService {
                 .isImportant(isImportantReport(item.path("report_nm").asText()))
                 .build();
     }
-    
+
     private LocalDateTime parseDateTime(String dateStr) {
         try {
             // YYYYMMDD 형식을 LocalDateTime으로 변환
@@ -167,30 +181,33 @@ public class DartApiService {
             return LocalDateTime.now();
         }
     }
-    
+
     private String buildViewUrl(String rceptNo) {
         return String.format("http://dart.fss.or.kr/dsaf001/main.do?rcpNo=%s", rceptNo);
     }
-    
+
     private String getReportType(String reportName) {
-        if (reportName.contains("사업보고서") || reportName.contains("반기보고서") || reportName.contains("분기보고서")) {
+        if (reportName.contains("사업보고서")
+                || reportName.contains("반기보고서")
+                || reportName.contains("분기보고서")) {
             return "정기공시";
         } else if (reportName.contains("주요사항") || reportName.contains("임시공시")) {
             return "주요사항보고";
-        } else if (reportName.contains("유상증자") || reportName.contains("무상증자") || reportName.contains("합병")) {
+        } else if (reportName.contains("유상증자")
+                || reportName.contains("무상증자")
+                || reportName.contains("합병")) {
             return "자본시장법";
         } else {
             return "기타";
         }
     }
-    
+
     private boolean isImportantReport(String reportName) {
         String[] importantKeywords = {
-            "유상증자", "무상증자", "합병", "분할", "주식분할", "감자",
-            "영업정지", "거래정지", "관리종목", "상장폐지", "감리",
+            "유상증자", "무상증자", "합병", "분할", "주식분할", "감자", "영업정지", "거래정지", "관리종목", "상장폐지", "감리",
             "최대주주변경", "대표이사변경", "사업목적변경"
         };
-        
+
         for (String keyword : importantKeywords) {
             if (reportName.contains(keyword)) {
                 return true;
@@ -198,5 +215,4 @@ public class DartApiService {
         }
         return false;
     }
-    
 }

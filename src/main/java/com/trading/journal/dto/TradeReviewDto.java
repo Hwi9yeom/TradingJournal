@@ -2,19 +2,16 @@ package com.trading.journal.dto;
 
 import com.trading.journal.entity.EmotionState;
 import com.trading.journal.entity.TradeStrategy;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-
-/**
- * 거래 복기 DTO
- */
+/** 거래 복기 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -49,9 +46,7 @@ public class TradeReviewDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    /**
-     * 복기 통계 DTO
-     */
+    /** 복기 통계 DTO */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -59,7 +54,7 @@ public class TradeReviewDto {
     public static class ReviewStatisticsDto {
         private int totalReviews;
         private int totalTransactions;
-        private BigDecimal reviewRate;  // 복기율 (%)
+        private BigDecimal reviewRate; // 복기율 (%)
         private Double averageRating;
         private Map<TradeStrategy, StrategyStats> strategyStats;
         private Map<EmotionState, EmotionStats> emotionStats;
@@ -69,9 +64,7 @@ public class TradeReviewDto {
         private List<LessonSummary> recentLessons;
     }
 
-    /**
-     * 전략별 통계
-     */
+    /** 전략별 통계 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -85,9 +78,7 @@ public class TradeReviewDto {
         private BigDecimal totalProfit;
     }
 
-    /**
-     * 감정별 통계
-     */
+    /** 감정별 통계 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -99,9 +90,7 @@ public class TradeReviewDto {
         private BigDecimal winRate;
     }
 
-    /**
-     * 교훈 요약
-     */
+    /** 교훈 요약 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

@@ -6,15 +6,12 @@ import com.trading.journal.entity.TradeStrategy;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import lombok.*;
 
-/**
- * 트레이드 플랜 DTO
- */
+/** 트레이드 플랜 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -30,11 +27,13 @@ public class TradePlanDto {
 
     @NotBlank(message = "종목 심볼은 필수입니다")
     private String stockSymbol;
+
     private String stockName;
 
     // 플랜 기본 정보
     @NotNull(message = "플랜 유형은 필수입니다")
     private TradePlanType planType;
+
     private String planTypeLabel;
 
     private TradePlanStatus status;
@@ -66,7 +65,7 @@ public class TradePlanDto {
     private BigDecimal plannedRiskAmount;
     private BigDecimal plannedRiskPercent;
     private BigDecimal plannedRiskRewardRatio;
-    private BigDecimal stopLossPercent;  // 진입가 대비 손절 %
+    private BigDecimal stopLossPercent; // 진입가 대비 손절 %
     private BigDecimal takeProfitPercent; // 진입가 대비 익절 %
 
     // 조건 기록
@@ -102,9 +101,7 @@ public class TradePlanDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    /**
-     * 체크리스트 항목
-     */
+    /** 체크리스트 항목 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -114,9 +111,7 @@ public class TradePlanDto {
         private Boolean checked;
     }
 
-    /**
-     * 플랜 실행 요청 DTO
-     */
+    /** 플랜 실행 요청 DTO */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -135,9 +130,7 @@ public class TradePlanDto {
         private LocalDateTime transactionDate;
     }
 
-    /**
-     * 플랜 결과 업데이트 요청 DTO
-     */
+    /** 플랜 결과 업데이트 요청 DTO */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -145,12 +138,11 @@ public class TradePlanDto {
     public static class ResultUpdateRequest {
         @NotNull(message = "결과 거래 ID는 필수입니다")
         private Long resultTransactionId;
+
         private Boolean followedPlan;
     }
 
-    /**
-     * 플랜 통계 DTO
-     */
+    /** 플랜 통계 DTO */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -162,13 +154,13 @@ public class TradePlanDto {
         private int cancelledCount;
         private int expiredCount;
 
-        private BigDecimal executionRate;      // 실행률
-        private BigDecimal planAdherenceRate;  // 계획 준수율
+        private BigDecimal executionRate; // 실행률
+        private BigDecimal planAdherenceRate; // 계획 준수율
         private BigDecimal avgRiskRewardRatio; // 평균 R:R 비율
         private BigDecimal avgActualRMultiple; // 평균 실현 R-multiple
 
-        private BigDecimal totalPlannedRisk;   // 총 계획 리스크
-        private BigDecimal totalRealizedPnl;   // 총 실현 손익
+        private BigDecimal totalPlannedRisk; // 총 계획 리스크
+        private BigDecimal totalRealizedPnl; // 총 실현 손익
 
         // 전략별 통계
         private List<StrategyPlanStats> strategyStats;
@@ -180,9 +172,7 @@ public class TradePlanDto {
         private List<TradePlanDto> pendingPlans;
     }
 
-    /**
-     * 전략별 플랜 통계
-     */
+    /** 전략별 플랜 통계 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

@@ -1,11 +1,10 @@
 package com.trading.journal.dto;
 
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -27,7 +26,7 @@ public class DisclosureDto {
     private Boolean isImportant;
     private Boolean isRead;
     private LocalDateTime createdAt;
-    
+
     // DART API 응답 매핑용 필드
     private String rcpNo; // 접수번호
     private String flrNm; // 공시 제출인명

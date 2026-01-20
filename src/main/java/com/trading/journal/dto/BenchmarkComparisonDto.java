@@ -1,18 +1,15 @@
 package com.trading.journal.dto;
 
 import com.trading.journal.entity.BenchmarkType;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-
-/**
- * 벤치마크 비교 분석 결과 DTO
- */
+/** 벤치마크 비교 분석 결과 DTO */
 @Data
 @Builder
 @NoArgsConstructor
@@ -111,24 +108,20 @@ public class BenchmarkComparisonDto {
     /** 연간 비교 데이터 */
     private List<YearlyComparison> yearlyComparisons;
 
-    /**
-     * 월별 비교 데이터
-     */
+    /** 월별 비교 데이터 */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MonthlyComparison {
-        private String month;  // YYYY-MM
+        private String month; // YYYY-MM
         private BigDecimal portfolioReturn;
         private BigDecimal benchmarkReturn;
         private BigDecimal excessReturn;
         private Boolean portfolioWin;
     }
 
-    /**
-     * 연간 비교 데이터
-     */
+    /** 연간 비교 데이터 */
     @Data
     @Builder
     @NoArgsConstructor
@@ -141,9 +134,7 @@ public class BenchmarkComparisonDto {
         private Boolean portfolioWin;
     }
 
-    /**
-     * 벤치마크 요약 정보
-     */
+    /** 벤치마크 요약 정보 */
     @Data
     @Builder
     @NoArgsConstructor
@@ -160,9 +151,7 @@ public class BenchmarkComparisonDto {
         private Long dataCount;
     }
 
-    /**
-     * 다중 벤치마크 비교 결과
-     */
+    /** 다중 벤치마크 비교 결과 */
     @Data
     @Builder
     @NoArgsConstructor

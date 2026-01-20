@@ -1,19 +1,22 @@
 package com.trading.journal.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 @SpringBootTest
-@TestPropertySource(properties = {"spring.jpa.hibernate.ddl-auto=none", "spring.datasource.url=jdbc:h2:mem:testdb"})
+@TestPropertySource(
+        properties = {
+            "spring.jpa.hibernate.ddl-auto=none",
+            "spring.datasource.url=jdbc:h2:mem:testdb"
+        })
 class CorpCodeServiceTest {
 
-    @Autowired
-    private CorpCodeService corpCodeService;
+    @Autowired private CorpCodeService corpCodeService;
 
     @Test
     @DisplayName("법인코드 조회 - 존재하는 경우")
@@ -23,7 +26,7 @@ class CorpCodeServiceTest {
         // 파일이 없거나 비어있을 수 있으므로 null이 아닌지만 확인하거나,
         // 파일에 정의된 실제 값이 있다면 해당 값으로 테스트
         String result = corpCodeService.findCorpCode("삼성전자");
-        
+
         // 실제 corp-codes.yml 파일의 내용에 따라 달라짐
         // null이거나 실제 법인코드 값이 반환될 수 있음
         if (result != null) {

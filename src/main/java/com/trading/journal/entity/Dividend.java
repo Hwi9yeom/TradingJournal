@@ -1,23 +1,24 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "dividends", indexes = {
-    @Index(name = "idx_dividend_payment_date", columnList = "paymentDate"),
-    @Index(name = "idx_dividend_stock_id", columnList = "stock_id"),
-    @Index(name = "idx_dividend_ex_date", columnList = "exDividendDate"),
-    @Index(name = "idx_dividend_account_id", columnList = "account_id"),
-    @Index(name = "idx_dividend_account_stock", columnList = "account_id, stock_id")
-})
+@Table(
+        name = "dividends",
+        indexes = {
+            @Index(name = "idx_dividend_payment_date", columnList = "paymentDate"),
+            @Index(name = "idx_dividend_stock_id", columnList = "stock_id"),
+            @Index(name = "idx_dividend_ex_date", columnList = "exDividendDate"),
+            @Index(name = "idx_dividend_account_id", columnList = "account_id"),
+            @Index(name = "idx_dividend_account_stock", columnList = "account_id, stock_id")
+        })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

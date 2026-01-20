@@ -8,22 +8,18 @@ import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
 import com.trading.journal.repository.TransactionRepository;
 import com.trading.journal.service.*;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-/**
- * AI 트레이딩 어시스턴트 서비스
- * 성과 분석, 거래 복기, 리스크 경고, 전략 최적화 기능 제공
- */
+/** AI 트레이딩 어시스턴트 서비스 성과 분석, 거래 복기, 리스크 경고, 전략 최적화 기능 제공 */
 @Service
 public class AITradingAssistantService {
 
@@ -63,31 +59,36 @@ public class AITradingAssistantService {
         this.transactionRepository = transactionRepository;
     }
 
-    /**
-     * 성과 분석 AI
-     */
-    public Mono<AIAnalysisResponseDto> analyzePerformance(Long accountId, LocalDate startDate, LocalDate endDate) {
+    /** 성과 분석 AI */
+    public Mono<AIAnalysisResponseDto> analyzePerformance(
+            Long accountId, LocalDate startDate, LocalDate endDate) {
         log.info("AI 성과 분석 시작: accountId={}, period={} ~ {}", accountId, startDate, endDate);
 
         try {
             // 데이터 수집 (AnalysisService는 accountId를 받지 않음)
             PeriodAnalysisDto periodAnalysis = analysisService.analyzePeriod(startDate, endDate);
-            RiskMetricsDto riskMetrics = riskMetricsService.calculateRiskMetrics(accountId, startDate, endDate);
-            TradingPatternDto tradingPattern = tradingPatternService.analyzePatterns(accountId, startDate, endDate);
+            RiskMetricsDto riskMetrics =
+                    riskMetricsService.calculateRiskMetrics(accountId, startDate, endDate);
+            TradingPatternDto tradingPattern =
+                    tradingPatternService.analyzePatterns(accountId, startDate, endDate);
 
             // 프롬프트 생성
-            String prompt = promptTemplate.buildPerformanceAnalysisPrompt(periodAnalysis, riskMetrics, tradingPattern);
+            String prompt =
+                    promptTemplate.buildPerformanceAnalysisPrompt(
+                            periodAnalysis, riskMetrics, tradingPattern);
             String systemPrompt = promptTemplate.getSystemPrompt();
 
             // LLM 호출
-            return ollamaClient.generate(prompt, systemPrompt)
-                    .map(response -> {
-                        AIAnalysisResponseDto result = new AIAnalysisResponseDto();
-                        result.setAnalysisType("PERFORMANCE");
-                        result.setSummary(response.getContent());
-                        result.setRawResponse(response.getContent());
-                        return result;
-                    })
+            return ollamaClient
+                    .generate(prompt, systemPrompt)
+                    .map(
+                            response -> {
+                                AIAnalysisResponseDto result = new AIAnalysisResponseDto();
+                                result.setAnalysisType("PERFORMANCE");
+                                result.setSummary(response.getContent());
+                                result.setRawResponse(response.getContent());
+                                return result;
+                            })
                     .doOnSuccess(r -> log.info("AI 성과 분석 완료"))
                     .doOnError(e -> log.error("AI 성과 분석 실패: {}", e.getMessage()));
 
@@ -97,15 +98,18 @@ public class AITradingAssistantService {
         }
     }
 
-    /**
-     * 거래 복기 자동 생성
-     */
+    /** 거래 복기 자동 생성 */
     public Mono<AIReviewGenerationDto> generateTradeReview(Long transactionId) {
         log.info("AI 거래 복기 생성 시작: transactionId={}", transactionId);
 
         // 매도 거래 조회
-        Transaction sellTransaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new IllegalArgumentException("거래를 찾을 수 없습니다: " + transactionId));
+        Transaction sellTransaction =
+                transactionRepository
+                        .findById(transactionId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "거래를 찾을 수 없습니다: " + transactionId));
 
         if (sellTransaction.getType() != TransactionType.SELL) {
             return Mono.error(new IllegalArgumentException("매도 거래만 복기 생성이 가능합니다"));
@@ -116,13 +120,14 @@ public class AITradingAssistantService {
         String stockName = stock != null ? stock.getName() : "Unknown";
 
         // 관련 매수 거래 찾기 (같은 종목의 가장 최근 매수)
-        Transaction buyTransaction = transactionRepository
-                .findFirstByAccountAndStockAndTypeAndTransactionDateBeforeOrderByTransactionDateDesc(
-                        sellTransaction.getAccount(),
-                        stock,
-                        TransactionType.BUY,
-                        sellTransaction.getTransactionDate())
-                .orElse(null);
+        Transaction buyTransaction =
+                transactionRepository
+                        .findFirstByAccountAndStockAndTypeAndTransactionDateBeforeOrderByTransactionDateDesc(
+                                sellTransaction.getAccount(),
+                                stock,
+                                TransactionType.BUY,
+                                sellTransaction.getTransactionDate())
+                        .orElse(null);
 
         // DTO 변환
         TransactionDto sellDto = convertToDto(sellTransaction);
@@ -133,23 +138,23 @@ public class AITradingAssistantService {
         String systemPrompt = promptTemplate.getSystemPrompt();
 
         // LLM 호출
-        return ollamaClient.generate(prompt, systemPrompt)
-                .map(response -> {
-                    AIReviewGenerationDto result = new AIReviewGenerationDto();
-                    result.setTransactionId(transactionId);
-                    result.setStockSymbol(stockSymbol);
-                    result.setStockName(stockName);
-                    result.setTradeSummary(response.getContent());
-                    result.setRawResponse(response.getContent());
-                    return result;
-                })
+        return ollamaClient
+                .generate(prompt, systemPrompt)
+                .map(
+                        response -> {
+                            AIReviewGenerationDto result = new AIReviewGenerationDto();
+                            result.setTransactionId(transactionId);
+                            result.setStockSymbol(stockSymbol);
+                            result.setStockName(stockName);
+                            result.setTradeSummary(response.getContent());
+                            result.setRawResponse(response.getContent());
+                            return result;
+                        })
                 .doOnSuccess(r -> log.info("AI 거래 복기 생성 완료: {}", stockSymbol))
                 .doOnError(e -> log.error("AI 거래 복기 생성 실패: {}", e.getMessage()));
     }
 
-    /**
-     * 리스크 경고 분석
-     */
+    /** 리스크 경고 분석 */
     public Mono<AIAnalysisResponseDto> analyzeRiskWarnings(Long accountId) {
         log.info("AI 리스크 분석 시작: accountId={}", accountId);
 
@@ -159,23 +164,28 @@ public class AITradingAssistantService {
             LocalDate startDate = endDate.minusMonths(3);
 
             // 데이터 수집
-            RiskMetricsDto riskMetrics = riskMetricsService.calculateRiskMetrics(accountId, startDate, endDate);
+            RiskMetricsDto riskMetrics =
+                    riskMetricsService.calculateRiskMetrics(accountId, startDate, endDate);
             PortfolioSummaryDto portfolioSummary = portfolioAnalysisService.getPortfolioSummary();
             RiskDashboardDto riskDashboard = riskDashboardService.getRiskDashboard(accountId);
 
             // 프롬프트 생성
-            String prompt = promptTemplate.buildRiskWarningPrompt(riskMetrics, portfolioSummary, riskDashboard);
+            String prompt =
+                    promptTemplate.buildRiskWarningPrompt(
+                            riskMetrics, portfolioSummary, riskDashboard);
             String systemPrompt = promptTemplate.getSystemPrompt();
 
             // LLM 호출
-            return ollamaClient.generate(prompt, systemPrompt)
-                    .map(response -> {
-                        AIAnalysisResponseDto result = new AIAnalysisResponseDto();
-                        result.setAnalysisType("RISK");
-                        result.setSummary(response.getContent());
-                        result.setRawResponse(response.getContent());
-                        return result;
-                    })
+            return ollamaClient
+                    .generate(prompt, systemPrompt)
+                    .map(
+                            response -> {
+                                AIAnalysisResponseDto result = new AIAnalysisResponseDto();
+                                result.setAnalysisType("RISK");
+                                result.setSummary(response.getContent());
+                                result.setRawResponse(response.getContent());
+                                return result;
+                            })
                     .doOnSuccess(r -> log.info("AI 리스크 분석 완료"))
                     .doOnError(e -> log.error("AI 리스크 분석 실패: {}", e.getMessage()));
 
@@ -185,9 +195,7 @@ public class AITradingAssistantService {
         }
     }
 
-    /**
-     * 전략 최적화 제안
-     */
+    /** 전략 최적화 제안 */
     public Mono<AISuggestionDto> suggestStrategyOptimization(Long backtestId) {
         log.info("AI 전략 최적화 분석 시작: backtestId={}", backtestId);
 
@@ -200,15 +208,17 @@ public class AITradingAssistantService {
             String systemPrompt = promptTemplate.getSystemPrompt();
 
             // LLM 호출
-            return ollamaClient.generate(prompt, systemPrompt)
-                    .map(response -> {
-                        AISuggestionDto result = new AISuggestionDto();
-                        result.setBacktestId(backtestId);
-                        result.setStrategyName(backtestResult.getStrategyName());
-                        result.setCurrentStrategyAssessment(response.getContent());
-                        result.setRawResponse(response.getContent());
-                        return result;
-                    })
+            return ollamaClient
+                    .generate(prompt, systemPrompt)
+                    .map(
+                            response -> {
+                                AISuggestionDto result = new AISuggestionDto();
+                                result.setBacktestId(backtestId);
+                                result.setStrategyName(backtestResult.getStrategyName());
+                                result.setCurrentStrategyAssessment(response.getContent());
+                                result.setRawResponse(response.getContent());
+                                return result;
+                            })
                     .doOnSuccess(r -> log.info("AI 전략 최적화 분석 완료"))
                     .doOnError(e -> log.error("AI 전략 최적화 분석 실패: {}", e.getMessage()));
 
@@ -218,81 +228,81 @@ public class AITradingAssistantService {
         }
     }
 
-    /**
-     * 자유 대화 (스트리밍)
-     */
+    /** 자유 대화 (스트리밍) */
     public Flux<String> chat(String sessionId, String userMessage) {
         log.info("AI 채팅 시작: sessionId={}", sessionId);
 
         // 세션 대화 기록 가져오기
-        List<ChatMessageDto> messages = chatSessions.computeIfAbsent(sessionId, k -> {
-            List<ChatMessageDto> newSession = new ArrayList<>();
-            newSession.add(ChatMessageDto.system(promptTemplate.getSystemPrompt()));
-            return newSession;
-        });
+        List<ChatMessageDto> messages =
+                chatSessions.computeIfAbsent(
+                        sessionId,
+                        k -> {
+                            List<ChatMessageDto> newSession = new ArrayList<>();
+                            newSession.add(ChatMessageDto.system(promptTemplate.getSystemPrompt()));
+                            return newSession;
+                        });
 
         // 사용자 메시지 추가
         messages.add(ChatMessageDto.user(userMessage));
 
         // 스트리밍 호출
-        return ollamaClient.chatStream(messages)
-                .map(response -> {
-                    String content = response.getContent();
-                    // 응답 완료시 어시스턴트 메시지 저장
-                    if (Boolean.TRUE.equals(response.getDone()) && content != null) {
-                        messages.add(ChatMessageDto.assistant(content));
-                    }
-                    return content != null ? content : "";
-                })
+        return ollamaClient
+                .chatStream(messages)
+                .map(
+                        response -> {
+                            String content = response.getContent();
+                            // 응답 완료시 어시스턴트 메시지 저장
+                            if (Boolean.TRUE.equals(response.getDone()) && content != null) {
+                                messages.add(ChatMessageDto.assistant(content));
+                            }
+                            return content != null ? content : "";
+                        })
                 .filter(content -> !content.isEmpty())
                 .doOnComplete(() -> log.debug("AI 채팅 스트림 완료"))
                 .doOnError(e -> log.error("AI 채팅 실패: {}", e.getMessage()));
     }
 
-    /**
-     * 자유 대화 (동기)
-     */
+    /** 자유 대화 (동기) */
     public Mono<String> chatSync(String sessionId, String userMessage) {
         log.info("AI 채팅 (동기) 시작: sessionId={}", sessionId);
 
-        List<ChatMessageDto> messages = chatSessions.computeIfAbsent(sessionId, k -> {
-            List<ChatMessageDto> newSession = new ArrayList<>();
-            newSession.add(ChatMessageDto.system(promptTemplate.getSystemPrompt()));
-            return newSession;
-        });
+        List<ChatMessageDto> messages =
+                chatSessions.computeIfAbsent(
+                        sessionId,
+                        k -> {
+                            List<ChatMessageDto> newSession = new ArrayList<>();
+                            newSession.add(ChatMessageDto.system(promptTemplate.getSystemPrompt()));
+                            return newSession;
+                        });
 
         messages.add(ChatMessageDto.user(userMessage));
 
-        return ollamaClient.chat(messages)
-                .map(response -> {
-                    String content = response.getContent();
-                    if (content != null) {
-                        messages.add(ChatMessageDto.assistant(content));
-                    }
-                    return content != null ? content : "";
-                })
+        return ollamaClient
+                .chat(messages)
+                .map(
+                        response -> {
+                            String content = response.getContent();
+                            if (content != null) {
+                                messages.add(ChatMessageDto.assistant(content));
+                            }
+                            return content != null ? content : "";
+                        })
                 .doOnSuccess(r -> log.info("AI 채팅 완료"))
                 .doOnError(e -> log.error("AI 채팅 실패: {}", e.getMessage()));
     }
 
-    /**
-     * 채팅 세션 초기화
-     */
+    /** 채팅 세션 초기화 */
     public void clearChatSession(String sessionId) {
         chatSessions.remove(sessionId);
         log.info("채팅 세션 초기화: sessionId={}", sessionId);
     }
 
-    /**
-     * Ollama 서버 상태 확인
-     */
+    /** Ollama 서버 상태 확인 */
     public Mono<Boolean> healthCheck() {
         return ollamaClient.healthCheck();
     }
 
-    /**
-     * Transaction 엔티티 -> DTO 변환
-     */
+    /** Transaction 엔티티 -> DTO 변환 */
     private TransactionDto convertToDto(Transaction tx) {
         Stock stock = tx.getStock();
         return TransactionDto.builder()

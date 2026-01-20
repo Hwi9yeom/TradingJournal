@@ -1,16 +1,13 @@
 package com.trading.journal.dto;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-/**
- * 대시보드 설정 DTO
- */
+/** 대시보드 설정 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

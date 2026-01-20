@@ -2,9 +2,7 @@ package com.trading.journal.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/**
- * Ollama API 응답 DTO
- */
+/** Ollama API 응답 DTO */
 public class OllamaResponseDto {
 
     private String model;
@@ -138,9 +136,7 @@ public class OllamaResponseDto {
         this.message = message;
     }
 
-    /**
-     * 응답 텍스트 반환 (generate API는 response, chat API는 message.content)
-     */
+    /** 응답 텍스트 반환 (generate API는 response, chat API는 message.content) */
     public String getContent() {
         if (response != null) {
             return response;

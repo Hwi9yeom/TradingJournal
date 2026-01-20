@@ -1,40 +1,32 @@
 package com.trading.journal.strategy.impl;
 
 import com.trading.journal.strategy.TradingStrategy;
-import lombok.Builder;
-import lombok.Data;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.Builder;
+import lombok.Data;
 
 /**
- * MACD (Moving Average Convergence Divergence) 전략
- * - MACD Line = EMA(fast) - EMA(slow)
- * - Signal Line = EMA(signal) of MACD Line
- * - Histogram = MACD Line - Signal Line
+ * MACD (Moving Average Convergence Divergence) 전략 - MACD Line = EMA(fast) - EMA(slow) - Signal Line
+ * = EMA(signal) of MACD Line - Histogram = MACD Line - Signal Line
  *
- * 매매 시그널:
- * - 골든크로스 (MACD > Signal): 매수
- * - 데드크로스 (MACD < Signal): 매도
+ * <p>매매 시그널: - 골든크로스 (MACD > Signal): 매수 - 데드크로스 (MACD < Signal): 매도
  */
 @Data
 @Builder
 public class MACDStrategy implements TradingStrategy {
 
     /** 단기 EMA 기간 (기본 12일) */
-    @Builder.Default
-    private int fastPeriod = 12;
+    @Builder.Default private int fastPeriod = 12;
 
     /** 장기 EMA 기간 (기본 26일) */
-    @Builder.Default
-    private int slowPeriod = 26;
+    @Builder.Default private int slowPeriod = 26;
 
     /** 시그널 EMA 기간 (기본 9일) */
-    @Builder.Default
-    private int signalPeriod = 9;
+    @Builder.Default private int signalPeriod = 9;
 
     @Override
     public Signal generateSignal(List<PriceData> prices, int index) {
@@ -52,12 +44,12 @@ public class MACDStrategy implements TradingStrategy {
         BigDecimal prevSignal = calculateSignalLine(prices, index - 1);
 
         // 골든크로스: 이전에 MACD < Signal 이었다가 현재 MACD > Signal
-        boolean goldenCross = prevMACD.compareTo(prevSignal) <= 0 &&
-                              currentMACD.compareTo(currentSignal) > 0;
+        boolean goldenCross =
+                prevMACD.compareTo(prevSignal) <= 0 && currentMACD.compareTo(currentSignal) > 0;
 
         // 데드크로스: 이전에 MACD > Signal 이었다가 현재 MACD < Signal
-        boolean deadCross = prevMACD.compareTo(prevSignal) >= 0 &&
-                            currentMACD.compareTo(currentSignal) < 0;
+        boolean deadCross =
+                prevMACD.compareTo(prevSignal) >= 0 && currentMACD.compareTo(currentSignal) < 0;
 
         if (goldenCross) {
             return Signal.BUY;
@@ -68,18 +60,14 @@ public class MACDStrategy implements TradingStrategy {
         return Signal.HOLD;
     }
 
-    /**
-     * MACD Line 계산 (EMA(fast) - EMA(slow))
-     */
+    /** MACD Line 계산 (EMA(fast) - EMA(slow)) */
     private BigDecimal calculateMACD(List<PriceData> prices, int index) {
         BigDecimal fastEMA = calculateEMA(prices, index, fastPeriod);
         BigDecimal slowEMA = calculateEMA(prices, index, slowPeriod);
         return fastEMA.subtract(slowEMA);
     }
 
-    /**
-     * Signal Line 계산 (MACD의 EMA)
-     */
+    /** Signal Line 계산 (MACD의 EMA) */
     private BigDecimal calculateSignalLine(List<PriceData> prices, int index) {
         // 시그널 라인을 계산하려면 최소 signalPeriod 개의 MACD 값이 필요
         if (index < slowPeriod + signalPeriod - 1) {
@@ -105,9 +93,7 @@ public class MACDStrategy implements TradingStrategy {
         return signal;
     }
 
-    /**
-     * EMA (지수이동평균) 계산
-     */
+    /** EMA (지수이동평균) 계산 */
     private BigDecimal calculateEMA(List<PriceData> prices, int index, int period) {
         BigDecimal multiplier = BigDecimal.valueOf(2.0 / (period + 1));
 
@@ -148,7 +134,8 @@ public class MACDStrategy implements TradingStrategy {
 
     @Override
     public String getDescription() {
-        return String.format("MACD(%d, %d)와 Signal(%d) 교차 시 매매. 골든크로스 매수, 데드크로스 매도",
+        return String.format(
+                "MACD(%d, %d)와 Signal(%d) 교차 시 매매. 골든크로스 매수, 데드크로스 매도",
                 fastPeriod, slowPeriod, signalPeriod);
     }
 

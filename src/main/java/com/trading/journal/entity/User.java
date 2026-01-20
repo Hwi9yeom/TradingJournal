@@ -1,13 +1,13 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @Entity
-@Table(name = "users", indexes = {
-    @Index(name = "idx_user_username", columnList = "username")
-})
+@Table(
+        name = "users",
+        indexes = {@Index(name = "idx_user_username", columnList = "username")})
 @Getter
 @Setter
 @NoArgsConstructor

@@ -11,6 +11,7 @@ import com.trading.journal.repository.PortfolioRepository;
 import com.trading.journal.repository.TransactionRepository;
 import com.trading.journal.repository.UserRepository;
 import com.trading.journal.service.AccountService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,14 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
-/**
- * 애플리케이션 시작 시 데이터 초기화 및 마이그레이션 수행
- * - 관리자 사용자 생성
- * - 기본 계좌 생성
- * - 기존 데이터에 account_id 연결
- */
+/** 애플리케이션 시작 시 데이터 초기화 및 마이그레이션 수행 - 관리자 사용자 생성 - 기본 계좌 생성 - 기존 데이터에 account_id 연결 */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -70,13 +64,14 @@ public class DataInitializer implements ApplicationRunner {
 
     private void createAdminUserIfNotExists() {
         if (!userRepository.existsByUsername(adminUsername)) {
-            User admin = User.builder()
-                    .username(adminUsername)
-                    .password(passwordEncoder.encode(adminPassword))
-                    .role("ROLE_ADMIN")
-                    .enabled(true)
-                    .passwordChangeRequired(forcePasswordChange)
-                    .build();
+            User admin =
+                    User.builder()
+                            .username(adminUsername)
+                            .password(passwordEncoder.encode(adminPassword))
+                            .role("ROLE_ADMIN")
+                            .enabled(true)
+                            .passwordChangeRequired(forcePasswordChange)
+                            .build();
             userRepository.save(admin);
             log.info("관리자 사용자 생성 완료: {}", adminUsername);
         } else {

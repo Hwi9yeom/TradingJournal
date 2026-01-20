@@ -6,15 +6,14 @@ import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
 import com.trading.journal.repository.PortfolioRepository;
 import com.trading.journal.repository.TransactionRepository;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -33,39 +32,52 @@ public class PortfolioService {
         // Account 기반으로 Portfolio 조회 (같은 계좌 + 같은 종목)
         Portfolio portfolio;
         if (account != null) {
-            portfolio = portfolioRepository.findByAccountIdAndStockId(account.getId(), stockId)
-                    .orElse(Portfolio.builder()
-                            .account(account)
-                            .stock(transaction.getStock())
-                            .quantity(BigDecimal.ZERO)
-                            .averagePrice(BigDecimal.ZERO)
-                            .totalInvestment(BigDecimal.ZERO)
-                            .build());
+            portfolio =
+                    portfolioRepository
+                            .findByAccountIdAndStockId(account.getId(), stockId)
+                            .orElse(
+                                    Portfolio.builder()
+                                            .account(account)
+                                            .stock(transaction.getStock())
+                                            .quantity(BigDecimal.ZERO)
+                                            .averagePrice(BigDecimal.ZERO)
+                                            .totalInvestment(BigDecimal.ZERO)
+                                            .build());
         } else {
             // 하위 호환성: account가 없으면 기존 방식
-            portfolio = portfolioRepository.findByStockId(stockId)
-                    .orElse(Portfolio.builder()
-                            .stock(transaction.getStock())
-                            .quantity(BigDecimal.ZERO)
-                            .averagePrice(BigDecimal.ZERO)
-                            .totalInvestment(BigDecimal.ZERO)
-                            .build());
+            portfolio =
+                    portfolioRepository
+                            .findByStockId(stockId)
+                            .orElse(
+                                    Portfolio.builder()
+                                            .stock(transaction.getStock())
+                                            .quantity(BigDecimal.ZERO)
+                                            .averagePrice(BigDecimal.ZERO)
+                                            .totalInvestment(BigDecimal.ZERO)
+                                            .build());
         }
 
         if (transaction.getType() == TransactionType.BUY) {
             BigDecimal newTotalQuantity = portfolio.getQuantity().add(transaction.getQuantity());
-            BigDecimal newTotalInvestment = portfolio.getTotalInvestment()
-                    .add(transaction.getPrice().multiply(transaction.getQuantity()))
-                    .add(transaction.getCommission() != null ? transaction.getCommission() : BigDecimal.ZERO);
+            BigDecimal newTotalInvestment =
+                    portfolio
+                            .getTotalInvestment()
+                            .add(transaction.getPrice().multiply(transaction.getQuantity()))
+                            .add(
+                                    transaction.getCommission() != null
+                                            ? transaction.getCommission()
+                                            : BigDecimal.ZERO);
 
             portfolio.setQuantity(newTotalQuantity);
             portfolio.setTotalInvestment(newTotalInvestment);
 
             if (newTotalQuantity.compareTo(BigDecimal.ZERO) > 0) {
-                portfolio.setAveragePrice(newTotalInvestment.divide(newTotalQuantity, 2, RoundingMode.HALF_UP));
+                portfolio.setAveragePrice(
+                        newTotalInvestment.divide(newTotalQuantity, 2, RoundingMode.HALF_UP));
             }
         } else {
-            BigDecimal newTotalQuantity = portfolio.getQuantity().subtract(transaction.getQuantity());
+            BigDecimal newTotalQuantity =
+                    portfolio.getQuantity().subtract(transaction.getQuantity());
 
             if (newTotalQuantity.compareTo(BigDecimal.ZERO) <= 0) {
                 if (portfolio.getId() != null) {
@@ -74,7 +86,10 @@ public class PortfolioService {
                 return;
             }
 
-            BigDecimal soldRatio = transaction.getQuantity().divide(portfolio.getQuantity(), 6, RoundingMode.HALF_UP);
+            BigDecimal soldRatio =
+                    transaction
+                            .getQuantity()
+                            .divide(portfolio.getQuantity(), 6, RoundingMode.HALF_UP);
             BigDecimal soldInvestment = portfolio.getTotalInvestment().multiply(soldRatio);
             BigDecimal newTotalInvestment = portfolio.getTotalInvestment().subtract(soldInvestment);
 
@@ -90,14 +105,17 @@ public class PortfolioService {
         List<Transaction> transactions;
 
         if (accountId != null) {
-            transactions = transactionRepository.findByAccountIdAndStockIdOrderByTransactionDateDesc(accountId, stockId);
+            transactions =
+                    transactionRepository.findByAccountIdAndStockIdOrderByTransactionDateDesc(
+                            accountId, stockId);
         } else {
             transactions = transactionRepository.findByStockIdOrderByTransactionDateDesc(stockId);
         }
 
         if (transactions.isEmpty()) {
             if (accountId != null) {
-                portfolioRepository.findByAccountIdAndStockId(accountId, stockId)
+                portfolioRepository
+                        .findByAccountIdAndStockId(accountId, stockId)
                         .ifPresent(portfolioRepository::delete);
             } else {
                 portfolioRepository.findByStockId(stockId).ifPresent(portfolioRepository::delete);
@@ -113,12 +131,20 @@ public class PortfolioService {
             Transaction transaction = transactions.get(i);
             if (transaction.getType() == TransactionType.BUY) {
                 totalQuantity = totalQuantity.add(transaction.getQuantity());
-                totalInvestment = totalInvestment
-                        .add(transaction.getPrice().multiply(transaction.getQuantity()))
-                        .add(transaction.getCommission() != null ? transaction.getCommission() : BigDecimal.ZERO);
+                totalInvestment =
+                        totalInvestment
+                                .add(transaction.getPrice().multiply(transaction.getQuantity()))
+                                .add(
+                                        transaction.getCommission() != null
+                                                ? transaction.getCommission()
+                                                : BigDecimal.ZERO);
             } else {
-                if (totalQuantity.compareTo(BigDecimal.ZERO) > 0 && totalInvestment.compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal soldRatio = transaction.getQuantity().divide(totalQuantity, 6, RoundingMode.HALF_UP);
+                if (totalQuantity.compareTo(BigDecimal.ZERO) > 0
+                        && totalInvestment.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal soldRatio =
+                            transaction
+                                    .getQuantity()
+                                    .divide(totalQuantity, 6, RoundingMode.HALF_UP);
                     BigDecimal soldInvestment = totalInvestment.multiply(soldRatio);
                     totalInvestment = totalInvestment.subtract(soldInvestment);
                 }
@@ -128,7 +154,8 @@ public class PortfolioService {
 
         if (totalQuantity.compareTo(BigDecimal.ZERO) <= 0) {
             if (accountId != null) {
-                portfolioRepository.findByAccountIdAndStockId(accountId, stockId)
+                portfolioRepository
+                        .findByAccountIdAndStockId(accountId, stockId)
                         .ifPresent(portfolioRepository::delete);
             } else {
                 portfolioRepository.findByStockId(stockId).ifPresent(portfolioRepository::delete);
@@ -138,16 +165,22 @@ public class PortfolioService {
 
         Portfolio portfolio;
         if (accountId != null) {
-            portfolio = portfolioRepository.findByAccountIdAndStockId(accountId, stockId)
-                    .orElse(Portfolio.builder()
-                            .account(transactions.get(0).getAccount())
-                            .stock(transactions.get(0).getStock())
-                            .build());
+            portfolio =
+                    portfolioRepository
+                            .findByAccountIdAndStockId(accountId, stockId)
+                            .orElse(
+                                    Portfolio.builder()
+                                            .account(transactions.get(0).getAccount())
+                                            .stock(transactions.get(0).getStock())
+                                            .build());
         } else {
-            portfolio = portfolioRepository.findByStockId(stockId)
-                    .orElse(Portfolio.builder()
-                            .stock(transactions.get(0).getStock())
-                            .build());
+            portfolio =
+                    portfolioRepository
+                            .findByStockId(stockId)
+                            .orElse(
+                                    Portfolio.builder()
+                                            .stock(transactions.get(0).getStock())
+                                            .build());
         }
 
         portfolio.setQuantity(totalQuantity);
@@ -157,9 +190,7 @@ public class PortfolioService {
         portfolioRepository.save(portfolio);
     }
 
-    /**
-     * 하위 호환성을 위한 메서드 (accountId 없이 호출)
-     */
+    /** 하위 호환성을 위한 메서드 (accountId 없이 호출) */
     @CacheEvict(value = "portfolio", allEntries = true)
     public void recalculatePortfolio(Long stockId) {
         recalculatePortfolio(null, stockId);

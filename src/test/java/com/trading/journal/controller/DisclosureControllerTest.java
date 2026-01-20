@@ -1,8 +1,16 @@
 package com.trading.journal.controller;
 
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import com.trading.journal.config.TestSecurityConfig;
 import com.trading.journal.dto.DisclosureDto;
 import com.trading.journal.dto.DisclosureSummaryDto;
 import com.trading.journal.service.DisclosureService;
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,46 +18,37 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import com.trading.journal.config.TestSecurityConfig;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(DisclosureController.class)
 @Import(TestSecurityConfig.class)
 class DisclosureControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-    @MockitoBean
-    private DisclosureService disclosureService;
+    @MockitoBean private DisclosureService disclosureService;
 
     private DisclosureDto mockDisclosureDto;
     private DisclosureSummaryDto mockSummaryDto;
 
     @BeforeEach
     void setUp() {
-        mockDisclosureDto = DisclosureDto.builder()
-                .id(1L)
-                .stockSymbol("AAPL")
-                .reportName("분기보고서")
-                .receivedDate(LocalDateTime.now())
-                .isRead(false)
-                .isImportant(false)
-                .build();
+        mockDisclosureDto =
+                DisclosureDto.builder()
+                        .id(1L)
+                        .stockSymbol("AAPL")
+                        .reportName("분기보고서")
+                        .receivedDate(LocalDateTime.now())
+                        .isRead(false)
+                        .isImportant(false)
+                        .build();
 
-        mockSummaryDto = DisclosureSummaryDto.builder()
-                .totalCount(10L)
-                .unreadCount(5L)
-                .importantCount(2L)
-                .build();
+        mockSummaryDto =
+                DisclosureSummaryDto.builder()
+                        .totalCount(10L)
+                        .unreadCount(5L)
+                        .importantCount(2L)
+                        .build();
     }
 
     @Test
@@ -92,14 +91,15 @@ class DisclosureControllerTest {
     @DisplayName("공시 읽음 처리")
     void markAsRead() throws Exception {
         // Given
-        DisclosureDto readDisclosure = DisclosureDto.builder()
-                .id(1L)
-                .stockSymbol("AAPL")
-                .reportName("분기보고서")
-                .receivedDate(LocalDateTime.now())
-                .isRead(true)
-                .isImportant(false)
-                .build();
+        DisclosureDto readDisclosure =
+                DisclosureDto.builder()
+                        .id(1L)
+                        .stockSymbol("AAPL")
+                        .reportName("분기보고서")
+                        .receivedDate(LocalDateTime.now())
+                        .isRead(true)
+                        .isImportant(false)
+                        .build();
 
         when(disclosureService.markAsRead(1L)).thenReturn(readDisclosure);
 
@@ -116,14 +116,15 @@ class DisclosureControllerTest {
     @DisplayName("공시 중요 표시 토글")
     void toggleImportant() throws Exception {
         // Given
-        DisclosureDto importantDisclosure = DisclosureDto.builder()
-                .id(1L)
-                .stockSymbol("AAPL")
-                .reportName("분기보고서")
-                .receivedDate(LocalDateTime.now())
-                .isRead(false)
-                .isImportant(true)
-                .build();
+        DisclosureDto importantDisclosure =
+                DisclosureDto.builder()
+                        .id(1L)
+                        .stockSymbol("AAPL")
+                        .reportName("분기보고서")
+                        .receivedDate(LocalDateTime.now())
+                        .isRead(false)
+                        .isImportant(true)
+                        .build();
 
         when(disclosureService.toggleImportant(1L)).thenReturn(importantDisclosure);
 
@@ -143,8 +144,7 @@ class DisclosureControllerTest {
         doNothing().when(disclosureService).syncDisclosuresForStock("AAPL");
 
         // When & Then
-        mockMvc.perform(post("/api/disclosures/sync/aapl"))
-                .andExpect(status().isAccepted());
+        mockMvc.perform(post("/api/disclosures/sync/aapl")).andExpect(status().isAccepted());
 
         verify(disclosureService).syncDisclosuresForStock("AAPL");
     }
@@ -156,8 +156,7 @@ class DisclosureControllerTest {
         doNothing().when(disclosureService).syncAllPortfolioDisclosures();
 
         // When & Then
-        mockMvc.perform(post("/api/disclosures/sync"))
-                .andExpect(status().isAccepted());
+        mockMvc.perform(post("/api/disclosures/sync")).andExpect(status().isAccepted());
 
         verify(disclosureService).syncAllPortfolioDisclosures();
     }

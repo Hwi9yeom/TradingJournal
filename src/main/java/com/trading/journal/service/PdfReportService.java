@@ -7,10 +7,6 @@ import com.lowagie.text.Rectangle;
 import com.lowagie.text.pdf.*;
 import com.lowagie.text.pdf.draw.LineSeparator;
 import com.trading.journal.dto.*;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -20,10 +16,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
-/**
- * PDF 리포트 생성 서비스
- */
+/** PDF 리포트 생성 서비스 */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -48,9 +45,7 @@ public class PdfReportService {
     private Font boldFont;
     private Font smallFont;
 
-    /**
-     * 포트폴리오 성과 리포트 생성
-     */
+    /** 포트폴리오 성과 리포트 생성 */
     public byte[] generatePortfolioReport(Long accountId, LocalDate startDate, LocalDate endDate) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             Document document = new Document(PageSize.A4, 40, 40, 50, 50);
@@ -97,7 +92,8 @@ public class PdfReportService {
     private void initializeFonts() {
         try {
             // 시스템 폰트 사용 (한글 지원)
-            BaseFont baseFont = BaseFont.createFont("HeiseiKakuGo-W5", "UniJIS-UCS2-H", BaseFont.NOT_EMBEDDED);
+            BaseFont baseFont =
+                    BaseFont.createFont("HeiseiKakuGo-W5", "UniJIS-UCS2-H", BaseFont.NOT_EMBEDDED);
             titleFont = new Font(baseFont, 24, Font.BOLD, PRIMARY_COLOR);
             headerFont = new Font(baseFont, 16, Font.BOLD, Color.BLACK);
             subHeaderFont = new Font(baseFont, 12, Font.BOLD, Color.DARK_GRAY);
@@ -115,7 +111,8 @@ public class PdfReportService {
         }
     }
 
-    private void addCoverPage(Document document, LocalDate startDate, LocalDate endDate) throws DocumentException {
+    private void addCoverPage(Document document, LocalDate startDate, LocalDate endDate)
+            throws DocumentException {
         document.add(Chunk.NEWLINE);
         document.add(Chunk.NEWLINE);
         document.add(Chunk.NEWLINE);
@@ -139,18 +136,20 @@ public class PdfReportService {
 
         // 기간 정보
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        Paragraph period = new Paragraph(
-                String.format("Period: %s ~ %s", startDate.format(formatter), endDate.format(formatter)),
-                subHeaderFont);
+        Paragraph period =
+                new Paragraph(
+                        String.format(
+                                "Period: %s ~ %s",
+                                startDate.format(formatter), endDate.format(formatter)),
+                        subHeaderFont);
         period.setAlignment(Element.ALIGN_CENTER);
         document.add(period);
 
         document.add(Chunk.NEWLINE);
 
         // 생성 일시
-        Paragraph generated = new Paragraph(
-                "Generated: " + LocalDate.now().format(formatter),
-                normalFont);
+        Paragraph generated =
+                new Paragraph("Generated: " + LocalDate.now().format(formatter), normalFont);
         generated.setAlignment(Element.ALIGN_CENTER);
         document.add(generated);
 
@@ -165,7 +164,8 @@ public class PdfReportService {
         document.add(new Chunk(line));
     }
 
-    private void addSummarySection(Document document, Long accountId, LocalDate startDate, LocalDate endDate)
+    private void addSummarySection(
+            Document document, Long accountId, LocalDate startDate, LocalDate endDate)
             throws DocumentException {
 
         addSectionTitle(document, "1. Executive Summary");
@@ -181,12 +181,21 @@ public class PdfReportService {
 
         addSummaryRow(table, "Total Investment", formatCurrency(analysis.getTotalBuyAmount()));
         addSummaryRow(table, "Current Value", formatCurrency(analysis.getTotalSellAmount()));
-        addSummaryRow(table, "Realized P&L", formatCurrency(analysis.getRealizedProfit()),
+        addSummaryRow(
+                table,
+                "Realized P&L",
+                formatCurrency(analysis.getRealizedProfit()),
                 analysis.getRealizedProfit().compareTo(BigDecimal.ZERO) >= 0);
-        addSummaryRow(table, "Unrealized P&L", formatCurrency(analysis.getUnrealizedProfit()),
-                analysis.getUnrealizedProfit() != null && analysis.getUnrealizedProfit().compareTo(BigDecimal.ZERO) >= 0);
+        addSummaryRow(
+                table,
+                "Unrealized P&L",
+                formatCurrency(analysis.getUnrealizedProfit()),
+                analysis.getUnrealizedProfit() != null
+                        && analysis.getUnrealizedProfit().compareTo(BigDecimal.ZERO) >= 0);
         addSummaryRow(table, "Total Transactions", String.valueOf(analysis.getTotalTransactions()));
-        addSummaryRow(table, "Win Rate",
+        addSummaryRow(
+                table,
+                "Win Rate",
                 analysis.getWinRate() != null ? formatPercent(analysis.getWinRate()) : "N/A");
 
         document.add(table);
@@ -198,14 +207,30 @@ public class PdfReportService {
         kpiTable.setWidthPercentage(100);
         kpiTable.setSpacingBefore(10);
 
-        addKpiCell(kpiTable, "Total Return",
-                analysis.getTotalProfitPercent() != null ? formatPercent(analysis.getTotalProfitPercent()) : "N/A");
-        addKpiCell(kpiTable, "Sharpe Ratio",
-                analysis.getSharpeRatio() != null ? String.format("%.2f", analysis.getSharpeRatio()) : "N/A");
-        addKpiCell(kpiTable, "Max Drawdown",
-                analysis.getMaxDrawdown() != null ? formatPercent(analysis.getMaxDrawdown().negate()) : "N/A");
-        addKpiCell(kpiTable, "Avg Return",
-                analysis.getAverageReturn() != null ? formatPercent(analysis.getAverageReturn()) : "N/A");
+        addKpiCell(
+                kpiTable,
+                "Total Return",
+                analysis.getTotalProfitPercent() != null
+                        ? formatPercent(analysis.getTotalProfitPercent())
+                        : "N/A");
+        addKpiCell(
+                kpiTable,
+                "Sharpe Ratio",
+                analysis.getSharpeRatio() != null
+                        ? String.format("%.2f", analysis.getSharpeRatio())
+                        : "N/A");
+        addKpiCell(
+                kpiTable,
+                "Max Drawdown",
+                analysis.getMaxDrawdown() != null
+                        ? formatPercent(analysis.getMaxDrawdown().negate())
+                        : "N/A");
+        addKpiCell(
+                kpiTable,
+                "Avg Return",
+                analysis.getAverageReturn() != null
+                        ? formatPercent(analysis.getAverageReturn())
+                        : "N/A");
 
         document.add(kpiTable);
     }
@@ -222,7 +247,7 @@ public class PdfReportService {
             // 포트폴리오 구성 테이블
             PdfPTable table = new PdfPTable(5);
             table.setWidthPercentage(100);
-            table.setWidths(new float[]{2, 1.5f, 1.5f, 1.5f, 1.5f});
+            table.setWidths(new float[] {2, 1.5f, 1.5f, 1.5f, 1.5f});
             table.setSpacingBefore(10);
 
             // 헤더
@@ -235,7 +260,8 @@ public class PdfReportService {
                 addTableCell(table, formatCurrency(holding.getAveragePrice()), false);
                 addTableCell(table, formatCurrency(holding.getCurrentValue()), false);
 
-                BigDecimal pnl = holding.getProfitLoss() != null ? holding.getProfitLoss() : BigDecimal.ZERO;
+                BigDecimal pnl =
+                        holding.getProfitLoss() != null ? holding.getProfitLoss() : BigDecimal.ZERO;
                 addTableCell(table, formatCurrency(pnl), pnl.compareTo(BigDecimal.ZERO) >= 0, true);
             }
 
@@ -243,11 +269,15 @@ public class PdfReportService {
 
             // 파이 차트 추가
             try {
-                Map<String, BigDecimal> holdings = summary.getHoldings().stream()
-                        .collect(Collectors.toMap(
-                                PortfolioDto::getStockSymbol,
-                                h -> h.getCurrentValue() != null ? h.getCurrentValue() : BigDecimal.ZERO
-                        ));
+                Map<String, BigDecimal> holdings =
+                        summary.getHoldings().stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                PortfolioDto::getStockSymbol,
+                                                h ->
+                                                        h.getCurrentValue() != null
+                                                                ? h.getCurrentValue()
+                                                                : BigDecimal.ZERO));
 
                 byte[] chartBytes = chartGenerationService.generatePortfolioPieChart(holdings);
                 Image chartImage = Image.getInstance(chartBytes);
@@ -263,39 +293,43 @@ public class PdfReportService {
         }
     }
 
-    private void addPerformanceAnalysis(Document document, Long accountId, LocalDate startDate, LocalDate endDate)
+    private void addPerformanceAnalysis(
+            Document document, Long accountId, LocalDate startDate, LocalDate endDate)
             throws DocumentException, IOException {
 
         addSectionTitle(document, "3. Performance Analysis");
 
         // 자산 곡선 조회
         try {
-            EquityCurveDto equityCurve = analysisService.getEquityCurve(accountId, startDate, endDate);
+            EquityCurveDto equityCurve =
+                    analysisService.getEquityCurve(accountId, startDate, endDate);
 
-            if (equityCurve != null && equityCurve.getLabels() != null && !equityCurve.getLabels().isEmpty()) {
+            if (equityCurve != null
+                    && equityCurve.getLabels() != null
+                    && !equityCurve.getLabels().isEmpty()) {
                 addSubSectionTitle(document, "Equity Curve");
 
-                byte[] chartBytes = chartGenerationService.generateEquityCurveChart(
-                        equityCurve.getLabels(),
-                        equityCurve.getValues()
-                );
+                byte[] chartBytes =
+                        chartGenerationService.generateEquityCurveChart(
+                                equityCurve.getLabels(), equityCurve.getValues());
                 Image chartImage = Image.getInstance(chartBytes);
                 chartImage.setAlignment(Element.ALIGN_CENTER);
                 chartImage.scaleToFit(500, 300);
                 document.add(chartImage);
 
                 // 낙폭 차트 - dailyReturns를 활용
-                if (equityCurve.getDailyReturns() != null && !equityCurve.getDailyReturns().isEmpty()) {
+                if (equityCurve.getDailyReturns() != null
+                        && !equityCurve.getDailyReturns().isEmpty()) {
                     document.add(Chunk.NEWLINE);
                     addSubSectionTitle(document, "Daily Returns Distribution");
 
                     // 누적 수익률을 낙폭 계산에 사용
-                    List<BigDecimal> drawdowns = calculateDrawdowns(equityCurve.getCumulativeReturns());
+                    List<BigDecimal> drawdowns =
+                            calculateDrawdowns(equityCurve.getCumulativeReturns());
                     if (!drawdowns.isEmpty()) {
-                        byte[] ddChartBytes = chartGenerationService.generateDrawdownChart(
-                                equityCurve.getLabels(),
-                                drawdowns
-                        );
+                        byte[] ddChartBytes =
+                                chartGenerationService.generateDrawdownChart(
+                                        equityCurve.getLabels(), drawdowns);
                         Image ddChartImage = Image.getInstance(ddChartBytes);
                         ddChartImage.setAlignment(Element.ALIGN_CENTER);
                         ddChartImage.scaleToFit(500, 200);
@@ -320,7 +354,8 @@ public class PdfReportService {
                     monthlyProfits.put(monthly.getYearMonth(), monthly.getProfit());
                 }
 
-                byte[] monthlyChartBytes = chartGenerationService.generateMonthlyProfitChart(monthlyProfits);
+                byte[] monthlyChartBytes =
+                        chartGenerationService.generateMonthlyProfitChart(monthlyProfits);
                 Image monthlyChartImage = Image.getInstance(monthlyChartBytes);
                 monthlyChartImage.setAlignment(Element.ALIGN_CENTER);
                 monthlyChartImage.scaleToFit(500, 250);
@@ -331,9 +366,7 @@ public class PdfReportService {
         }
     }
 
-    /**
-     * 누적 수익률로부터 낙폭(Drawdown) 계산
-     */
+    /** 누적 수익률로부터 낙폭(Drawdown) 계산 */
     private List<BigDecimal> calculateDrawdowns(List<BigDecimal> cumulativeReturns) {
         List<BigDecimal> drawdowns = new ArrayList<>();
         if (cumulativeReturns == null || cumulativeReturns.isEmpty()) {
@@ -351,13 +384,15 @@ public class PdfReportService {
         return drawdowns;
     }
 
-    private void addRiskAnalysis(Document document, Long accountId, LocalDate startDate, LocalDate endDate)
+    private void addRiskAnalysis(
+            Document document, Long accountId, LocalDate startDate, LocalDate endDate)
             throws DocumentException {
 
         addSectionTitle(document, "4. Risk Analysis");
 
         try {
-            RiskMetricsDto riskMetrics = riskMetricsService.calculateRiskMetrics(startDate, endDate);
+            RiskMetricsDto riskMetrics =
+                    riskMetricsService.calculateRiskMetrics(startDate, endDate);
 
             PdfPTable table = new PdfPTable(2);
             table.setWidthPercentage(80);
@@ -371,10 +406,12 @@ public class PdfReportService {
             addRiskMetricRow(table, "Max Drawdown", formatPercent(riskMetrics.getMaxDrawdown()));
 
             if (riskMetrics.getVar95() != null) {
-                addRiskMetricRow(table, "VaR (95%)", formatPercent(riskMetrics.getVar95().getDailyVaR()));
+                addRiskMetricRow(
+                        table, "VaR (95%)", formatPercent(riskMetrics.getVar95().getDailyVaR()));
             }
             if (riskMetrics.getVar99() != null) {
-                addRiskMetricRow(table, "VaR (99%)", formatPercent(riskMetrics.getVar99().getDailyVaR()));
+                addRiskMetricRow(
+                        table, "VaR (99%)", formatPercent(riskMetrics.getVar99().getDailyVaR()));
             }
 
             document.add(table);
@@ -387,17 +424,19 @@ public class PdfReportService {
             interpretation.setSpacingBefore(10);
 
             if (riskMetrics.getSharpeRatio() != null) {
-                String sharpeDesc = riskMetrics.getSharpeRatio().compareTo(BigDecimal.ONE) >= 0
-                        ? "Good risk-adjusted return"
-                        : "Risk-adjusted return needs improvement";
+                String sharpeDesc =
+                        riskMetrics.getSharpeRatio().compareTo(BigDecimal.ONE) >= 0
+                                ? "Good risk-adjusted return"
+                                : "Risk-adjusted return needs improvement";
                 interpretation.add(new Chunk("• Sharpe Ratio: ", boldFont));
                 interpretation.add(new Chunk(sharpeDesc + "\n", normalFont));
             }
 
             if (riskMetrics.getMaxDrawdown() != null) {
-                String ddDesc = riskMetrics.getMaxDrawdown().abs().compareTo(BigDecimal.valueOf(20)) <= 0
-                        ? "Drawdown within acceptable range"
-                        : "High drawdown - consider risk management";
+                String ddDesc =
+                        riskMetrics.getMaxDrawdown().abs().compareTo(BigDecimal.valueOf(20)) <= 0
+                                ? "Drawdown within acceptable range"
+                                : "High drawdown - consider risk management";
                 interpretation.add(new Chunk("• Max Drawdown: ", boldFont));
                 interpretation.add(new Chunk(ddDesc + "\n", normalFont));
             }
@@ -410,7 +449,8 @@ public class PdfReportService {
         }
     }
 
-    private void addTradeSummary(Document document, Long accountId, LocalDate startDate, LocalDate endDate)
+    private void addTradeSummary(
+            Document document, Long accountId, LocalDate startDate, LocalDate endDate)
             throws DocumentException {
 
         addSectionTitle(document, "5. Trading Summary");
@@ -426,7 +466,10 @@ public class PdfReportService {
         addStatRow(statsTable, "Total Trades", String.valueOf(analysis.getTotalTransactions()));
         addStatRow(statsTable, "Buy Transactions", String.valueOf(analysis.getBuyTransactions()));
         addStatRow(statsTable, "Sell Transactions", String.valueOf(analysis.getSellTransactions()));
-        addStatRow(statsTable, "Win Rate", analysis.getWinRate() != null ? formatPercent(analysis.getWinRate()) : "N/A");
+        addStatRow(
+                statsTable,
+                "Win Rate",
+                analysis.getWinRate() != null ? formatPercent(analysis.getWinRate()) : "N/A");
         addStatRow(statsTable, "Total Buy Amount", formatCurrency(analysis.getTotalBuyAmount()));
         addStatRow(statsTable, "Total Sell Amount", formatCurrency(analysis.getTotalSellAmount()));
 
@@ -439,7 +482,8 @@ public class PdfReportService {
 
             if (winCount > 0 || lossCount > 0) {
                 document.add(Chunk.NEWLINE);
-                byte[] distChartBytes = chartGenerationService.generateProfitDistributionChart(winCount, lossCount);
+                byte[] distChartBytes =
+                        chartGenerationService.generateProfitDistributionChart(winCount, lossCount);
                 Image distChartImage = Image.getInstance(distChartBytes);
                 distChartImage.setAlignment(Element.ALIGN_CENTER);
                 distChartImage.scaleToFit(350, 250);
@@ -592,9 +636,7 @@ public class PdfReportService {
         return String.format("%,.2f", value);
     }
 
-    /**
-     * 헤더/푸터 이벤트 핸들러
-     */
+    /** 헤더/푸터 이벤트 핸들러 */
     private static class ReportHeaderFooter extends PdfPageEventHelper {
         private Font footerFont = new Font(Font.HELVETICA, 8, Font.NORMAL, Color.GRAY);
 
@@ -603,16 +645,20 @@ public class PdfReportService {
             PdfContentByte cb = writer.getDirectContent();
 
             // 푸터
-            Phrase footer = new Phrase(
-                    String.format("Page %d | Trading Journal Report | Generated on %s",
-                            writer.getPageNumber(),
-                            LocalDate.now().toString()),
-                    footerFont
-            );
+            Phrase footer =
+                    new Phrase(
+                            String.format(
+                                    "Page %d | Trading Journal Report | Generated on %s",
+                                    writer.getPageNumber(), LocalDate.now().toString()),
+                            footerFont);
 
-            ColumnText.showTextAligned(cb, Element.ALIGN_CENTER, footer,
+            ColumnText.showTextAligned(
+                    cb,
+                    Element.ALIGN_CENTER,
+                    footer,
                     (document.right() - document.left()) / 2 + document.leftMargin(),
-                    document.bottom() - 20, 0);
+                    document.bottom() - 20,
+                    0);
         }
     }
 }

@@ -1,8 +1,6 @@
 package com.trading.journal.entity;
 
-/**
- * GICS 기반 섹터 분류
- */
+/** GICS 기반 섹터 분류 */
 public enum Sector {
     TECH("정보기술", "Information Technology", "소프트웨어, 하드웨어, 반도체 등 기술 관련 기업"),
     HEALTH("헬스케어", "Health Care", "제약, 바이오, 의료기기 등 건강 관련 기업"),

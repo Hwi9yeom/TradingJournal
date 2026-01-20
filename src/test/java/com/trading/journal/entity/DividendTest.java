@@ -1,13 +1,12 @@
 package com.trading.journal.entity;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class DividendTest {
 
@@ -16,25 +15,22 @@ class DividendTest {
 
     @BeforeEach
     void setUp() {
-        testStock = Stock.builder()
-                .id(1L)
-                .symbol("AAPL")
-                .name("Apple Inc.")
-                .exchange("NASDAQ")
-                .build();
+        testStock =
+                Stock.builder().id(1L).symbol("AAPL").name("Apple Inc.").exchange("NASDAQ").build();
 
-        dividend = Dividend.builder()
-                .id(1L)
-                .stock(testStock)
-                .exDividendDate(LocalDate.of(2024, 3, 10))
-                .paymentDate(LocalDate.of(2024, 3, 15))
-                .dividendPerShare(new BigDecimal("0.25"))
-                .quantity(new BigDecimal("100"))
-                .totalAmount(new BigDecimal("25.00"))
-                .taxAmount(new BigDecimal("3.85"))
-                .netAmount(new BigDecimal("21.15"))
-                .memo("Q1 2024 배당")
-                .build();
+        dividend =
+                Dividend.builder()
+                        .id(1L)
+                        .stock(testStock)
+                        .exDividendDate(LocalDate.of(2024, 3, 10))
+                        .paymentDate(LocalDate.of(2024, 3, 15))
+                        .dividendPerShare(new BigDecimal("0.25"))
+                        .quantity(new BigDecimal("100"))
+                        .totalAmount(new BigDecimal("25.00"))
+                        .taxAmount(new BigDecimal("3.85"))
+                        .netAmount(new BigDecimal("21.15"))
+                        .memo("Q1 2024 배당")
+                        .build();
     }
 
     @Test
@@ -77,17 +73,18 @@ class DividendTest {
     @DisplayName("Builder 패턴으로 Dividend 생성")
     void buildDividend() {
         // Given & When
-        Dividend newDividend = Dividend.builder()
-                .stock(testStock)
-                .exDividendDate(LocalDate.of(2024, 6, 10))
-                .paymentDate(LocalDate.of(2024, 6, 15))
-                .dividendPerShare(new BigDecimal("0.28"))
-                .quantity(new BigDecimal("200"))
-                .totalAmount(new BigDecimal("56.00"))
-                .taxAmount(new BigDecimal("8.62"))
-                .netAmount(new BigDecimal("47.38"))
-                .memo("Q2 2024 배당")
-                .build();
+        Dividend newDividend =
+                Dividend.builder()
+                        .stock(testStock)
+                        .exDividendDate(LocalDate.of(2024, 6, 10))
+                        .paymentDate(LocalDate.of(2024, 6, 15))
+                        .dividendPerShare(new BigDecimal("0.28"))
+                        .quantity(new BigDecimal("200"))
+                        .totalAmount(new BigDecimal("56.00"))
+                        .taxAmount(new BigDecimal("8.62"))
+                        .netAmount(new BigDecimal("47.38"))
+                        .memo("Q2 2024 배당")
+                        .build();
 
         // Then
         assertThat(newDividend.getStock()).isEqualTo(testStock);
@@ -105,29 +102,31 @@ class DividendTest {
     @DisplayName("equals 및 hashCode 테스트")
     void testEqualsAndHashCode() {
         // Given
-        Dividend dividend1 = Dividend.builder()
-                .id(1L)
-                .stock(testStock)
-                .exDividendDate(LocalDate.of(2024, 3, 10))
-                .paymentDate(LocalDate.of(2024, 3, 15))
-                .dividendPerShare(new BigDecimal("0.25"))
-                .quantity(new BigDecimal("100"))
-                .totalAmount(new BigDecimal("25.00"))
-                .taxAmount(new BigDecimal("3.85"))
-                .netAmount(new BigDecimal("21.15"))
-                .build();
+        Dividend dividend1 =
+                Dividend.builder()
+                        .id(1L)
+                        .stock(testStock)
+                        .exDividendDate(LocalDate.of(2024, 3, 10))
+                        .paymentDate(LocalDate.of(2024, 3, 15))
+                        .dividendPerShare(new BigDecimal("0.25"))
+                        .quantity(new BigDecimal("100"))
+                        .totalAmount(new BigDecimal("25.00"))
+                        .taxAmount(new BigDecimal("3.85"))
+                        .netAmount(new BigDecimal("21.15"))
+                        .build();
 
-        Dividend dividend2 = Dividend.builder()
-                .id(1L)
-                .stock(testStock)
-                .exDividendDate(LocalDate.of(2024, 3, 10))
-                .paymentDate(LocalDate.of(2024, 3, 15))
-                .dividendPerShare(new BigDecimal("0.25"))
-                .quantity(new BigDecimal("100"))
-                .totalAmount(new BigDecimal("25.00"))
-                .taxAmount(new BigDecimal("3.85"))
-                .netAmount(new BigDecimal("21.15"))
-                .build();
+        Dividend dividend2 =
+                Dividend.builder()
+                        .id(1L)
+                        .stock(testStock)
+                        .exDividendDate(LocalDate.of(2024, 3, 10))
+                        .paymentDate(LocalDate.of(2024, 3, 15))
+                        .dividendPerShare(new BigDecimal("0.25"))
+                        .quantity(new BigDecimal("100"))
+                        .totalAmount(new BigDecimal("25.00"))
+                        .taxAmount(new BigDecimal("3.85"))
+                        .netAmount(new BigDecimal("21.15"))
+                        .build();
 
         // When & Then
         assertThat(dividend1).isEqualTo(dividend2);

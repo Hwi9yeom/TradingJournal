@@ -2,16 +2,15 @@ package com.trading.journal.repository;
 
 import com.trading.journal.entity.TradeReview;
 import com.trading.journal.entity.TradeStrategy;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface TradeReviewRepository extends JpaRepository<TradeReview, Long> {
@@ -29,8 +28,10 @@ public interface TradeReviewRepository extends JpaRepository<TradeReview, Long> 
     List<TradeReview> findByRatingScoreOrderByCreatedAtDesc(Integer ratingScore);
 
     /** 기간별 복기 조회 */
-    @Query("SELECT r FROM TradeReview r WHERE r.createdAt BETWEEN :start AND :end ORDER BY r.createdAt DESC")
-    List<TradeReview> findByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    @Query(
+            "SELECT r FROM TradeReview r WHERE r.createdAt BETWEEN :start AND :end ORDER BY r.createdAt DESC")
+    List<TradeReview> findByDateRange(
+            @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     /** 최근 복기 조회 (페이징) */
     Page<TradeReview> findAllByOrderByCreatedAtDesc(Pageable pageable);
@@ -48,13 +49,15 @@ public interface TradeReviewRepository extends JpaRepository<TradeReview, Long> 
     List<TradeReview> findByTagContaining(@Param("tag") String tag);
 
     /** 계획 준수 여부별 통계 */
-    @Query("SELECT r.followedPlan, COUNT(r) FROM TradeReview r WHERE r.followedPlan IS NOT NULL GROUP BY r.followedPlan")
+    @Query(
+            "SELECT r.followedPlan, COUNT(r) FROM TradeReview r WHERE r.followedPlan IS NOT NULL GROUP BY r.followedPlan")
     List<Object[]> countByFollowedPlan();
 
     /** 감정 상태별 통계 (거래 전) */
-    @Query("SELECT r.emotionBefore, COUNT(r), " +
-           "AVG(CASE WHEN r.transaction.realizedPnl > 0 THEN 1.0 ELSE 0.0 END) * 100 " +
-           "FROM TradeReview r WHERE r.emotionBefore IS NOT NULL AND r.transaction.realizedPnl IS NOT NULL " +
-           "GROUP BY r.emotionBefore")
+    @Query(
+            "SELECT r.emotionBefore, COUNT(r), "
+                    + "AVG(CASE WHEN r.transaction.realizedPnl > 0 THEN 1.0 ELSE 0.0 END) * 100 "
+                    + "FROM TradeReview r WHERE r.emotionBefore IS NOT NULL AND r.transaction.realizedPnl IS NOT NULL "
+                    + "GROUP BY r.emotionBefore")
     List<Object[]> getEmotionBeforeStatistics();
 }

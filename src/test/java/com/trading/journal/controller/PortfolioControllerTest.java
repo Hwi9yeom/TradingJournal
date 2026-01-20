@@ -1,8 +1,17 @@
 package com.trading.journal.controller;
 
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import com.trading.journal.config.TestSecurityConfig;
 import com.trading.journal.dto.PortfolioDto;
 import com.trading.journal.dto.PortfolioSummaryDto;
 import com.trading.journal.service.PortfolioAnalysisService;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,61 +19,51 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import com.trading.journal.config.TestSecurityConfig;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(PortfolioController.class)
 @Import(TestSecurityConfig.class)
 class PortfolioControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-    @MockitoBean
-    private PortfolioAnalysisService portfolioAnalysisService;
+    @MockitoBean private PortfolioAnalysisService portfolioAnalysisService;
 
     private PortfolioDto mockPortfolioDto;
     private PortfolioSummaryDto mockPortfolioSummaryDto;
 
     @BeforeEach
     void setUp() {
-        mockPortfolioDto = PortfolioDto.builder()
-                .id(1L)
-                .stockSymbol("AAPL")
-                .stockName("Apple Inc.")
-                .quantity(new BigDecimal("10"))
-                .averagePrice(new BigDecimal("150.00"))
-                .totalInvestment(new BigDecimal("1500.00"))
-                .currentPrice(new BigDecimal("160.00"))
-                .currentValue(new BigDecimal("1600.00"))
-                .profitLoss(new BigDecimal("100.00"))
-                .profitLossPercent(new BigDecimal("6.67"))
-                .dayChange(new BigDecimal("20.00"))
-                .dayChangePercent(new BigDecimal("1.27"))
-                .lastUpdated(LocalDateTime.now())
-                .build();
+        mockPortfolioDto =
+                PortfolioDto.builder()
+                        .id(1L)
+                        .stockSymbol("AAPL")
+                        .stockName("Apple Inc.")
+                        .quantity(new BigDecimal("10"))
+                        .averagePrice(new BigDecimal("150.00"))
+                        .totalInvestment(new BigDecimal("1500.00"))
+                        .currentPrice(new BigDecimal("160.00"))
+                        .currentValue(new BigDecimal("1600.00"))
+                        .profitLoss(new BigDecimal("100.00"))
+                        .profitLossPercent(new BigDecimal("6.67"))
+                        .dayChange(new BigDecimal("20.00"))
+                        .dayChangePercent(new BigDecimal("1.27"))
+                        .lastUpdated(LocalDateTime.now())
+                        .build();
 
         List<PortfolioDto> holdings = Arrays.asList(mockPortfolioDto);
 
-        mockPortfolioSummaryDto = PortfolioSummaryDto.builder()
-                .totalInvestment(new BigDecimal("1500.00"))
-                .totalCurrentValue(new BigDecimal("1600.00"))
-                .totalProfitLoss(new BigDecimal("100.00"))
-                .totalProfitLossPercent(new BigDecimal("6.67"))
-                .totalDayChange(new BigDecimal("20.00"))
-                .totalDayChangePercent(new BigDecimal("1.27"))
-                .holdings(holdings)
-                .lastUpdated(LocalDateTime.now())
-                .build();
+        mockPortfolioSummaryDto =
+                PortfolioSummaryDto.builder()
+                        .totalInvestment(new BigDecimal("1500.00"))
+                        .totalCurrentValue(new BigDecimal("1600.00"))
+                        .totalProfitLoss(new BigDecimal("100.00"))
+                        .totalProfitLossPercent(new BigDecimal("6.67"))
+                        .totalDayChange(new BigDecimal("20.00"))
+                        .totalDayChangePercent(new BigDecimal("1.27"))
+                        .holdings(holdings)
+                        .lastUpdated(LocalDateTime.now())
+                        .build();
     }
 
     @Test
@@ -136,16 +135,17 @@ class PortfolioControllerTest {
     @DisplayName("빈 포트폴리오 요약 조회")
     void getEmptyPortfolioSummary() throws Exception {
         // Given
-        PortfolioSummaryDto emptyPortfolio = PortfolioSummaryDto.builder()
-                .totalInvestment(BigDecimal.ZERO)
-                .totalCurrentValue(BigDecimal.ZERO)
-                .totalProfitLoss(BigDecimal.ZERO)
-                .totalProfitLossPercent(BigDecimal.ZERO)
-                .totalDayChange(BigDecimal.ZERO)
-                .totalDayChangePercent(BigDecimal.ZERO)
-                .holdings(Arrays.asList())
-                .lastUpdated(LocalDateTime.now())
-                .build();
+        PortfolioSummaryDto emptyPortfolio =
+                PortfolioSummaryDto.builder()
+                        .totalInvestment(BigDecimal.ZERO)
+                        .totalCurrentValue(BigDecimal.ZERO)
+                        .totalProfitLoss(BigDecimal.ZERO)
+                        .totalProfitLossPercent(BigDecimal.ZERO)
+                        .totalDayChange(BigDecimal.ZERO)
+                        .totalDayChangePercent(BigDecimal.ZERO)
+                        .holdings(Arrays.asList())
+                        .lastUpdated(LocalDateTime.now())
+                        .build();
 
         when(portfolioAnalysisService.getPortfolioSummary()).thenReturn(emptyPortfolio);
 

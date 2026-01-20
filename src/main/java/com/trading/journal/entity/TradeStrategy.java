@@ -1,8 +1,6 @@
 package com.trading.journal.entity;
 
-/**
- * 거래 전략 유형
- */
+/** 거래 전략 유형 */
 public enum TradeStrategy {
     SWING("스윙", "며칠~몇 주간 보유하는 중기 매매"),
     DAY_TRADE("데이트레이딩", "당일 매수/매도하는 단타 매매"),

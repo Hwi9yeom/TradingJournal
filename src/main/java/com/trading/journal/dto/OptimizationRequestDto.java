@@ -1,18 +1,15 @@
 package com.trading.journal.dto;
 
 import com.trading.journal.strategy.TradingStrategy;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.Map;
-
-/**
- * 전략 최적화 요청 DTO
- */
+/** 전략 최적화 요청 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -32,31 +29,24 @@ public class OptimizationRequestDto {
     private LocalDate endDate;
 
     /** 초기 자본금 */
-    @Builder.Default
-    private BigDecimal initialCapital = BigDecimal.valueOf(10_000_000);
+    @Builder.Default private BigDecimal initialCapital = BigDecimal.valueOf(10_000_000);
 
     /** 포지션 크기 (%) */
-    @Builder.Default
-    private BigDecimal positionSizePercent = BigDecimal.valueOf(100);
+    @Builder.Default private BigDecimal positionSizePercent = BigDecimal.valueOf(100);
 
     /** 수수료율 (%) */
-    @Builder.Default
-    private BigDecimal commissionRate = BigDecimal.valueOf(0.015);
+    @Builder.Default private BigDecimal commissionRate = BigDecimal.valueOf(0.015);
 
     /** 슬리피지 (%) */
-    @Builder.Default
-    private BigDecimal slippage = BigDecimal.valueOf(0.1);
+    @Builder.Default private BigDecimal slippage = BigDecimal.valueOf(0.1);
 
     /** 최적화할 파라미터 범위 */
     private Map<String, ParameterRange> parameterRanges;
 
     /** 최적화 목표 */
-    @Builder.Default
-    private OptimizationTarget target = OptimizationTarget.TOTAL_RETURN;
+    @Builder.Default private OptimizationTarget target = OptimizationTarget.TOTAL_RETURN;
 
-    /**
-     * 파라미터 범위 설정
-     */
+    /** 파라미터 범위 설정 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -72,9 +62,7 @@ public class OptimizationRequestDto {
         private Number step;
     }
 
-    /**
-     * 최적화 목표
-     */
+    /** 최적화 목표 */
     public enum OptimizationTarget {
         /** 총 수익률 최대화 */
         TOTAL_RETURN("총 수익률"),

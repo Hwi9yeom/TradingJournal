@@ -1,12 +1,11 @@
 package com.trading.journal.dto;
 
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -20,7 +19,7 @@ public class DividendSummaryDto {
     private BigDecimal dividendYield; // 배당 수익률
     private List<StockDividendDto> topDividendStocks; // 배당금 TOP 종목
     private List<MonthlyDividendDto> monthlyDividends; // 월별 배당금
-    
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -32,7 +31,7 @@ public class DividendSummaryDto {
         private BigDecimal dividendYield;
         private Integer paymentCount;
     }
-    
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

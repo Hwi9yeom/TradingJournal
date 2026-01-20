@@ -1,8 +1,6 @@
 package com.trading.journal.entity;
 
-/**
- * 트레이드 플랜 상태
- */
+/** 트레이드 플랜 상태 */
 public enum TradePlanStatus {
     PLANNED("계획됨", "거래가 아직 실행되지 않음"),
     EXECUTED("실행됨", "거래가 실행됨"),

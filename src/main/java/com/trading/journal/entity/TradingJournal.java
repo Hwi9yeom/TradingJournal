@@ -1,21 +1,18 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import lombok.*;
 
-/**
- * 트레이딩 일지 엔티티
- * 일별 거래 기록, 시장 분석, 감정 상태, 교훈 등을 기록
- */
+/** 트레이딩 일지 엔티티 일별 거래 기록, 시장 분석, 감정 상태, 교훈 등을 기록 */
 @Entity
-@Table(name = "trading_journals",
+@Table(
+        name = "trading_journals",
         uniqueConstraints = @UniqueConstraint(columnNames = {"account_id", "journal_date"}),
         indexes = {
-                @Index(name = "idx_journal_date", columnList = "journal_date"),
-                @Index(name = "idx_journal_account", columnList = "account_id")
+            @Index(name = "idx_journal_date", columnList = "journal_date"),
+            @Index(name = "idx_journal_account", columnList = "account_id")
         })
 @Data
 @NoArgsConstructor
@@ -58,12 +55,10 @@ public class TradingJournal {
     private EmotionState eveningEmotion;
 
     /** 집중도 점수 (1-5) */
-    @Column
-    private Integer focusScore;
+    @Column private Integer focusScore;
 
     /** 규율 준수 점수 (1-5) */
-    @Column
-    private Integer disciplineScore;
+    @Column private Integer disciplineScore;
 
     /** 오늘의 교훈 */
     @Column(columnDefinition = "TEXT")
@@ -78,16 +73,13 @@ public class TradingJournal {
     private String tags;
 
     /** 거래 요약 - 총 거래 수 */
-    @Column
-    private Integer tradeSummaryCount;
+    @Column private Integer tradeSummaryCount;
 
     /** 거래 요약 - 총 손익 */
-    @Column
-    private java.math.BigDecimal tradeSummaryProfit;
+    @Column private java.math.BigDecimal tradeSummaryProfit;
 
     /** 거래 요약 - 승률 */
-    @Column
-    private java.math.BigDecimal tradeSummaryWinRate;
+    @Column private java.math.BigDecimal tradeSummaryWinRate;
 
     /** 생성 시각 */
     @Column(nullable = false)

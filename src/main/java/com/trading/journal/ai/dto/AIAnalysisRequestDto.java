@@ -2,16 +2,14 @@ package com.trading.journal.ai.dto;
 
 import java.time.LocalDate;
 
-/**
- * AI 분석 요청 DTO
- */
+/** AI 분석 요청 DTO */
 public class AIAnalysisRequestDto {
 
     public enum AnalysisType {
-        PERFORMANCE,    // 성과 분석
-        RISK,          // 리스크 분석
-        REVIEW,        // 거래 복기
-        STRATEGY       // 전략 최적화
+        PERFORMANCE, // 성과 분석
+        RISK, // 리스크 분석
+        REVIEW, // 거래 복기
+        STRATEGY // 전략 최적화
     }
 
     private AnalysisType type;
@@ -24,7 +22,8 @@ public class AIAnalysisRequestDto {
 
     public AIAnalysisRequestDto() {}
 
-    public static AIAnalysisRequestDto forPerformance(Long accountId, LocalDate startDate, LocalDate endDate) {
+    public static AIAnalysisRequestDto forPerformance(
+            Long accountId, LocalDate startDate, LocalDate endDate) {
         AIAnalysisRequestDto dto = new AIAnalysisRequestDto();
         dto.setType(AnalysisType.PERFORMANCE);
         dto.setAccountId(accountId);

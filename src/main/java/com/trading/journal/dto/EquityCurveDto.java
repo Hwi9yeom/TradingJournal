@@ -1,17 +1,13 @@
 package com.trading.journal.dto;
 
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.util.List;
-
-/**
- * Equity Curve (누적 수익 곡선) DTO
- * 시간에 따른 포트폴리오 가치와 누적 수익률을 추적
- */
+/** Equity Curve (누적 수익 곡선) DTO 시간에 따른 포트폴리오 가치와 누적 수익률을 추적 */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

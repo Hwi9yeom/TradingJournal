@@ -1,5 +1,13 @@
 package com.trading.journal.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import com.trading.journal.config.TestSecurityConfig;
 import com.trading.journal.dto.PeriodAnalysisDto;
 import com.trading.journal.dto.PortfolioTreemapDto;
 import com.trading.journal.dto.StockAnalysisDto;
@@ -13,283 +21,270 @@ import com.trading.journal.service.StockAnalysisService;
 import com.trading.journal.service.TaxCalculationService;
 import com.trading.journal.service.TradingPatternService;
 import com.trading.journal.service.TradingStatisticsService;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import com.trading.journal.config.TestSecurityConfig;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.Arrays;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AnalysisController.class)
 @Import(TestSecurityConfig.class)
 class AnalysisControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-    @MockitoBean
-    private AnalysisService analysisService;
+    @MockitoBean private AnalysisService analysisService;
 
-    @MockitoBean
-    private RiskMetricsService riskMetricsService;
+    @MockitoBean private RiskMetricsService riskMetricsService;
 
-    @MockitoBean
-    private TradingPatternService tradingPatternService;
+    @MockitoBean private TradingPatternService tradingPatternService;
 
-    @MockitoBean
-    private BenchmarkService benchmarkService;
+    @MockitoBean private BenchmarkService benchmarkService;
 
-    @MockitoBean
-    private SectorAnalysisService sectorAnalysisService;
+    @MockitoBean private SectorAnalysisService sectorAnalysisService;
 
-    @MockitoBean
-    private StockAnalysisService stockAnalysisService;
+    @MockitoBean private StockAnalysisService stockAnalysisService;
 
-    @MockitoBean
-    private TaxCalculationService taxCalculationService;
+    @MockitoBean private TaxCalculationService taxCalculationService;
 
-    @MockitoBean
-    private TradingStatisticsService tradingStatisticsService;
+    @MockitoBean private TradingStatisticsService tradingStatisticsService;
 
-    @MockitoBean
-    private PortfolioAnalysisService portfolioAnalysisService;
+    @MockitoBean private PortfolioAnalysisService portfolioAnalysisService;
 
     @Test
     void analyzePeriod_ShouldReturnPeriodAnalysis() throws Exception {
-        PeriodAnalysisDto analysis = PeriodAnalysisDto.builder()
-            .startDate(LocalDate.of(2024, 1, 1))
-            .endDate(LocalDate.of(2024, 3, 31))
-            .totalBuyAmount(new BigDecimal("10000000"))
-            .totalSellAmount(new BigDecimal("12000000"))
-            .realizedProfit(new BigDecimal("2000000"))
-            .unrealizedProfit(new BigDecimal("500000"))
-            .totalProfit(new BigDecimal("2500000"))
-            .totalTransactions(10)
-            .buyTransactions(6)
-            .sellTransactions(4)
-            .monthlyAnalysis(Arrays.asList(
-                PeriodAnalysisDto.MonthlyAnalysisDto.builder()
-                    .yearMonth("2024-01")
-                    .buyAmount(new BigDecimal("5000000"))
-                    .sellAmount(new BigDecimal("3000000"))
-                    .profit(new BigDecimal("500000"))
-                    .build()
-            ))
-            .build();
-        
+        PeriodAnalysisDto analysis =
+                PeriodAnalysisDto.builder()
+                        .startDate(LocalDate.of(2024, 1, 1))
+                        .endDate(LocalDate.of(2024, 3, 31))
+                        .totalBuyAmount(new BigDecimal("10000000"))
+                        .totalSellAmount(new BigDecimal("12000000"))
+                        .realizedProfit(new BigDecimal("2000000"))
+                        .unrealizedProfit(new BigDecimal("500000"))
+                        .totalProfit(new BigDecimal("2500000"))
+                        .totalTransactions(10)
+                        .buyTransactions(6)
+                        .sellTransactions(4)
+                        .monthlyAnalysis(
+                                Arrays.asList(
+                                        PeriodAnalysisDto.MonthlyAnalysisDto.builder()
+                                                .yearMonth("2024-01")
+                                                .buyAmount(new BigDecimal("5000000"))
+                                                .sellAmount(new BigDecimal("3000000"))
+                                                .profit(new BigDecimal("500000"))
+                                                .build()))
+                        .build();
+
         when(analysisService.analyzePeriod(any(LocalDate.class), any(LocalDate.class)))
-            .thenReturn(analysis);
-        
-        mockMvc.perform(get("/api/analysis/period")
-                .param("startDate", "2024-01-01")
-                .param("endDate", "2024-03-31"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.totalBuyAmount").value(10000000))
-            .andExpect(jsonPath("$.totalSellAmount").value(12000000))
-            .andExpect(jsonPath("$.realizedProfit").value(2000000))
-            .andExpect(jsonPath("$.totalTransactions").value(10))
-            .andExpect(jsonPath("$.monthlyAnalysis[0].yearMonth").value("2024-01"));
+                .thenReturn(analysis);
+
+        mockMvc.perform(
+                        get("/api/analysis/period")
+                                .param("startDate", "2024-01-01")
+                                .param("endDate", "2024-03-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalBuyAmount").value(10000000))
+                .andExpect(jsonPath("$.totalSellAmount").value(12000000))
+                .andExpect(jsonPath("$.realizedProfit").value(2000000))
+                .andExpect(jsonPath("$.totalTransactions").value(10))
+                .andExpect(jsonPath("$.monthlyAnalysis[0].yearMonth").value("2024-01"));
     }
-    
+
     @Test
     void analyzePeriod_WithInvalidDates_ShouldReturnBadRequest() throws Exception {
-        mockMvc.perform(get("/api/analysis/period")
-                .param("startDate", "2024-03-31")
-                .param("endDate", "2024-01-01"))
-            .andExpect(status().isBadRequest());
+        mockMvc.perform(
+                        get("/api/analysis/period")
+                                .param("startDate", "2024-03-31")
+                                .param("endDate", "2024-01-01"))
+                .andExpect(status().isBadRequest());
     }
-    
+
     @Test
     void analyzeYear_ShouldReturnYearAnalysis() throws Exception {
-        PeriodAnalysisDto analysis = PeriodAnalysisDto.builder()
-            .startDate(LocalDate.of(2024, 1, 1))
-            .endDate(LocalDate.of(2024, 12, 31))
-            .totalBuyAmount(new BigDecimal("50000000"))
-            .totalSellAmount(new BigDecimal("55000000"))
-            .build();
-        
+        PeriodAnalysisDto analysis =
+                PeriodAnalysisDto.builder()
+                        .startDate(LocalDate.of(2024, 1, 1))
+                        .endDate(LocalDate.of(2024, 12, 31))
+                        .totalBuyAmount(new BigDecimal("50000000"))
+                        .totalSellAmount(new BigDecimal("55000000"))
+                        .build();
+
         when(analysisService.analyzePeriod(any(LocalDate.class), any(LocalDate.class)))
-            .thenReturn(analysis);
-        
+                .thenReturn(analysis);
+
         mockMvc.perform(get("/api/analysis/period/year/2024"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.totalBuyAmount").value(50000000))
-            .andExpect(jsonPath("$.totalSellAmount").value(55000000));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalBuyAmount").value(50000000))
+                .andExpect(jsonPath("$.totalSellAmount").value(55000000));
     }
-    
+
     @Test
     void analyzeStock_ShouldReturnStockAnalysis() throws Exception {
-        StockAnalysisDto analysis = StockAnalysisDto.builder()
-            .stockSymbol("005930")
-            .stockName("삼성전자")
-            .totalBuyCount(5)
-            .totalSellCount(3)
-            .totalBuyQuantity(new BigDecimal("500"))
-            .totalSellQuantity(new BigDecimal("300"))
-            .averageBuyPrice(new BigDecimal("50000"))
-            .averageSellPrice(new BigDecimal("55000"))
-            .realizedProfit(new BigDecimal("1500000"))
-            .currentHolding(new BigDecimal("200"))
-            .holdingDays(120)
-            .tradingPatterns(Arrays.asList(
-                StockAnalysisDto.TradingPatternDto.builder()
-                    .pattern("평균 보유 기간")
-                    .value("45.5일")
-                    .description("매수 후 매도까지의 평균 기간")
-                    .build()
-            ))
-            .build();
-        
+        StockAnalysisDto analysis =
+                StockAnalysisDto.builder()
+                        .stockSymbol("005930")
+                        .stockName("삼성전자")
+                        .totalBuyCount(5)
+                        .totalSellCount(3)
+                        .totalBuyQuantity(new BigDecimal("500"))
+                        .totalSellQuantity(new BigDecimal("300"))
+                        .averageBuyPrice(new BigDecimal("50000"))
+                        .averageSellPrice(new BigDecimal("55000"))
+                        .realizedProfit(new BigDecimal("1500000"))
+                        .currentHolding(new BigDecimal("200"))
+                        .holdingDays(120)
+                        .tradingPatterns(
+                                Arrays.asList(
+                                        StockAnalysisDto.TradingPatternDto.builder()
+                                                .pattern("평균 보유 기간")
+                                                .value("45.5일")
+                                                .description("매수 후 매도까지의 평균 기간")
+                                                .build()))
+                        .build();
+
         when(stockAnalysisService.analyzeStock(anyString())).thenReturn(analysis);
-        
+
         mockMvc.perform(get("/api/analysis/stock/005930"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.stockSymbol").value("005930"))
-            .andExpect(jsonPath("$.stockName").value("삼성전자"))
-            .andExpect(jsonPath("$.totalBuyCount").value(5))
-            .andExpect(jsonPath("$.realizedProfit").value(1500000))
-            .andExpect(jsonPath("$.tradingPatterns[0].pattern").value("평균 보유 기간"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stockSymbol").value("005930"))
+                .andExpect(jsonPath("$.stockName").value("삼성전자"))
+                .andExpect(jsonPath("$.totalBuyCount").value(5))
+                .andExpect(jsonPath("$.realizedProfit").value(1500000))
+                .andExpect(jsonPath("$.tradingPatterns[0].pattern").value("평균 보유 기간"));
     }
-    
+
     @Test
     void calculateTax_ShouldReturnTaxCalculation() throws Exception {
-        TaxCalculationDto taxCalculation = TaxCalculationDto.builder()
-            .taxYear(2024)
-            .totalSellAmount(new BigDecimal("50000000"))
-            .totalBuyAmount(new BigDecimal("45000000"))
-            .totalProfit(new BigDecimal("5000000"))
-            .totalLoss(new BigDecimal("500000"))
-            .netProfit(new BigDecimal("4500000"))
-            .taxableAmount(new BigDecimal("2000000"))
-            .estimatedTax(new BigDecimal("440000"))
-            .taxRate(new BigDecimal("22"))
-            .taxDetails(Arrays.asList(
-                TaxCalculationDto.TaxDetailDto.builder()
-                    .stockSymbol("005930")
-                    .stockName("삼성전자")
-                    .buyDate(LocalDate.of(2024, 1, 10))
-                    .sellDate(LocalDate.of(2024, 6, 15))
-                    .buyAmount(new BigDecimal("5000000"))
-                    .sellAmount(new BigDecimal("6000000"))
-                    .profit(new BigDecimal("1000000"))
-                    .loss(BigDecimal.ZERO)
-                    .isLongTerm(false)
-                    .build()
-            ))
-            .build();
-        
+        TaxCalculationDto taxCalculation =
+                TaxCalculationDto.builder()
+                        .taxYear(2024)
+                        .totalSellAmount(new BigDecimal("50000000"))
+                        .totalBuyAmount(new BigDecimal("45000000"))
+                        .totalProfit(new BigDecimal("5000000"))
+                        .totalLoss(new BigDecimal("500000"))
+                        .netProfit(new BigDecimal("4500000"))
+                        .taxableAmount(new BigDecimal("2000000"))
+                        .estimatedTax(new BigDecimal("440000"))
+                        .taxRate(new BigDecimal("22"))
+                        .taxDetails(
+                                Arrays.asList(
+                                        TaxCalculationDto.TaxDetailDto.builder()
+                                                .stockSymbol("005930")
+                                                .stockName("삼성전자")
+                                                .buyDate(LocalDate.of(2024, 1, 10))
+                                                .sellDate(LocalDate.of(2024, 6, 15))
+                                                .buyAmount(new BigDecimal("5000000"))
+                                                .sellAmount(new BigDecimal("6000000"))
+                                                .profit(new BigDecimal("1000000"))
+                                                .loss(BigDecimal.ZERO)
+                                                .isLongTerm(false)
+                                                .build()))
+                        .build();
+
         when(taxCalculationService.calculateTax(anyInt())).thenReturn(taxCalculation);
-        
+
         mockMvc.perform(get("/api/analysis/tax/2024"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.taxYear").value(2024))
-            .andExpect(jsonPath("$.totalProfit").value(5000000))
-            .andExpect(jsonPath("$.netProfit").value(4500000))
-            .andExpect(jsonPath("$.estimatedTax").value(440000))
-            .andExpect(jsonPath("$.taxRate").value(22))
-            .andExpect(jsonPath("$.taxDetails[0].stockSymbol").value("005930"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.taxYear").value(2024))
+                .andExpect(jsonPath("$.totalProfit").value(5000000))
+                .andExpect(jsonPath("$.netProfit").value(4500000))
+                .andExpect(jsonPath("$.estimatedTax").value(440000))
+                .andExpect(jsonPath("$.taxRate").value(22))
+                .andExpect(jsonPath("$.taxDetails[0].stockSymbol").value("005930"));
     }
-    
+
     @Test
     void calculateTax_WithInvalidYear_ShouldReturnBadRequest() throws Exception {
-        mockMvc.perform(get("/api/analysis/tax/1999"))
-            .andExpect(status().isBadRequest());
-        
-        mockMvc.perform(get("/api/analysis/tax/2030"))
-            .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/analysis/tax/1999")).andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/analysis/tax/2030")).andExpect(status().isBadRequest());
     }
-    
+
     @Test
     void calculateCurrentYearTax_ShouldReturnCurrentYearTax() throws Exception {
         int currentYear = LocalDate.now().getYear();
-        TaxCalculationDto taxCalculation = TaxCalculationDto.builder()
-            .taxYear(currentYear)
-            .totalSellAmount(new BigDecimal("30000000"))
-            .estimatedTax(new BigDecimal("200000"))
-            .taxRate(new BigDecimal("22"))
-            .build();
+        TaxCalculationDto taxCalculation =
+                TaxCalculationDto.builder()
+                        .taxYear(currentYear)
+                        .totalSellAmount(new BigDecimal("30000000"))
+                        .estimatedTax(new BigDecimal("200000"))
+                        .taxRate(new BigDecimal("22"))
+                        .build();
 
         when(taxCalculationService.calculateTax(anyInt())).thenReturn(taxCalculation);
 
         mockMvc.perform(get("/api/analysis/tax/current"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.taxYear").value(currentYear))
-            .andExpect(jsonPath("$.estimatedTax").value(200000));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.taxYear").value(currentYear))
+                .andExpect(jsonPath("$.estimatedTax").value(200000));
     }
 
     // ==================== Portfolio Treemap Tests ====================
 
     @Test
     void getPortfolioTreemap_ShouldReturnTreemapData() throws Exception {
-        PortfolioTreemapDto treemap = PortfolioTreemapDto.builder()
-            .period("1D")
-            .totalInvestment(new BigDecimal("10000000"))
-            .totalPerformance(new BigDecimal("2.50"))
-            .cells(Arrays.asList(
-                PortfolioTreemapDto.TreemapCell.builder()
-                    .symbol("AAPL")
-                    .name("Apple Inc.")
-                    .investmentAmount(new BigDecimal("5000000"))
-                    .performancePercent(new BigDecimal("3.25"))
-                    .currentPrice(new BigDecimal("185.50"))
-                    .priceChange(new BigDecimal("5.75"))
-                    .sector("TECH")
-                    .hasData(true)
-                    .build(),
-                PortfolioTreemapDto.TreemapCell.builder()
-                    .symbol("MSFT")
-                    .name("Microsoft Corp.")
-                    .investmentAmount(new BigDecimal("5000000"))
-                    .performancePercent(new BigDecimal("1.75"))
-                    .currentPrice(new BigDecimal("420.00"))
-                    .priceChange(new BigDecimal("7.25"))
-                    .sector("TECH")
-                    .hasData(true)
-                    .build()
-            ))
-            .build();
+        PortfolioTreemapDto treemap =
+                PortfolioTreemapDto.builder()
+                        .period("1D")
+                        .totalInvestment(new BigDecimal("10000000"))
+                        .totalPerformance(new BigDecimal("2.50"))
+                        .cells(
+                                Arrays.asList(
+                                        PortfolioTreemapDto.TreemapCell.builder()
+                                                .symbol("AAPL")
+                                                .name("Apple Inc.")
+                                                .investmentAmount(new BigDecimal("5000000"))
+                                                .performancePercent(new BigDecimal("3.25"))
+                                                .currentPrice(new BigDecimal("185.50"))
+                                                .priceChange(new BigDecimal("5.75"))
+                                                .sector("TECH")
+                                                .hasData(true)
+                                                .build(),
+                                        PortfolioTreemapDto.TreemapCell.builder()
+                                                .symbol("MSFT")
+                                                .name("Microsoft Corp.")
+                                                .investmentAmount(new BigDecimal("5000000"))
+                                                .performancePercent(new BigDecimal("1.75"))
+                                                .currentPrice(new BigDecimal("420.00"))
+                                                .priceChange(new BigDecimal("7.25"))
+                                                .sector("TECH")
+                                                .hasData(true)
+                                                .build()))
+                        .build();
 
         when(portfolioAnalysisService.getPortfolioTreemap(anyString())).thenReturn(treemap);
 
-        mockMvc.perform(get("/api/analysis/portfolio/treemap")
-                .param("period", "1D"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.period").value("1D"))
-            .andExpect(jsonPath("$.totalInvestment").value(10000000))
-            .andExpect(jsonPath("$.totalPerformance").value(2.50))
-            .andExpect(jsonPath("$.cells").isArray())
-            .andExpect(jsonPath("$.cells[0].symbol").value("AAPL"))
-            .andExpect(jsonPath("$.cells[0].performancePercent").value(3.25))
-            .andExpect(jsonPath("$.cells[0].hasData").value(true))
-            .andExpect(jsonPath("$.cells[1].symbol").value("MSFT"));
+        mockMvc.perform(get("/api/analysis/portfolio/treemap").param("period", "1D"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.period").value("1D"))
+                .andExpect(jsonPath("$.totalInvestment").value(10000000))
+                .andExpect(jsonPath("$.totalPerformance").value(2.50))
+                .andExpect(jsonPath("$.cells").isArray())
+                .andExpect(jsonPath("$.cells[0].symbol").value("AAPL"))
+                .andExpect(jsonPath("$.cells[0].performancePercent").value(3.25))
+                .andExpect(jsonPath("$.cells[0].hasData").value(true))
+                .andExpect(jsonPath("$.cells[1].symbol").value("MSFT"));
     }
 
     @Test
     void getPortfolioTreemap_WithDefaultPeriod_ShouldReturn1D() throws Exception {
-        PortfolioTreemapDto treemap = PortfolioTreemapDto.builder()
-            .period("1D")
-            .totalInvestment(BigDecimal.ZERO)
-            .totalPerformance(BigDecimal.ZERO)
-            .cells(Arrays.asList())
-            .build();
+        PortfolioTreemapDto treemap =
+                PortfolioTreemapDto.builder()
+                        .period("1D")
+                        .totalInvestment(BigDecimal.ZERO)
+                        .totalPerformance(BigDecimal.ZERO)
+                        .cells(Arrays.asList())
+                        .build();
 
         when(portfolioAnalysisService.getPortfolioTreemap("1D")).thenReturn(treemap);
 
         mockMvc.perform(get("/api/analysis/portfolio/treemap"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.period").value("1D"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.period").value("1D"));
     }
 
     @Test
@@ -297,18 +292,18 @@ class AnalysisControllerTest {
         String[] periods = {"1D", "1W", "1M", "MTD", "3M", "6M", "1Y"};
 
         for (String period : periods) {
-            PortfolioTreemapDto treemap = PortfolioTreemapDto.builder()
-                .period(period)
-                .totalInvestment(BigDecimal.ZERO)
-                .cells(Arrays.asList())
-                .build();
+            PortfolioTreemapDto treemap =
+                    PortfolioTreemapDto.builder()
+                            .period(period)
+                            .totalInvestment(BigDecimal.ZERO)
+                            .cells(Arrays.asList())
+                            .build();
 
             when(portfolioAnalysisService.getPortfolioTreemap(period)).thenReturn(treemap);
 
-            mockMvc.perform(get("/api/analysis/portfolio/treemap")
-                    .param("period", period))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.period").value(period));
+            mockMvc.perform(get("/api/analysis/portfolio/treemap").param("period", period))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.period").value(period));
         }
     }
 }

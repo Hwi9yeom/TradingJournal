@@ -1,17 +1,14 @@
 package com.trading.journal.dto;
 
 import com.trading.journal.entity.Sector;
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.util.List;
-
-/**
- * 리스크 대시보드 DTO
- */
+/** 리스크 대시보드 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -79,9 +76,7 @@ public class RiskDashboardDto {
     /** 기존 RiskMetrics */
     private RiskMetricsDto riskMetrics;
 
-    /**
-     * 리스크 한도 상태
-     */
+    /** 리스크 한도 상태 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -106,9 +101,7 @@ public class RiskDashboardDto {
         private String statusLabel;
     }
 
-    /**
-     * 집중도 알림
-     */
+    /** 집중도 알림 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -133,9 +126,7 @@ public class RiskDashboardDto {
         private String alertType;
     }
 
-    /**
-     * R-Multiple 분석
-     */
+    /** R-Multiple 분석 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -166,9 +157,7 @@ public class RiskDashboardDto {
         private List<RMultipleDistribution> distribution;
     }
 
-    /**
-     * R-Multiple 분포
-     */
+    /** R-Multiple 분포 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -184,9 +173,7 @@ public class RiskDashboardDto {
         private BigDecimal percentage;
     }
 
-    /**
-     * 포지션 리스크 요약
-     */
+    /** 포지션 리스크 요약 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -229,9 +216,7 @@ public class RiskDashboardDto {
         private BigDecimal currentR;
     }
 
-    /**
-     * 섹터 노출
-     */
+    /** 섹터 노출 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

@@ -1,17 +1,14 @@
 package com.trading.journal.dto;
 
 import jakarta.validation.constraints.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
-/**
- * 계정별 리스크 설정 DTO
- */
+/** 계정별 리스크 설정 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -68,11 +65,9 @@ public class AccountRiskSettingsDto {
     private BigDecimal kellyFraction = new BigDecimal("0.50");
 
     // 알림 설정
-    @Builder.Default
-    private Boolean dailyLossAlertEnabled = true;
+    @Builder.Default private Boolean dailyLossAlertEnabled = true;
 
-    @Builder.Default
-    private Boolean concentrationAlertEnabled = true;
+    @Builder.Default private Boolean concentrationAlertEnabled = true;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

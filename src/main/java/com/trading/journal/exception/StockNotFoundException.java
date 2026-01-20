@@ -1,8 +1,6 @@
 package com.trading.journal.exception;
 
-/**
- * 종목을 찾을 수 없을 때 발생하는 예외
- */
+/** 종목을 찾을 수 없을 때 발생하는 예외 */
 public class StockNotFoundException extends RuntimeException {
 
     private final String symbol;

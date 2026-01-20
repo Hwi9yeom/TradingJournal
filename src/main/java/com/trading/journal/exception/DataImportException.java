@@ -1,8 +1,6 @@
 package com.trading.journal.exception;
 
-/**
- * 데이터 임포트 중 발생하는 예외
- */
+/** 데이터 임포트 중 발생하는 예외 */
 public class DataImportException extends RuntimeException {
 
     private final String fileType;
@@ -30,8 +28,12 @@ public class DataImportException extends RuntimeException {
         this.fieldName = null;
     }
 
-    public DataImportException(String fileType, Integer rowNumber, String fieldName, String message) {
-        super(String.format("%s 파일 임포트 실패 (행 %d, 필드 '%s'): %s", fileType, rowNumber, fieldName, message));
+    public DataImportException(
+            String fileType, Integer rowNumber, String fieldName, String message) {
+        super(
+                String.format(
+                        "%s 파일 임포트 실패 (행 %d, 필드 '%s'): %s",
+                        fileType, rowNumber, fieldName, message));
         this.fileType = fileType;
         this.rowNumber = rowNumber;
         this.fieldName = fieldName;

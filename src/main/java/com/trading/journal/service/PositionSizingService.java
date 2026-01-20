@@ -7,17 +7,16 @@ import com.trading.journal.dto.PositionSizingResultDto.PositionScenario;
 import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
 import com.trading.journal.repository.TransactionRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -29,9 +28,7 @@ public class PositionSizingService {
     private final TransactionRepository transactionRepository;
     private final AccountService accountService;
 
-    /**
-     * 포지션 사이징 계산
-     */
+    /** 포지션 사이징 계산 */
     public PositionSizingResultDto calculatePositionSize(PositionSizingRequestDto request) {
         // 계정 설정 조회
         Long accountId = request.getAccountId();
@@ -57,45 +54,56 @@ public class PositionSizingService {
         }
 
         // 주당 리스크 계산
-        BigDecimal riskPerShare = request.getEntryPrice().subtract(request.getStopLossPrice()).abs();
+        BigDecimal riskPerShare =
+                request.getEntryPrice().subtract(request.getStopLossPrice()).abs();
         if (riskPerShare.compareTo(BigDecimal.ZERO) == 0) {
             throw new RuntimeException("Risk per share cannot be zero (entry = stop loss)");
         }
 
         // 최대 리스크 금액
-        BigDecimal maxRiskAmount = capital.multiply(riskPercent)
-                .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+        BigDecimal maxRiskAmount =
+                capital.multiply(riskPercent)
+                        .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
 
         // 추천 수량 계산
         BigDecimal recommendedQuantity = maxRiskAmount.divide(riskPerShare, 0, RoundingMode.DOWN);
 
         // 포지션 가치
         BigDecimal positionValue = recommendedQuantity.multiply(request.getEntryPrice());
-        BigDecimal positionPercent = positionValue.divide(capital, 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100));
+        BigDecimal positionPercent =
+                positionValue
+                        .divide(capital, 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100));
 
         // 한도 체크
-        boolean exceedsMaxPosition = positionPercent.compareTo(settings.getMaxPositionSizePercent()) > 0;
-        boolean exceedsMaxConcentration = positionPercent.compareTo(settings.getMaxStockConcentrationPercent()) > 0;
+        boolean exceedsMaxPosition =
+                positionPercent.compareTo(settings.getMaxPositionSizePercent()) > 0;
+        boolean exceedsMaxConcentration =
+                positionPercent.compareTo(settings.getMaxStockConcentrationPercent()) > 0;
 
         // 한도 내 최대 수량
-        BigDecimal maxPositionValue = capital.multiply(settings.getMaxPositionSizePercent())
-                .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
-        BigDecimal maxAllowedQuantity = maxPositionValue.divide(request.getEntryPrice(), 0, RoundingMode.DOWN);
+        BigDecimal maxPositionValue =
+                capital.multiply(settings.getMaxPositionSizePercent())
+                        .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+        BigDecimal maxAllowedQuantity =
+                maxPositionValue.divide(request.getEntryPrice(), 0, RoundingMode.DOWN);
 
         // 실제 추천 수량 (한도 적용)
         if (exceedsMaxPosition) {
             recommendedQuantity = maxAllowedQuantity;
             positionValue = recommendedQuantity.multiply(request.getEntryPrice());
-            positionPercent = positionValue.divide(capital, 4, RoundingMode.HALF_UP)
-                    .multiply(BigDecimal.valueOf(100));
+            positionPercent =
+                    positionValue
+                            .divide(capital, 4, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100));
         }
 
         // R:R 계산
         BigDecimal riskRewardRatio = null;
         BigDecimal potentialProfit = null;
         if (request.getTakeProfitPrice() != null) {
-            BigDecimal rewardPerShare = request.getTakeProfitPrice().subtract(request.getEntryPrice()).abs();
+            BigDecimal rewardPerShare =
+                    request.getTakeProfitPrice().subtract(request.getEntryPrice()).abs();
             riskRewardRatio = rewardPerShare.divide(riskPerShare, 4, RoundingMode.HALF_UP);
             potentialProfit = rewardPerShare.multiply(recommendedQuantity);
         }
@@ -103,32 +111,44 @@ public class PositionSizingService {
         BigDecimal potentialLoss = riskPerShare.multiply(recommendedQuantity);
 
         // Kelly Criterion 계산
-        BigDecimal kellyPercentage = calculateKellyPercentage(accountId,
-                LocalDate.now().minusMonths(6), LocalDate.now());
-        BigDecimal kellyFraction = settings.getKellyFraction() != null ?
-                settings.getKellyFraction() : new BigDecimal("0.50");
+        BigDecimal kellyPercentage =
+                calculateKellyPercentage(
+                        accountId, LocalDate.now().minusMonths(6), LocalDate.now());
+        BigDecimal kellyFraction =
+                settings.getKellyFraction() != null
+                        ? settings.getKellyFraction()
+                        : new BigDecimal("0.50");
 
         BigDecimal fullKellyQuantity = null;
         BigDecimal halfKellyQuantity = null;
         BigDecimal quarterKellyQuantity = null;
 
         if (kellyPercentage != null && kellyPercentage.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal kellyRiskAmount = capital.multiply(kellyPercentage)
-                    .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+            BigDecimal kellyRiskAmount =
+                    capital.multiply(kellyPercentage)
+                            .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
             fullKellyQuantity = kellyRiskAmount.divide(riskPerShare, 0, RoundingMode.DOWN);
-            halfKellyQuantity = fullKellyQuantity.divide(BigDecimal.valueOf(2), 0, RoundingMode.DOWN);
-            quarterKellyQuantity = fullKellyQuantity.divide(BigDecimal.valueOf(4), 0, RoundingMode.DOWN);
+            halfKellyQuantity =
+                    fullKellyQuantity.divide(BigDecimal.valueOf(2), 0, RoundingMode.DOWN);
+            quarterKellyQuantity =
+                    fullKellyQuantity.divide(BigDecimal.valueOf(4), 0, RoundingMode.DOWN);
         }
 
         // 시나리오 생성
-        List<PositionScenario> scenarios = generateScenarios(capital, request.getEntryPrice(),
-                riskPerShare, request.getTakeProfitPrice());
+        List<PositionScenario> scenarios =
+                generateScenarios(
+                        capital,
+                        request.getEntryPrice(),
+                        riskPerShare,
+                        request.getTakeProfitPrice());
 
         // 경고 메시지 생성
         String warningMessage = null;
         if (exceedsMaxPosition) {
-            warningMessage = String.format("Position size reduced to %.0f shares due to max position limit (%.1f%%)",
-                    maxAllowedQuantity, settings.getMaxPositionSizePercent());
+            warningMessage =
+                    String.format(
+                            "Position size reduced to %.0f shares due to max position limit (%.1f%%)",
+                            maxAllowedQuantity, settings.getMaxPositionSizePercent());
         }
 
         return PositionSizingResultDto.builder()
@@ -158,18 +178,15 @@ public class PositionSizingService {
                 .build();
     }
 
-    /**
-     * Kelly Criterion 계산
-     * Kelly % = W - (1-W)/R
-     * W: 승률, R: 평균이익/평균손실
-     */
-    public BigDecimal calculateKellyPercentage(Long accountId, LocalDate startDate, LocalDate endDate) {
+    /** Kelly Criterion 계산 Kelly % = W - (1-W)/R W: 승률, R: 평균이익/평균손실 */
+    public BigDecimal calculateKellyPercentage(
+            Long accountId, LocalDate startDate, LocalDate endDate) {
         LocalDateTime start = startDate.atStartOfDay();
         LocalDateTime end = endDate.atTime(23, 59, 59);
 
         // SELL 거래 조회 (실현 손익이 있는 것)
-        List<Transaction> sellTransactions = transactionRepository.findSellTransactionsWithRMultiple(
-                accountId, start, end);
+        List<Transaction> sellTransactions =
+                transactionRepository.findSellTransactionsWithRMultiple(accountId, start, end);
 
         if (sellTransactions.isEmpty()) {
             // 데이터가 없으면 R-multiple이 아닌 realizedPnl로 계산
@@ -199,12 +216,15 @@ public class PositionSizingService {
         }
 
         // W: 승률
-        BigDecimal winRate = BigDecimal.valueOf(wins)
-                .divide(BigDecimal.valueOf(totalTrades), 4, RoundingMode.HALF_UP);
+        BigDecimal winRate =
+                BigDecimal.valueOf(wins)
+                        .divide(BigDecimal.valueOf(totalTrades), 4, RoundingMode.HALF_UP);
 
         // R: 평균이익 / 평균손실
-        BigDecimal avgWin = totalWinR.divide(BigDecimal.valueOf(wins > 0 ? wins : 1), 4, RoundingMode.HALF_UP);
-        BigDecimal avgLoss = totalLossR.divide(BigDecimal.valueOf(lossCount), 4, RoundingMode.HALF_UP);
+        BigDecimal avgWin =
+                totalWinR.divide(BigDecimal.valueOf(wins > 0 ? wins : 1), 4, RoundingMode.HALF_UP);
+        BigDecimal avgLoss =
+                totalLossR.divide(BigDecimal.valueOf(lossCount), 4, RoundingMode.HALF_UP);
 
         if (avgLoss.compareTo(BigDecimal.ZERO) == 0) {
             return null;
@@ -225,12 +245,12 @@ public class PositionSizingService {
         return kelly.multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 실현 손익 기반 Kelly 계산 (R-multiple 없을 때)
-     */
-    private BigDecimal calculateKellyFromPnl(Long accountId, LocalDateTime start, LocalDateTime end) {
-        List<Transaction> sellTransactions = transactionRepository.findByAccountIdAndTypeAndDateRange(
-                accountId, TransactionType.SELL, start, end);
+    /** 실현 손익 기반 Kelly 계산 (R-multiple 없을 때) */
+    private BigDecimal calculateKellyFromPnl(
+            Long accountId, LocalDateTime start, LocalDateTime end) {
+        List<Transaction> sellTransactions =
+                transactionRepository.findByAccountIdAndTypeAndDateRange(
+                        accountId, TransactionType.SELL, start, end);
 
         if (sellTransactions.isEmpty()) {
             return null;
@@ -258,8 +278,9 @@ public class PositionSizingService {
             return null;
         }
 
-        BigDecimal winRate = BigDecimal.valueOf(wins)
-                .divide(BigDecimal.valueOf(totalTrades), 4, RoundingMode.HALF_UP);
+        BigDecimal winRate =
+                BigDecimal.valueOf(wins)
+                        .divide(BigDecimal.valueOf(totalTrades), 4, RoundingMode.HALF_UP);
 
         BigDecimal avgWin = totalWin.divide(BigDecimal.valueOf(wins), 4, RoundingMode.HALF_UP);
         BigDecimal avgLoss = totalLoss.divide(BigDecimal.valueOf(losses), 4, RoundingMode.HALF_UP);
@@ -279,45 +300,59 @@ public class PositionSizingService {
         return kelly.multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 시나리오 생성 (보수적/일반/공격적)
-     */
-    private List<PositionScenario> generateScenarios(BigDecimal capital, BigDecimal entryPrice,
-                                                      BigDecimal riskPerShare, BigDecimal takeProfitPrice) {
+    /** 시나리오 생성 (보수적/일반/공격적) */
+    private List<PositionScenario> generateScenarios(
+            BigDecimal capital,
+            BigDecimal entryPrice,
+            BigDecimal riskPerShare,
+            BigDecimal takeProfitPrice) {
         List<PositionScenario> scenarios = new ArrayList<>();
 
-        BigDecimal rewardPerShare = takeProfitPrice != null ?
-                takeProfitPrice.subtract(entryPrice).abs() : null;
+        BigDecimal rewardPerShare =
+                takeProfitPrice != null ? takeProfitPrice.subtract(entryPrice).abs() : null;
 
         // 보수적 (1%)
-        scenarios.add(createScenario("보수적 (1%)", new BigDecimal("1.0"),
-                capital, entryPrice, riskPerShare, rewardPerShare));
+        scenarios.add(
+                createScenario(
+                        "보수적 (1%)",
+                        new BigDecimal("1.0"), capital, entryPrice, riskPerShare, rewardPerShare));
 
         // 일반 (2%)
-        scenarios.add(createScenario("일반 (2%)", new BigDecimal("2.0"),
-                capital, entryPrice, riskPerShare, rewardPerShare));
+        scenarios.add(
+                createScenario(
+                        "일반 (2%)",
+                        new BigDecimal("2.0"), capital, entryPrice, riskPerShare, rewardPerShare));
 
         // 적극적 (3%)
-        scenarios.add(createScenario("적극적 (3%)", new BigDecimal("3.0"),
-                capital, entryPrice, riskPerShare, rewardPerShare));
+        scenarios.add(
+                createScenario(
+                        "적극적 (3%)",
+                        new BigDecimal("3.0"), capital, entryPrice, riskPerShare, rewardPerShare));
 
         // 공격적 (5%)
-        scenarios.add(createScenario("공격적 (5%)", new BigDecimal("5.0"),
-                capital, entryPrice, riskPerShare, rewardPerShare));
+        scenarios.add(
+                createScenario(
+                        "공격적 (5%)",
+                        new BigDecimal("5.0"), capital, entryPrice, riskPerShare, rewardPerShare));
 
         return scenarios;
     }
 
-    private PositionScenario createScenario(String name, BigDecimal riskPercent,
-                                             BigDecimal capital, BigDecimal entryPrice,
-                                             BigDecimal riskPerShare, BigDecimal rewardPerShare) {
-        BigDecimal maxRisk = capital.multiply(riskPercent)
-                .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+    private PositionScenario createScenario(
+            String name,
+            BigDecimal riskPercent,
+            BigDecimal capital,
+            BigDecimal entryPrice,
+            BigDecimal riskPerShare,
+            BigDecimal rewardPerShare) {
+        BigDecimal maxRisk =
+                capital.multiply(riskPercent)
+                        .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
         BigDecimal quantity = maxRisk.divide(riskPerShare, 0, RoundingMode.DOWN);
         BigDecimal positionValue = quantity.multiply(entryPrice);
         BigDecimal potentialLoss = riskPerShare.multiply(quantity);
-        BigDecimal potentialProfit = rewardPerShare != null ?
-                rewardPerShare.multiply(quantity) : null;
+        BigDecimal potentialProfit =
+                rewardPerShare != null ? rewardPerShare.multiply(quantity) : null;
 
         return PositionScenario.builder()
                 .name(name)

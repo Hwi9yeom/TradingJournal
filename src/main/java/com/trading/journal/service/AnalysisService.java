@@ -5,7 +5,6 @@ import com.trading.journal.dto.DrawdownDto;
 import com.trading.journal.dto.EquityCurveDto;
 import com.trading.journal.dto.PairCorrelationDto;
 import com.trading.journal.dto.PeriodAnalysisDto;
-import com.trading.journal.dto.PortfolioDto;
 import com.trading.journal.dto.PortfolioSummaryDto;
 import com.trading.journal.dto.RollingCorrelationDto;
 import com.trading.journal.dto.SectorCorrelationDto;
@@ -13,12 +12,6 @@ import com.trading.journal.entity.Stock;
 import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
 import com.trading.journal.repository.TransactionRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -28,6 +21,11 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -77,7 +75,7 @@ public class AnalysisService {
 
     private final TransactionRepository transactionRepository;
     private final PortfolioAnalysisService portfolioAnalysisService;
-    
+
     @Cacheable(value = "analysis", key = "#startDate + '_' + #endDate")
     public PeriodAnalysisDto analyzePeriod(LocalDate startDate, LocalDate endDate) {
         log.debug("Analyzing period from {} to {}", startDate, endDate);
@@ -85,15 +83,16 @@ public class AnalysisService {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
-        List<Transaction> transactions = transactionRepository.findByDateRange(startDateTime, endDateTime);
+        List<Transaction> transactions =
+                transactionRepository.findByDateRange(startDateTime, endDateTime);
         log.debug("Found {} transactions for period analysis", transactions.size());
-        
+
         // 기본 통계 계산
         BigDecimal totalBuyAmount = BigDecimal.ZERO;
         BigDecimal totalSellAmount = BigDecimal.ZERO;
         int buyCount = 0;
         int sellCount = 0;
-        
+
         for (Transaction transaction : transactions) {
             if (transaction.getType() == TransactionType.BUY) {
                 totalBuyAmount = totalBuyAmount.add(transaction.getTotalAmount());
@@ -103,32 +102,36 @@ public class AnalysisService {
                 sellCount++;
             }
         }
-        
+
         // 실현 손익 계산
         BigDecimal realizedProfit = calculateRealizedProfit(transactions);
         BigDecimal realizedProfitRate = BigDecimal.ZERO;
         if (totalBuyAmount.compareTo(BigDecimal.ZERO) > 0) {
-            realizedProfitRate = realizedProfit.divide(totalBuyAmount, FINANCIAL_SCALE, RoundingMode.HALF_UP)
-                    .multiply(PERCENTAGE_MULTIPLIER);
+            realizedProfitRate =
+                    realizedProfit
+                            .divide(totalBuyAmount, FINANCIAL_SCALE, RoundingMode.HALF_UP)
+                            .multiply(PERCENTAGE_MULTIPLIER);
         }
-        
+
         // 미실현 손익 계산 (현재 포트폴리오 기준)
         PortfolioSummaryDto portfolioSummary = portfolioAnalysisService.getPortfolioSummary();
         BigDecimal unrealizedProfit = portfolioSummary.getTotalProfitLoss();
         BigDecimal unrealizedProfitRate = portfolioSummary.getTotalProfitLossPercent();
-        
+
         // 총 손익
         BigDecimal totalProfit = realizedProfit.add(unrealizedProfit);
         BigDecimal totalProfitRate = BigDecimal.ZERO;
         if (totalBuyAmount.compareTo(BigDecimal.ZERO) > 0) {
-            totalProfitRate = totalProfit.divide(totalBuyAmount, FINANCIAL_SCALE, RoundingMode.HALF_UP)
-                    .multiply(PERCENTAGE_MULTIPLIER);
+            totalProfitRate =
+                    totalProfit
+                            .divide(totalBuyAmount, FINANCIAL_SCALE, RoundingMode.HALF_UP)
+                            .multiply(PERCENTAGE_MULTIPLIER);
         }
-        
+
         // 월별 분석
-        List<PeriodAnalysisDto.MonthlyAnalysisDto> monthlyAnalysis = 
+        List<PeriodAnalysisDto.MonthlyAnalysisDto> monthlyAnalysis =
                 analyzeMonthly(transactions, startDate, endDate);
-        
+
         return PeriodAnalysisDto.builder()
                 .startDate(startDate)
                 .endDate(endDate)
@@ -146,7 +149,7 @@ public class AnalysisService {
                 .monthlyAnalysis(monthlyAnalysis)
                 .build();
     }
-    
+
     private BigDecimal calculateRealizedProfit(List<Transaction> transactions) {
         // FIFO 방식으로 계산된 realizedPnl 합계 사용
         return transactions.stream()
@@ -155,80 +158,94 @@ public class AnalysisService {
                 .filter(pnl -> pnl != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
-    
+
     private List<PeriodAnalysisDto.MonthlyAnalysisDto> analyzeMonthly(
             List<Transaction> transactions, LocalDate startDate, LocalDate endDate) {
-        
-        Map<YearMonth, List<Transaction>> monthlyTransactions = transactions.stream()
-                .collect(Collectors.groupingBy(t -> 
-                        YearMonth.from(t.getTransactionDate())));
-        
+
+        Map<YearMonth, List<Transaction>> monthlyTransactions =
+                transactions.stream()
+                        .collect(
+                                Collectors.groupingBy(t -> YearMonth.from(t.getTransactionDate())));
+
         List<PeriodAnalysisDto.MonthlyAnalysisDto> monthlyAnalysis = new ArrayList<>();
-        
+
         YearMonth current = YearMonth.from(startDate);
         YearMonth end = YearMonth.from(endDate);
-        
-        while (!current.isAfter(end)) {
-            List<Transaction> monthTransactions = monthlyTransactions.getOrDefault(current, new ArrayList<>());
-            
-            BigDecimal buyAmount = monthTransactions.stream()
-                    .filter(t -> t.getType() == TransactionType.BUY)
-                    .map(Transaction::getTotalAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            BigDecimal sellAmount = monthTransactions.stream()
-                    .filter(t -> t.getType() == TransactionType.SELL)
-                    .map(Transaction::getTotalAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        while (!current.isAfter(end)) {
+            List<Transaction> monthTransactions =
+                    monthlyTransactions.getOrDefault(current, new ArrayList<>());
+
+            BigDecimal buyAmount =
+                    monthTransactions.stream()
+                            .filter(t -> t.getType() == TransactionType.BUY)
+                            .map(Transaction::getTotalAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal sellAmount =
+                    monthTransactions.stream()
+                            .filter(t -> t.getType() == TransactionType.SELL)
+                            .map(Transaction::getTotalAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             // FIFO 기반 실현 손익 사용
-            BigDecimal profit = monthTransactions.stream()
-                    .filter(t -> t.getType() == TransactionType.SELL)
-                    .map(Transaction::getRealizedPnl)
-                    .filter(pnl -> pnl != null)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal profit =
+                    monthTransactions.stream()
+                            .filter(t -> t.getType() == TransactionType.SELL)
+                            .map(Transaction::getRealizedPnl)
+                            .filter(pnl -> pnl != null)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             BigDecimal profitRate = BigDecimal.ZERO;
-            BigDecimal costBasis = monthTransactions.stream()
-                    .filter(t -> t.getType() == TransactionType.SELL)
-                    .map(Transaction::getCostBasis)
-                    .filter(cb -> cb != null)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal costBasis =
+                    monthTransactions.stream()
+                            .filter(t -> t.getType() == TransactionType.SELL)
+                            .map(Transaction::getCostBasis)
+                            .filter(cb -> cb != null)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             if (costBasis.compareTo(BigDecimal.ZERO) > 0) {
-                profitRate = profit.divide(costBasis, FINANCIAL_SCALE, RoundingMode.HALF_UP)
-                        .multiply(PERCENTAGE_MULTIPLIER);
+                profitRate =
+                        profit.divide(costBasis, FINANCIAL_SCALE, RoundingMode.HALF_UP)
+                                .multiply(PERCENTAGE_MULTIPLIER);
             }
-            
-            monthlyAnalysis.add(PeriodAnalysisDto.MonthlyAnalysisDto.builder()
-                    .yearMonth(current.format(DateTimeFormatter.ofPattern("yyyy-MM")))
-                    .buyAmount(buyAmount)
-                    .sellAmount(sellAmount)
-                    .profit(profit)
-                    .profitRate(profitRate)
-                    .transactionCount(monthTransactions.size())
-                    .build());
-            
+
+            monthlyAnalysis.add(
+                    PeriodAnalysisDto.MonthlyAnalysisDto.builder()
+                            .yearMonth(current.format(DateTimeFormatter.ofPattern("yyyy-MM")))
+                            .buyAmount(buyAmount)
+                            .sellAmount(sellAmount)
+                            .profit(profit)
+                            .profitRate(profitRate)
+                            .transactionCount(monthTransactions.size())
+                            .build());
+
             current = current.plusMonths(1);
         }
 
         return monthlyAnalysis;
     }
 
-    /**
-     * Equity Curve (누적 수익 곡선) 계산
-     * accountId가 null이면 전체, 있으면 해당 계좌만 조회
-     */
-    @Cacheable(value = "analysis", key = "'equity_curve_' + #accountId + '_' + #startDate + '_' + #endDate")
-    public EquityCurveDto calculateEquityCurve(Long accountId, LocalDate startDate, LocalDate endDate) {
-        log.debug("Calculating equity curve for accountId={} from {} to {}", accountId, startDate, endDate);
+    /** Equity Curve (누적 수익 곡선) 계산 accountId가 null이면 전체, 있으면 해당 계좌만 조회 */
+    @Cacheable(
+            value = "analysis",
+            key = "'equity_curve_' + #accountId + '_' + #startDate + '_' + #endDate")
+    public EquityCurveDto calculateEquityCurve(
+            Long accountId, LocalDate startDate, LocalDate endDate) {
+        log.debug(
+                "Calculating equity curve for accountId={} from {} to {}",
+                accountId,
+                startDate,
+                endDate);
 
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
-        List<Transaction> transactions = (accountId == null)
-                ? transactionRepository.findByDateRange(startDateTime, endDateTime)
-                : transactionRepository.findByAccountIdAndDateRange(accountId, startDateTime, endDateTime);
+        List<Transaction> transactions =
+                (accountId == null)
+                        ? transactionRepository.findByDateRange(startDateTime, endDateTime)
+                        : transactionRepository.findByAccountIdAndDateRange(
+                                accountId, startDateTime, endDateTime);
         transactions.sort(Comparator.comparing(Transaction::getTransactionDate));
 
         if (transactions.isEmpty()) {
@@ -250,8 +267,10 @@ public class AnalysisService {
                 runningInvestment = runningInvestment.add(tx.getTotalAmount());
                 runningValue = runningValue.add(tx.getTotalAmount());
             } else {
-                BigDecimal pnl = tx.getRealizedPnl() != null ? tx.getRealizedPnl() : BigDecimal.ZERO;
-                BigDecimal cost = tx.getCostBasis() != null ? tx.getCostBasis() : tx.getTotalAmount();
+                BigDecimal pnl =
+                        tx.getRealizedPnl() != null ? tx.getRealizedPnl() : BigDecimal.ZERO;
+                BigDecimal cost =
+                        tx.getCostBasis() != null ? tx.getCostBasis() : tx.getTotalAmount();
                 runningValue = runningValue.subtract(cost).add(pnl);
             }
             dailyInvestment.put(date, runningInvestment);
@@ -281,14 +300,19 @@ public class AnalysisService {
 
             labels.add(d.format(fmt));
             values.add(lastValue);
-            cumulativeReturns.add(calcReturnPct(lastValue.subtract(lastInvestment), lastInvestment));
-            dailyReturns.add(prevValue != null ? calcReturnPct(lastValue.subtract(prevValue), prevValue) : BigDecimal.ZERO);
+            cumulativeReturns.add(
+                    calcReturnPct(lastValue.subtract(lastInvestment), lastInvestment));
+            dailyReturns.add(
+                    prevValue != null
+                            ? calcReturnPct(lastValue.subtract(prevValue), prevValue)
+                            : BigDecimal.ZERO);
             prevValue = lastValue;
         }
 
-        BigDecimal totalReturn = initialInvestment != null
-                ? calcReturnPct(lastValue.subtract(initialInvestment), initialInvestment)
-                : BigDecimal.ZERO;
+        BigDecimal totalReturn =
+                initialInvestment != null
+                        ? calcReturnPct(lastValue.subtract(initialInvestment), initialInvestment)
+                        : BigDecimal.ZERO;
         BigDecimal cagr = calcCagr(initialInvestment, lastValue, startDate, endDate);
 
         return EquityCurveDto.builder()
@@ -328,24 +352,24 @@ public class AnalysisService {
 
     private BigDecimal calcReturnPct(BigDecimal diff, BigDecimal base) {
         if (base == null || base.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
-        return diff.divide(base, FINANCIAL_SCALE, RoundingMode.HALF_UP).multiply(PERCENTAGE_MULTIPLIER);
+        return diff.divide(base, FINANCIAL_SCALE, RoundingMode.HALF_UP)
+                .multiply(PERCENTAGE_MULTIPLIER);
     }
 
-    private BigDecimal calcCagr(BigDecimal initial, BigDecimal finalVal, LocalDate start, LocalDate end) {
+    private BigDecimal calcCagr(
+            BigDecimal initial, BigDecimal finalVal, LocalDate start, LocalDate end) {
         if (initial == null || initial.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
         long days = ChronoUnit.DAYS.between(start, end);
         if (days <= 0 || finalVal.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
         double years = days / DAYS_PER_YEAR;
         double ratio = finalVal.divide(initial, EXTENDED_SCALE, RoundingMode.HALF_UP).doubleValue();
         if (ratio <= 0) return BigDecimal.ZERO;
-        return BigDecimal.valueOf((Math.pow(ratio, 1.0 / years) - 1) * PERCENTAGE_MULTIPLIER.doubleValue())
+        return BigDecimal.valueOf(
+                        (Math.pow(ratio, 1.0 / years) - 1) * PERCENTAGE_MULTIPLIER.doubleValue())
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * Drawdown (최대 낙폭) 분석
-     * 고점 대비 하락률을 계산하여 리스크 분석에 활용
-     */
+    /** Drawdown (최대 낙폭) 분석 고점 대비 하락률을 계산하여 리스크 분석에 활용 */
     @Cacheable(value = "analysis", key = "'drawdown_' + #startDate + '_' + #endDate")
     public DrawdownDto calculateDrawdown(LocalDate startDate, LocalDate endDate) {
         log.debug("Calculating drawdown analysis from {} to {}", startDate, endDate);
@@ -387,14 +411,19 @@ public class AnalysisService {
             // 새로운 고점 발생
             if (value.compareTo(peak) > 0) {
                 // 이전 Drawdown 이벤트 종료 처리
-                if (currentDrawdownStart != null && currentDrawdownMax.abs().compareTo(MAJOR_DRAWDOWN_THRESHOLD) >= 0) {
-                    DrawdownDto.DrawdownEvent event = DrawdownDto.DrawdownEvent.builder()
-                            .startDate(currentDrawdownStart)
-                            .endDate(date)
-                            .recoveryDate(date)
-                            .maxDrawdown(currentDrawdownMax)
-                            .duration((int) ChronoUnit.DAYS.between(currentDrawdownStart, date))
-                            .build();
+                if (currentDrawdownStart != null
+                        && currentDrawdownMax.abs().compareTo(MAJOR_DRAWDOWN_THRESHOLD) >= 0) {
+                    DrawdownDto.DrawdownEvent event =
+                            DrawdownDto.DrawdownEvent.builder()
+                                    .startDate(currentDrawdownStart)
+                                    .endDate(date)
+                                    .recoveryDate(date)
+                                    .maxDrawdown(currentDrawdownMax)
+                                    .duration(
+                                            (int)
+                                                    ChronoUnit.DAYS.between(
+                                                            currentDrawdownStart, date))
+                                    .build();
                     majorDrawdowns.add(event);
                 }
 
@@ -407,9 +436,10 @@ public class AnalysisService {
             // Drawdown 계산
             BigDecimal drawdown = BigDecimal.ZERO;
             if (peak.compareTo(BigDecimal.ZERO) > 0) {
-                drawdown = value.subtract(peak)
-                        .divide(peak, FINANCIAL_SCALE, RoundingMode.HALF_UP)
-                        .multiply(PERCENTAGE_MULTIPLIER);
+                drawdown =
+                        value.subtract(peak)
+                                .divide(peak, FINANCIAL_SCALE, RoundingMode.HALF_UP)
+                                .multiply(PERCENTAGE_MULTIPLIER);
             }
             drawdowns.add(drawdown);
 
@@ -431,13 +461,15 @@ public class AnalysisService {
         }
 
         // 현재 진행 중인 Drawdown
-        BigDecimal currentDrawdown = drawdowns.isEmpty() ? BigDecimal.ZERO
-                : drawdowns.get(drawdowns.size() - 1);
+        BigDecimal currentDrawdown =
+                drawdowns.isEmpty() ? BigDecimal.ZERO : drawdowns.get(drawdowns.size() - 1);
 
         // 회복 기간 계산 (최대 낙폭 이후)
         Integer recoveryDays = null;
         if (maxDrawdownDate != null) {
-            for (int i = labels.indexOf(maxDrawdownDate.format(formatter)) + 1; i < values.size(); i++) {
+            for (int i = labels.indexOf(maxDrawdownDate.format(formatter)) + 1;
+                    i < values.size();
+                    i++) {
                 if (values.get(i).compareTo(peak) >= 0) {
                     LocalDate recoveryDate = LocalDate.parse(labels.get(i), formatter);
                     recoveryDays = (int) ChronoUnit.DAYS.between(maxDrawdownDate, recoveryDate);
@@ -458,10 +490,7 @@ public class AnalysisService {
                 .build();
     }
 
-    /**
-     * 종목 간 상관관계 매트릭스 계산
-     * 각 종목의 일별 수익률을 기반으로 피어슨 상관계수 계산
-     */
+    /** 종목 간 상관관계 매트릭스 계산 각 종목의 일별 수익률을 기반으로 피어슨 상관계수 계산 */
     @Cacheable(value = "analysis", key = "'correlation_' + #startDate + '_' + #endDate")
     public CorrelationMatrixDto calculateCorrelationMatrix(LocalDate startDate, LocalDate endDate) {
         log.debug("Calculating correlation matrix for period {} to {}", startDate, endDate);
@@ -470,7 +499,8 @@ public class AnalysisService {
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
         int periodDays = (int) ChronoUnit.DAYS.between(startDate, endDate);
 
-        List<Transaction> transactions = transactionRepository.findByDateRange(startDateTime, endDateTime);
+        List<Transaction> transactions =
+                transactionRepository.findByDateRange(startDateTime, endDateTime);
 
         if (transactions.isEmpty()) {
             log.debug("No transactions found for correlation matrix calculation");
@@ -481,7 +511,9 @@ public class AnalysisService {
         CorrelationDataPreparation preparedData = prepareCorrelationData(transactions);
 
         if (preparedData.stocks().size() < MIN_TRANSACTIONS_FOR_CORRELATION) {
-            log.debug("Insufficient stocks ({}) for correlation analysis", preparedData.stocks().size());
+            log.debug(
+                    "Insufficient stocks ({}) for correlation analysis",
+                    preparedData.stocks().size());
             return buildInsufficientDataCorrelationMatrix(preparedData.stocks(), periodDays);
         }
 
@@ -489,20 +521,33 @@ public class AnalysisService {
         StockReturnsData returnsData = calculateStockReturns(preparedData);
 
         // Step 3: Build correlation matrix
-        CorrelationMatrixResult matrixResult = buildCorrelationMatrix(
-                preparedData.stocks(), returnsData.stockDailyReturns(), returnsData.allDates());
+        CorrelationMatrixResult matrixResult =
+                buildCorrelationMatrix(
+                        preparedData.stocks(),
+                        returnsData.stockDailyReturns(),
+                        returnsData.allDates());
 
         // Step 4: Calculate summary statistics
-        BigDecimal averageCorrelation = calculateAverageCorrelation(
-                matrixResult.totalCorrelation(), matrixResult.correlationCount());
+        BigDecimal averageCorrelation =
+                calculateAverageCorrelation(
+                        matrixResult.totalCorrelation(), matrixResult.correlationCount());
         BigDecimal diversificationScore = calculateDiversificationScore(averageCorrelation);
 
-        log.debug("Correlation matrix calculated: {} stocks, {} data points, avg correlation: {}",
-                preparedData.stocks().size(), returnsData.allDates().size(), averageCorrelation);
+        log.debug(
+                "Correlation matrix calculated: {} stocks, {} data points, avg correlation: {}",
+                preparedData.stocks().size(),
+                returnsData.allDates().size(),
+                averageCorrelation);
 
         return CorrelationMatrixDto.builder()
-                .symbols(preparedData.stocks().stream().map(Stock::getSymbol).collect(Collectors.toList()))
-                .names(preparedData.stocks().stream().map(Stock::getName).collect(Collectors.toList()))
+                .symbols(
+                        preparedData.stocks().stream()
+                                .map(Stock::getSymbol)
+                                .collect(Collectors.toList()))
+                .names(
+                        preparedData.stocks().stream()
+                                .map(Stock::getName)
+                                .collect(Collectors.toList()))
                 .matrix(matrixResult.matrix())
                 .periodDays(periodDays)
                 .dataPoints(returnsData.allDates().size())
@@ -511,9 +556,7 @@ public class AnalysisService {
                 .build();
     }
 
-    /**
-     * Builds an empty correlation matrix DTO for cases with no transactions
-     */
+    /** Builds an empty correlation matrix DTO for cases with no transactions */
     private CorrelationMatrixDto buildEmptyCorrelationMatrix(int periodDays) {
         return CorrelationMatrixDto.builder()
                 .symbols(new ArrayList<>())
@@ -526,10 +569,9 @@ public class AnalysisService {
                 .build();
     }
 
-    /**
-     * Builds a correlation matrix DTO for cases with insufficient stock data
-     */
-    private CorrelationMatrixDto buildInsufficientDataCorrelationMatrix(List<Stock> stocks, int periodDays) {
+    /** Builds a correlation matrix DTO for cases with insufficient stock data */
+    private CorrelationMatrixDto buildInsufficientDataCorrelationMatrix(
+            List<Stock> stocks, int periodDays) {
         return CorrelationMatrixDto.builder()
                 .symbols(stocks.stream().map(Stock::getSymbol).collect(Collectors.toList()))
                 .names(stocks.stream().map(Stock::getName).collect(Collectors.toList()))
@@ -541,50 +583,39 @@ public class AnalysisService {
                 .build();
     }
 
-    /**
-     * Record to hold prepared correlation data
-     */
+    /** Record to hold prepared correlation data */
     private record CorrelationDataPreparation(
-            List<Stock> stocks,
-            Map<Stock, List<Transaction>> stockTransactions
-    ) {}
+            List<Stock> stocks, Map<Stock, List<Transaction>> stockTransactions) {}
 
-    /**
-     * Prepares and filters stock data for correlation analysis
-     */
+    /** Prepares and filters stock data for correlation analysis */
     private CorrelationDataPreparation prepareCorrelationData(List<Transaction> transactions) {
         // Group transactions by stock
-        Map<Stock, List<Transaction>> stockTransactions = transactions.stream()
-                .collect(Collectors.groupingBy(Transaction::getStock));
+        Map<Stock, List<Transaction>> stockTransactions =
+                transactions.stream().collect(Collectors.groupingBy(Transaction::getStock));
 
         // Filter stocks with minimum required transactions
-        List<Stock> stocks = stockTransactions.entrySet().stream()
-                .filter(e -> e.getValue().size() >= MIN_TRANSACTIONS_FOR_CORRELATION)
-                .map(Map.Entry::getKey)
-                .sorted(Comparator.comparing(Stock::getSymbol))
-                .collect(Collectors.toList());
+        List<Stock> stocks =
+                stockTransactions.entrySet().stream()
+                        .filter(e -> e.getValue().size() >= MIN_TRANSACTIONS_FOR_CORRELATION)
+                        .map(Map.Entry::getKey)
+                        .sorted(Comparator.comparing(Stock::getSymbol))
+                        .collect(Collectors.toList());
 
         return new CorrelationDataPreparation(stocks, stockTransactions);
     }
 
-    /**
-     * Record to hold stock returns calculation results
-     */
+    /** Record to hold stock returns calculation results */
     private record StockReturnsData(
-            Map<Stock, Map<LocalDate, BigDecimal>> stockDailyReturns,
-            List<LocalDate> allDates
-    ) {}
+            Map<Stock, Map<LocalDate, BigDecimal>> stockDailyReturns, List<LocalDate> allDates) {}
 
-    /**
-     * Calculates daily returns for all stocks in the prepared data
-     */
+    /** Calculates daily returns for all stocks in the prepared data */
     private StockReturnsData calculateStockReturns(CorrelationDataPreparation preparedData) {
         Map<Stock, Map<LocalDate, BigDecimal>> stockDailyReturns = new HashMap<>();
         Set<LocalDate> allDates = new TreeSet<>();
 
         for (Stock stock : preparedData.stocks()) {
-            Map<LocalDate, BigDecimal> dailyReturns = calculateDailyReturns(
-                    preparedData.stockTransactions().get(stock));
+            Map<LocalDate, BigDecimal> dailyReturns =
+                    calculateDailyReturns(preparedData.stockTransactions().get(stock));
             stockDailyReturns.put(stock, dailyReturns);
             allDates.addAll(dailyReturns.keySet());
         }
@@ -592,18 +623,11 @@ public class AnalysisService {
         return new StockReturnsData(stockDailyReturns, new ArrayList<>(allDates));
     }
 
-    /**
-     * Record to hold correlation matrix calculation results
-     */
+    /** Record to hold correlation matrix calculation results */
     private record CorrelationMatrixResult(
-            List<List<BigDecimal>> matrix,
-            BigDecimal totalCorrelation,
-            int correlationCount
-    ) {}
+            List<List<BigDecimal>> matrix, BigDecimal totalCorrelation, int correlationCount) {}
 
-    /**
-     * Builds the correlation matrix from stock returns data
-     */
+    /** Builds the correlation matrix from stock returns data */
     private CorrelationMatrixResult buildCorrelationMatrix(
             List<Stock> stocks,
             Map<Stock, Map<LocalDate, BigDecimal>> stockDailyReturns,
@@ -623,7 +647,8 @@ public class AnalysisService {
                     row.add(BigDecimal.ONE);
                 } else {
                     Map<LocalDate, BigDecimal> returnsJ = stockDailyReturns.get(stocks.get(j));
-                    BigDecimal correlation = calculatePairwiseCorrelation(returnsI, returnsJ, commonDates);
+                    BigDecimal correlation =
+                            calculatePairwiseCorrelation(returnsI, returnsJ, commonDates);
                     row.add(correlation);
 
                     // Track correlation sum for average (avoid double counting)
@@ -639,9 +664,7 @@ public class AnalysisService {
         return new CorrelationMatrixResult(matrix, totalCorrelation, correlationCount);
     }
 
-    /**
-     * Calculates pairwise correlation between two stocks based on their daily returns
-     */
+    /** Calculates pairwise correlation between two stocks based on their daily returns */
     private BigDecimal calculatePairwiseCorrelation(
             Map<LocalDate, BigDecimal> returnsI,
             Map<LocalDate, BigDecimal> returnsJ,
@@ -663,19 +686,19 @@ public class AnalysisService {
         return BigDecimal.ZERO;
     }
 
-    /**
-     * Calculates the average correlation from total correlation sum and count
-     */
-    private BigDecimal calculateAverageCorrelation(BigDecimal totalCorrelation, int correlationCount) {
+    /** Calculates the average correlation from total correlation sum and count */
+    private BigDecimal calculateAverageCorrelation(
+            BigDecimal totalCorrelation, int correlationCount) {
         if (correlationCount > 0) {
-            return totalCorrelation.divide(new BigDecimal(correlationCount), FINANCIAL_SCALE, RoundingMode.HALF_UP);
+            return totalCorrelation.divide(
+                    new BigDecimal(correlationCount), FINANCIAL_SCALE, RoundingMode.HALF_UP);
         }
         return BigDecimal.ZERO;
     }
 
     /**
-     * Calculates the diversification score from average correlation
-     * Score ranges from 0-100 where lower average correlation results in higher score
+     * Calculates the diversification score from average correlation Score ranges from 0-100 where
+     * lower average correlation results in higher score
      */
     private BigDecimal calculateDiversificationScore(BigDecimal averageCorrelation) {
         return averageCorrelation
@@ -684,9 +707,7 @@ public class AnalysisService {
                 .multiply(PERCENTAGE_MULTIPLIER);
     }
 
-    /**
-     * 거래 목록에서 일별 수익률 계산
-     */
+    /** 거래 목록에서 일별 수익률 계산 */
     private Map<LocalDate, BigDecimal> calculateDailyReturns(List<Transaction> transactions) {
         Map<LocalDate, BigDecimal> dailyReturns = new TreeMap<>();
 
@@ -702,14 +723,18 @@ public class AnalysisService {
             if (transaction.getType() == TransactionType.BUY) {
                 runningValue = runningValue.add(amount);
             } else {
-                BigDecimal realizedPnl = transaction.getRealizedPnl() != null
-                        ? transaction.getRealizedPnl() : BigDecimal.ZERO;
+                BigDecimal realizedPnl =
+                        transaction.getRealizedPnl() != null
+                                ? transaction.getRealizedPnl()
+                                : BigDecimal.ZERO;
                 runningValue = runningValue.add(realizedPnl);
             }
 
             if (previousValue != null && previousValue.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal dailyReturn = runningValue.subtract(previousValue)
-                        .divide(previousValue, EXTENDED_SCALE, RoundingMode.HALF_UP);
+                BigDecimal dailyReturn =
+                        runningValue
+                                .subtract(previousValue)
+                                .divide(previousValue, EXTENDED_SCALE, RoundingMode.HALF_UP);
                 dailyReturns.put(date, dailyReturn);
             }
 
@@ -719,9 +744,7 @@ public class AnalysisService {
         return dailyReturns;
     }
 
-    /**
-     * 피어슨 상관계수 계산
-     */
+    /** 피어슨 상관계수 계산 */
     private BigDecimal calculatePearsonCorrelation(List<Double> x, List<Double> y) {
         if (x.size() != y.size() || x.size() < MIN_DATA_POINTS_FOR_STATISTICS) {
             return BigDecimal.ZERO;
@@ -761,33 +784,44 @@ public class AnalysisService {
         return BigDecimal.valueOf(correlation).setScale(FINANCIAL_SCALE, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 롤링 상관관계 계산
-     * 시간에 따른 두 종목 간 상관관계 변화 추적
-     */
+    /** 롤링 상관관계 계산 시간에 따른 두 종목 간 상관관계 변화 추적 */
     public RollingCorrelationDto calculateRollingCorrelation(
-            String symbol1, String symbol2,
-            LocalDate startDate, LocalDate endDate,
+            String symbol1,
+            String symbol2,
+            LocalDate startDate,
+            LocalDate endDate,
             int windowDays) {
-        log.debug("Calculating rolling correlation for {} and {} with window {} days", symbol1, symbol2, windowDays);
+        log.debug(
+                "Calculating rolling correlation for {} and {} with window {} days",
+                symbol1,
+                symbol2,
+                windowDays);
 
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
-        List<Transaction> transactions = transactionRepository.findByDateRange(startDateTime, endDateTime);
+        List<Transaction> transactions =
+                transactionRepository.findByDateRange(startDateTime, endDateTime);
 
         // 두 종목의 거래만 필터링
-        Map<String, List<Transaction>> bySymbol = transactions.stream()
-                .filter(t -> t.getStock().getSymbol().equals(symbol1) ||
-                        t.getStock().getSymbol().equals(symbol2))
-                .collect(Collectors.groupingBy(t -> t.getStock().getSymbol()));
+        Map<String, List<Transaction>> bySymbol =
+                transactions.stream()
+                        .filter(
+                                t ->
+                                        t.getStock().getSymbol().equals(symbol1)
+                                                || t.getStock().getSymbol().equals(symbol2))
+                        .collect(Collectors.groupingBy(t -> t.getStock().getSymbol()));
 
         List<Transaction> txs1 = bySymbol.getOrDefault(symbol1, new ArrayList<>());
         List<Transaction> txs2 = bySymbol.getOrDefault(symbol2, new ArrayList<>());
 
         if (txs1.isEmpty() || txs2.isEmpty()) {
-            log.debug("Insufficient transaction data for rolling correlation: {} has {}, {} has {} transactions",
-                    symbol1, txs1.size(), symbol2, txs2.size());
+            log.debug(
+                    "Insufficient transaction data for rolling correlation: {} has {}, {} has {} transactions",
+                    symbol1,
+                    txs1.size(),
+                    symbol2,
+                    txs2.size());
             return RollingCorrelationDto.builder()
                     .symbol1(symbol1)
                     .symbol2(symbol2)
@@ -847,8 +881,13 @@ public class AnalysisService {
             if (corr.compareTo(minCorr) < 0) minCorr = corr;
         }
 
-        BigDecimal avgCorr = rollingCorrelations.isEmpty() ? BigDecimal.ZERO :
-                totalCorr.divide(new BigDecimal(rollingCorrelations.size()), FINANCIAL_SCALE, RoundingMode.HALF_UP);
+        BigDecimal avgCorr =
+                rollingCorrelations.isEmpty()
+                        ? BigDecimal.ZERO
+                        : totalCorr.divide(
+                                new BigDecimal(rollingCorrelations.size()),
+                                FINANCIAL_SCALE,
+                                RoundingMode.HALF_UP);
 
         // 변동성 (표준편차) 계산
         BigDecimal variance = BigDecimal.ZERO;
@@ -856,10 +895,18 @@ public class AnalysisService {
             BigDecimal diff = c.subtract(avgCorr);
             variance = variance.add(diff.multiply(diff));
         }
-        BigDecimal volatility = rollingCorrelations.isEmpty() ? BigDecimal.ZERO :
-                BigDecimal.valueOf(Math.sqrt(variance.divide(
-                        new BigDecimal(rollingCorrelations.size()), 10, RoundingMode.HALF_UP).doubleValue()))
-                        .setScale(FINANCIAL_SCALE, RoundingMode.HALF_UP);
+        BigDecimal volatility =
+                rollingCorrelations.isEmpty()
+                        ? BigDecimal.ZERO
+                        : BigDecimal.valueOf(
+                                        Math.sqrt(
+                                                variance.divide(
+                                                                new BigDecimal(
+                                                                        rollingCorrelations.size()),
+                                                                10,
+                                                                RoundingMode.HALF_UP)
+                                                        .doubleValue()))
+                                .setScale(FINANCIAL_SCALE, RoundingMode.HALF_UP);
 
         return RollingCorrelationDto.builder()
                 .symbol1(symbol1)
@@ -870,8 +917,10 @@ public class AnalysisService {
                 .correlations(rollingCorrelations)
                 .windowDays(windowDays)
                 .periodDays((int) ChronoUnit.DAYS.between(startDate, endDate))
-                .currentCorrelation(rollingCorrelations.isEmpty() ? BigDecimal.ZERO :
-                        rollingCorrelations.get(rollingCorrelations.size() - 1))
+                .currentCorrelation(
+                        rollingCorrelations.isEmpty()
+                                ? BigDecimal.ZERO
+                                : rollingCorrelations.get(rollingCorrelations.size() - 1))
                 .averageCorrelation(avgCorr)
                 .maxCorrelation(maxCorr)
                 .minCorrelation(minCorr)
@@ -879,30 +928,40 @@ public class AnalysisService {
                 .build();
     }
 
-    /**
-     * 종목 쌍 상세 분석
-     */
+    /** 종목 쌍 상세 분석 */
     public PairCorrelationDto calculatePairCorrelation(
-            String symbol1, String symbol2,
-            LocalDate startDate, LocalDate endDate) {
-        log.debug("Calculating pair correlation for {} and {} from {} to {}", symbol1, symbol2, startDate, endDate);
+            String symbol1, String symbol2, LocalDate startDate, LocalDate endDate) {
+        log.debug(
+                "Calculating pair correlation for {} and {} from {} to {}",
+                symbol1,
+                symbol2,
+                startDate,
+                endDate);
 
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
-        List<Transaction> transactions = transactionRepository.findByDateRange(startDateTime, endDateTime);
+        List<Transaction> transactions =
+                transactionRepository.findByDateRange(startDateTime, endDateTime);
 
-        Map<String, List<Transaction>> bySymbol = transactions.stream()
-                .filter(t -> t.getStock().getSymbol().equals(symbol1) ||
-                        t.getStock().getSymbol().equals(symbol2))
-                .collect(Collectors.groupingBy(t -> t.getStock().getSymbol()));
+        Map<String, List<Transaction>> bySymbol =
+                transactions.stream()
+                        .filter(
+                                t ->
+                                        t.getStock().getSymbol().equals(symbol1)
+                                                || t.getStock().getSymbol().equals(symbol2))
+                        .collect(Collectors.groupingBy(t -> t.getStock().getSymbol()));
 
         List<Transaction> txs1 = bySymbol.getOrDefault(symbol1, new ArrayList<>());
         List<Transaction> txs2 = bySymbol.getOrDefault(symbol2, new ArrayList<>());
 
         if (txs1.isEmpty() || txs2.isEmpty()) {
-            log.debug("Insufficient data for pair correlation: {} has {}, {} has {} transactions",
-                    symbol1, txs1.size(), symbol2, txs2.size());
+            log.debug(
+                    "Insufficient data for pair correlation: {} has {}, {} has {} transactions",
+                    symbol1,
+                    txs1.size(),
+                    symbol2,
+                    txs2.size());
             return PairCorrelationDto.builder()
                     .symbol1(symbol1)
                     .symbol2(symbol2)
@@ -941,8 +1000,14 @@ public class AnalysisService {
             cum1 = cum1.multiply(BigDecimal.ONE.add(ret1));
             cum2 = cum2.multiply(BigDecimal.ONE.add(ret2));
 
-            cumR1.add(cum1.subtract(BigDecimal.ONE).multiply(PERCENTAGE_MULTIPLIER).setScale(2, RoundingMode.HALF_UP));
-            cumR2.add(cum2.subtract(BigDecimal.ONE).multiply(PERCENTAGE_MULTIPLIER).setScale(2, RoundingMode.HALF_UP));
+            cumR1.add(
+                    cum1.subtract(BigDecimal.ONE)
+                            .multiply(PERCENTAGE_MULTIPLIER)
+                            .setScale(2, RoundingMode.HALF_UP));
+            cumR2.add(
+                    cum2.subtract(BigDecimal.ONE)
+                            .multiply(PERCENTAGE_MULTIPLIER)
+                            .setScale(2, RoundingMode.HALF_UP));
 
             x.add(ret1.doubleValue());
             y.add(ret2.doubleValue());
@@ -954,12 +1019,17 @@ public class AnalysisService {
         double avgR1 = x.stream().mapToDouble(Double::doubleValue).average().orElse(0);
         double avgR2 = y.stream().mapToDouble(Double::doubleValue).average().orElse(0);
 
-        double vol1 = Math.sqrt(x.stream().mapToDouble(v -> Math.pow(v - avgR1, 2)).average().orElse(0));
-        double vol2 = Math.sqrt(y.stream().mapToDouble(v -> Math.pow(v - avgR2, 2)).average().orElse(0));
+        double vol1 =
+                Math.sqrt(x.stream().mapToDouble(v -> Math.pow(v - avgR1, 2)).average().orElse(0));
+        double vol2 =
+                Math.sqrt(y.stream().mapToDouble(v -> Math.pow(v - avgR2, 2)).average().orElse(0));
 
         // 분산투자 효과 (상관관계가 낮을수록 높음)
-        BigDecimal diversBenefit = BigDecimal.ONE.subtract(correlation.abs())
-                .multiply(PERCENTAGE_MULTIPLIER).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal diversBenefit =
+                BigDecimal.ONE
+                        .subtract(correlation.abs())
+                        .multiply(PERCENTAGE_MULTIPLIER)
+                        .setScale(2, RoundingMode.HALF_UP);
 
         return PairCorrelationDto.builder()
                 .symbol1(symbol1)
@@ -977,17 +1047,23 @@ public class AnalysisService {
                 .returns2(r2List)
                 .cumulativeReturns1(cumR1)
                 .cumulativeReturns2(cumR2)
-                .avgReturn1(BigDecimal.valueOf(avgR1 * PERCENTAGE_MULTIPLIER.doubleValue()).setScale(FINANCIAL_SCALE, RoundingMode.HALF_UP))
-                .avgReturn2(BigDecimal.valueOf(avgR2 * PERCENTAGE_MULTIPLIER.doubleValue()).setScale(FINANCIAL_SCALE, RoundingMode.HALF_UP))
-                .volatility1(BigDecimal.valueOf(vol1 * PERCENTAGE_MULTIPLIER.doubleValue()).setScale(FINANCIAL_SCALE, RoundingMode.HALF_UP))
-                .volatility2(BigDecimal.valueOf(vol2 * PERCENTAGE_MULTIPLIER.doubleValue()).setScale(FINANCIAL_SCALE, RoundingMode.HALF_UP))
+                .avgReturn1(
+                        BigDecimal.valueOf(avgR1 * PERCENTAGE_MULTIPLIER.doubleValue())
+                                .setScale(FINANCIAL_SCALE, RoundingMode.HALF_UP))
+                .avgReturn2(
+                        BigDecimal.valueOf(avgR2 * PERCENTAGE_MULTIPLIER.doubleValue())
+                                .setScale(FINANCIAL_SCALE, RoundingMode.HALF_UP))
+                .volatility1(
+                        BigDecimal.valueOf(vol1 * PERCENTAGE_MULTIPLIER.doubleValue())
+                                .setScale(FINANCIAL_SCALE, RoundingMode.HALF_UP))
+                .volatility2(
+                        BigDecimal.valueOf(vol2 * PERCENTAGE_MULTIPLIER.doubleValue())
+                                .setScale(FINANCIAL_SCALE, RoundingMode.HALF_UP))
                 .diversificationBenefit(diversBenefit)
                 .build();
     }
 
-    /**
-     * 섹터별 상관관계 요약
-     */
+    /** 섹터별 상관관계 요약 */
     public SectorCorrelationDto calculateSectorCorrelation(LocalDate startDate, LocalDate endDate) {
         log.debug("Calculating sector correlation from {} to {}", startDate, endDate);
 
@@ -1006,17 +1082,22 @@ public class AnalysisService {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
-        List<Transaction> transactions = transactionRepository.findByDateRange(startDateTime, endDateTime);
+        List<Transaction> transactions =
+                transactionRepository.findByDateRange(startDateTime, endDateTime);
 
         // 종목-섹터 매핑
-        Map<String, String> symbolToSector = transactions.stream()
-                .map(Transaction::getStock)
-                .distinct()
-                .collect(Collectors.toMap(
-                        Stock::getSymbol,
-                        s -> s.getSector() != null ? s.getSector().name() : "UNKNOWN",
-                        (a, b) -> a
-                ));
+        Map<String, String> symbolToSector =
+                transactions.stream()
+                        .map(Transaction::getStock)
+                        .distinct()
+                        .collect(
+                                Collectors.toMap(
+                                        Stock::getSymbol,
+                                        s ->
+                                                s.getSector() != null
+                                                        ? s.getSector().name()
+                                                        : "UNKNOWN",
+                                        (a, b) -> a));
 
         // 섹터별 종목 그룹화
         Map<String, List<String>> sectorStocks = new HashMap<>();
@@ -1041,21 +1122,27 @@ public class AnalysisService {
                 for (int j = i + 1; j < stocks.size(); j++) {
                     int idx2 = matrix.getSymbols().indexOf(stocks.get(j));
                     if (idx1 >= 0 && idx2 >= 0) {
-                        internalCorr = internalCorr.add(matrix.getMatrix().get(idx1).get(idx2).abs());
+                        internalCorr =
+                                internalCorr.add(matrix.getMatrix().get(idx1).get(idx2).abs());
                         count++;
                     }
                 }
             }
 
-            summaries.add(SectorCorrelationDto.SectorSummary.builder()
-                    .sector(sector)
-                    .sectorLabel(getSectorLabel(sector))
-                    .stockCount(stocks.size())
-                    .stocks(stocks)
-                    .internalCorrelation(count > 0 ?
-                            internalCorr.divide(new BigDecimal(count), FINANCIAL_SCALE, RoundingMode.HALF_UP) :
-                            BigDecimal.ZERO)
-                    .build());
+            summaries.add(
+                    SectorCorrelationDto.SectorSummary.builder()
+                            .sector(sector)
+                            .sectorLabel(getSectorLabel(sector))
+                            .stockCount(stocks.size())
+                            .stocks(stocks)
+                            .internalCorrelation(
+                                    count > 0
+                                            ? internalCorr.divide(
+                                                    new BigDecimal(count),
+                                                    FINANCIAL_SCALE,
+                                                    RoundingMode.HALF_UP)
+                                            : BigDecimal.ZERO)
+                            .build());
         }
 
         // 분산투자 추천 (상관관계 낮은 종목 쌍)
@@ -1067,7 +1154,7 @@ public class AnalysisService {
         for (int i = 0; i < symbols.size(); i++) {
             for (int j = i + 1; j < symbols.size(); j++) {
                 BigDecimal corr = matrix.getMatrix().get(i).get(j);
-                pairs.add(new Object[]{symbols.get(i), symbols.get(j), corr});
+                pairs.add(new Object[] {symbols.get(i), symbols.get(j), corr});
             }
         }
 
@@ -1090,12 +1177,13 @@ public class AnalysisService {
                 recommendation = "보통";
             }
 
-            recommendations.add(SectorCorrelationDto.SectorPair.builder()
-                    .sector1(s1)
-                    .sector2(s2)
-                    .correlation(corr)
-                    .recommendation(recommendation)
-                    .build());
+            recommendations.add(
+                    SectorCorrelationDto.SectorPair.builder()
+                            .sector1(s1)
+                            .sector2(s2)
+                            .correlation(corr)
+                            .recommendation(recommendation)
+                            .build());
         }
 
         return SectorCorrelationDto.builder()
@@ -1107,18 +1195,18 @@ public class AnalysisService {
     }
 
     private String getSectorLabel(String sector) {
-        Map<String, String> labels = Map.of(
-                "TECHNOLOGY", "기술",
-                "FINANCE", "금융",
-                "HEALTHCARE", "헬스케어",
-                "CONSUMER", "소비재",
-                "INDUSTRIAL", "산업재",
-                "ENERGY", "에너지",
-                "MATERIALS", "소재",
-                "UTILITIES", "유틸리티",
-                "REAL_ESTATE", "부동산",
-                "UNKNOWN", "미분류"
-        );
+        Map<String, String> labels =
+                Map.of(
+                        "TECHNOLOGY", "기술",
+                        "FINANCE", "금융",
+                        "HEALTHCARE", "헬스케어",
+                        "CONSUMER", "소비재",
+                        "INDUSTRIAL", "산업재",
+                        "ENERGY", "에너지",
+                        "MATERIALS", "소재",
+                        "UTILITIES", "유틸리티",
+                        "REAL_ESTATE", "부동산",
+                        "UNKNOWN", "미분류");
         return labels.getOrDefault(sector, sector);
     }
 }

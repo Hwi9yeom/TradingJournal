@@ -5,6 +5,11 @@ import com.trading.journal.dto.TradeReviewDto.*;
 import com.trading.journal.entity.*;
 import com.trading.journal.repository.TradeReviewRepository;
 import com.trading.journal.repository.TransactionRepository;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -13,15 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
-
-/**
- * 거래 복기/일지 서비스
- */
+/** 거래 복기/일지 서비스 */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -31,32 +28,36 @@ public class TradeReviewService {
     private final TradeReviewRepository reviewRepository;
     private final TransactionRepository transactionRepository;
 
-    /**
-     * 복기 생성
-     */
+    /** 복기 생성 */
     public TradeReviewDto createReview(Long transactionId, TradeReviewDto dto) {
-        Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new IllegalArgumentException("거래를 찾을 수 없습니다: " + transactionId));
+        Transaction transaction =
+                transactionRepository
+                        .findById(transactionId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "거래를 찾을 수 없습니다: " + transactionId));
 
         if (reviewRepository.existsByTransactionId(transactionId)) {
             throw new IllegalStateException("이미 복기가 존재합니다. 수정을 사용해주세요.");
         }
 
-        TradeReview review = TradeReview.builder()
-                .transaction(transaction)
-                .strategy(dto.getStrategy())
-                .entryReason(dto.getEntryReason())
-                .exitReason(dto.getExitReason())
-                .emotionBefore(dto.getEmotionBefore())
-                .emotionAfter(dto.getEmotionAfter())
-                .reviewNote(dto.getReviewNote())
-                .lessonsLearned(dto.getLessonsLearned())
-                .ratingScore(dto.getRatingScore())
-                .tags(dto.getTags())
-                .followedPlan(dto.getFollowedPlan())
-                .screenshotPath(dto.getScreenshotPath())
-                .reviewedAt(LocalDateTime.now())
-                .build();
+        TradeReview review =
+                TradeReview.builder()
+                        .transaction(transaction)
+                        .strategy(dto.getStrategy())
+                        .entryReason(dto.getEntryReason())
+                        .exitReason(dto.getExitReason())
+                        .emotionBefore(dto.getEmotionBefore())
+                        .emotionAfter(dto.getEmotionAfter())
+                        .reviewNote(dto.getReviewNote())
+                        .lessonsLearned(dto.getLessonsLearned())
+                        .ratingScore(dto.getRatingScore())
+                        .tags(dto.getTags())
+                        .followedPlan(dto.getFollowedPlan())
+                        .screenshotPath(dto.getScreenshotPath())
+                        .reviewedAt(LocalDateTime.now())
+                        .build();
 
         TradeReview saved = reviewRepository.save(review);
         log.info("Created review {} for transaction {}", saved.getId(), transactionId);
@@ -64,12 +65,13 @@ public class TradeReviewService {
         return toDto(saved);
     }
 
-    /**
-     * 복기 수정
-     */
+    /** 복기 수정 */
     public TradeReviewDto updateReview(Long reviewId, TradeReviewDto dto) {
-        TradeReview review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new IllegalArgumentException("복기를 찾을 수 없습니다: " + reviewId));
+        TradeReview review =
+                reviewRepository
+                        .findById(reviewId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("복기를 찾을 수 없습니다: " + reviewId));
 
         review.setStrategy(dto.getStrategy());
         review.setEntryReason(dto.getEntryReason());
@@ -90,29 +92,24 @@ public class TradeReviewService {
         return toDto(saved);
     }
 
-    /**
-     * 복기 조회 (ID)
-     */
+    /** 복기 조회 (ID) */
     @Transactional(readOnly = true)
     public TradeReviewDto getReview(Long reviewId) {
-        TradeReview review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new IllegalArgumentException("복기를 찾을 수 없습니다: " + reviewId));
+        TradeReview review =
+                reviewRepository
+                        .findById(reviewId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("복기를 찾을 수 없습니다: " + reviewId));
         return toDto(review);
     }
 
-    /**
-     * 거래별 복기 조회
-     */
+    /** 거래별 복기 조회 */
     @Transactional(readOnly = true)
     public TradeReviewDto getReviewByTransaction(Long transactionId) {
-        return reviewRepository.findByTransactionId(transactionId)
-                .map(this::toDto)
-                .orElse(null);
+        return reviewRepository.findByTransactionId(transactionId).map(this::toDto).orElse(null);
     }
 
-    /**
-     * 전략별 복기 조회
-     */
+    /** 전략별 복기 조회 */
     @Transactional(readOnly = true)
     public List<TradeReviewDto> getReviewsByStrategy(TradeStrategy strategy) {
         return reviewRepository.findByStrategyOrderByCreatedAtDesc(strategy).stream()
@@ -120,19 +117,14 @@ public class TradeReviewService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 최근 복기 조회 (페이징)
-     */
+    /** 최근 복기 조회 (페이징) */
     @Transactional(readOnly = true)
     public Page<TradeReviewDto> getRecentReviews(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return reviewRepository.findAllByOrderByCreatedAtDesc(pageable)
-                .map(this::toDto);
+        return reviewRepository.findAllByOrderByCreatedAtDesc(pageable).map(this::toDto);
     }
 
-    /**
-     * 복기 삭제
-     */
+    /** 복기 삭제 */
     public void deleteReview(Long reviewId) {
         if (!reviewRepository.existsById(reviewId)) {
             throw new IllegalArgumentException("복기를 찾을 수 없습니다: " + reviewId);
@@ -141,9 +133,7 @@ public class TradeReviewService {
         log.info("Deleted review {}", reviewId);
     }
 
-    /**
-     * 복기 통계 조회
-     */
+    /** 복기 통계 조회 */
     @Transactional(readOnly = true)
     public ReviewStatisticsDto getStatistics() {
         List<TradeReview> allReviews = reviewRepository.findAll();
@@ -156,33 +146,52 @@ public class TradeReviewService {
             TradeStrategy strategy = (TradeStrategy) row[0];
             Long count = (Long) row[1];
 
-            List<TradeReview> strategyReviews = allReviews.stream()
-                    .filter(r -> r.getStrategy() == strategy)
-                    .collect(Collectors.toList());
+            List<TradeReview> strategyReviews =
+                    allReviews.stream()
+                            .filter(r -> r.getStrategy() == strategy)
+                            .collect(Collectors.toList());
 
-            long winCount = strategyReviews.stream()
-                    .filter(r -> r.getTransaction() != null &&
-                            r.getTransaction().getRealizedPnl() != null &&
-                            r.getTransaction().getRealizedPnl().compareTo(BigDecimal.ZERO) > 0)
-                    .count();
+            long winCount =
+                    strategyReviews.stream()
+                            .filter(
+                                    r ->
+                                            r.getTransaction() != null
+                                                    && r.getTransaction().getRealizedPnl() != null
+                                                    && r.getTransaction()
+                                                                    .getRealizedPnl()
+                                                                    .compareTo(BigDecimal.ZERO)
+                                                            > 0)
+                            .count();
 
-            BigDecimal winRate = count > 0
-                    ? BigDecimal.valueOf((double) winCount / count * 100).setScale(2, RoundingMode.HALF_UP)
-                    : BigDecimal.ZERO;
+            BigDecimal winRate =
+                    count > 0
+                            ? BigDecimal.valueOf((double) winCount / count * 100)
+                                    .setScale(2, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO;
 
-            BigDecimal totalProfit = strategyReviews.stream()
-                    .filter(r -> r.getTransaction() != null && r.getTransaction().getRealizedPnl() != null)
-                    .map(r -> r.getTransaction().getRealizedPnl())
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalProfit =
+                    strategyReviews.stream()
+                            .filter(
+                                    r ->
+                                            r.getTransaction() != null
+                                                    && r.getTransaction().getRealizedPnl() != null)
+                            .map(r -> r.getTransaction().getRealizedPnl())
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            strategyStats.put(strategy, StrategyStats.builder()
-                    .strategy(strategy)
-                    .strategyLabel(strategy.getLabel())
-                    .count(count.intValue())
-                    .winRate(winRate)
-                    .avgProfit(count > 0 ? totalProfit.divide(new BigDecimal(count), 2, RoundingMode.HALF_UP) : BigDecimal.ZERO)
-                    .totalProfit(totalProfit)
-                    .build());
+            strategyStats.put(
+                    strategy,
+                    StrategyStats.builder()
+                            .strategy(strategy)
+                            .strategyLabel(strategy.getLabel())
+                            .count(count.intValue())
+                            .winRate(winRate)
+                            .avgProfit(
+                                    count > 0
+                                            ? totalProfit.divide(
+                                                    new BigDecimal(count), 2, RoundingMode.HALF_UP)
+                                            : BigDecimal.ZERO)
+                            .totalProfit(totalProfit)
+                            .build());
         }
 
         // 감정 통계
@@ -193,12 +202,14 @@ public class TradeReviewService {
             Long count = (Long) row[1];
             Double winRate = (Double) row[2];
 
-            emotionStats.put(emotion, EmotionStats.builder()
-                    .emotion(emotion)
-                    .emotionLabel(emotion.getLabel())
-                    .count(count.intValue())
-                    .winRate(BigDecimal.valueOf(winRate).setScale(2, RoundingMode.HALF_UP))
-                    .build());
+            emotionStats.put(
+                    emotion,
+                    EmotionStats.builder()
+                            .emotion(emotion)
+                            .emotionLabel(emotion.getLabel())
+                            .count(count.intValue())
+                            .winRate(BigDecimal.valueOf(winRate).setScale(2, RoundingMode.HALF_UP))
+                            .build());
         }
 
         // 계획 준수 통계
@@ -216,20 +227,39 @@ public class TradeReviewService {
         }
 
         // 최근 교훈
-        List<LessonSummary> recentLessons = allReviews.stream()
-                .filter(r -> r.getLessonsLearned() != null && !r.getLessonsLearned().isEmpty())
-                .sorted(Comparator.comparing(TradeReview::getReviewedAt).reversed())
-                .limit(5)
-                .map(r -> LessonSummary.builder()
-                        .reviewId(r.getId())
-                        .stockName(r.getTransaction() != null ? r.getTransaction().getStock().getName() : "")
-                        .lessonsLearned(r.getLessonsLearned())
-                        .reviewedAt(r.getReviewedAt())
-                        .isWin(r.getTransaction() != null &&
-                                r.getTransaction().getRealizedPnl() != null &&
-                                r.getTransaction().getRealizedPnl().compareTo(BigDecimal.ZERO) > 0)
-                        .build())
-                .collect(Collectors.toList());
+        List<LessonSummary> recentLessons =
+                allReviews.stream()
+                        .filter(
+                                r ->
+                                        r.getLessonsLearned() != null
+                                                && !r.getLessonsLearned().isEmpty())
+                        .sorted(Comparator.comparing(TradeReview::getReviewedAt).reversed())
+                        .limit(5)
+                        .map(
+                                r ->
+                                        LessonSummary.builder()
+                                                .reviewId(r.getId())
+                                                .stockName(
+                                                        r.getTransaction() != null
+                                                                ? r.getTransaction()
+                                                                        .getStock()
+                                                                        .getName()
+                                                                : "")
+                                                .lessonsLearned(r.getLessonsLearned())
+                                                .reviewedAt(r.getReviewedAt())
+                                                .isWin(
+                                                        r.getTransaction() != null
+                                                                && r.getTransaction()
+                                                                                .getRealizedPnl()
+                                                                        != null
+                                                                && r.getTransaction()
+                                                                                .getRealizedPnl()
+                                                                                .compareTo(
+                                                                                        BigDecimal
+                                                                                                .ZERO)
+                                                                        > 0)
+                                                .build())
+                        .collect(Collectors.toList());
 
         // 인기 태그
         Map<String, Integer> tagCounts = new HashMap<>();
@@ -241,16 +271,19 @@ public class TradeReviewService {
                 }
             }
         }
-        List<String> topTags = tagCounts.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .limit(10)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
+        List<String> topTags =
+                tagCounts.entrySet().stream()
+                        .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                        .limit(10)
+                        .map(Map.Entry::getKey)
+                        .collect(Collectors.toList());
 
         int totalReviews = allReviews.size();
-        BigDecimal reviewRate = totalTransactions > 0
-                ? BigDecimal.valueOf((double) totalReviews / totalTransactions * 100).setScale(2, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
+        BigDecimal reviewRate =
+                totalTransactions > 0
+                        ? BigDecimal.valueOf((double) totalReviews / totalTransactions * 100)
+                                .setScale(2, RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO;
 
         return ReviewStatisticsDto.builder()
                 .totalReviews(totalReviews)
@@ -266,19 +299,20 @@ public class TradeReviewService {
                 .build();
     }
 
-    /**
-     * Entity -> DTO 변환
-     */
+    /** Entity -> DTO 변환 */
     private TradeReviewDto toDto(TradeReview review) {
         Transaction tx = review.getTransaction();
 
         BigDecimal profitPercent = BigDecimal.ZERO;
-        if (tx != null && tx.getCostBasis() != null && tx.getCostBasis().compareTo(BigDecimal.ZERO) > 0
+        if (tx != null
+                && tx.getCostBasis() != null
+                && tx.getCostBasis().compareTo(BigDecimal.ZERO) > 0
                 && tx.getRealizedPnl() != null) {
-            profitPercent = tx.getRealizedPnl()
-                    .divide(tx.getCostBasis(), 4, RoundingMode.HALF_UP)
-                    .multiply(new BigDecimal("100"))
-                    .setScale(2, RoundingMode.HALF_UP);
+            profitPercent =
+                    tx.getRealizedPnl()
+                            .divide(tx.getCostBasis(), 4, RoundingMode.HALF_UP)
+                            .multiply(new BigDecimal("100"))
+                            .setScale(2, RoundingMode.HALF_UP);
         }
 
         return TradeReviewDto.builder()
@@ -290,13 +324,20 @@ public class TradeReviewService {
                 .realizedPnl(tx != null ? tx.getRealizedPnl() : null)
                 .profitPercent(profitPercent)
                 .strategy(review.getStrategy())
-                .strategyLabel(review.getStrategy() != null ? review.getStrategy().getLabel() : null)
+                .strategyLabel(
+                        review.getStrategy() != null ? review.getStrategy().getLabel() : null)
                 .entryReason(review.getEntryReason())
                 .exitReason(review.getExitReason())
                 .emotionBefore(review.getEmotionBefore())
-                .emotionBeforeLabel(review.getEmotionBefore() != null ? review.getEmotionBefore().getLabel() : null)
+                .emotionBeforeLabel(
+                        review.getEmotionBefore() != null
+                                ? review.getEmotionBefore().getLabel()
+                                : null)
                 .emotionAfter(review.getEmotionAfter())
-                .emotionAfterLabel(review.getEmotionAfter() != null ? review.getEmotionAfter().getLabel() : null)
+                .emotionAfterLabel(
+                        review.getEmotionAfter() != null
+                                ? review.getEmotionAfter().getLabel()
+                                : null)
                 .reviewNote(review.getReviewNote())
                 .lessonsLearned(review.getLessonsLearned())
                 .ratingScore(review.getRatingScore())

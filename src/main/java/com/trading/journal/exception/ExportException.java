@@ -1,8 +1,6 @@
 package com.trading.journal.exception;
 
-/**
- * 데이터 내보내기(Excel, PDF, CSV) 중 발생하는 예외
- */
+/** 데이터 내보내기(Excel, PDF, CSV) 중 발생하는 예외 */
 public class ExportException extends RuntimeException {
 
     private final String exportType;

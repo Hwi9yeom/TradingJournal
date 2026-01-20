@@ -6,9 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * 대시보드 위젯 DTO
- */
+/** 대시보드 위젯 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

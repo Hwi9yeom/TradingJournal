@@ -1,20 +1,17 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.*;
 
-/**
- * 전략 템플릿 엔티티
- * 백테스트 전략 설정을 템플릿으로 저장하여 재사용
- */
+/** 전략 템플릿 엔티티 백테스트 전략 설정을 템플릿으로 저장하여 재사용 */
 @Entity
-@Table(name = "strategy_templates",
+@Table(
+        name = "strategy_templates",
         indexes = {
-                @Index(name = "idx_template_account", columnList = "account_id"),
-                @Index(name = "idx_template_strategy", columnList = "strategy_type")
+            @Index(name = "idx_template_account", columnList = "account_id"),
+            @Index(name = "idx_template_strategy", columnList = "strategy_type")
         })
 @Data
 @NoArgsConstructor
@@ -95,9 +92,7 @@ public class StrategyTemplate {
         updatedAt = LocalDateTime.now();
     }
 
-    /**
-     * 사용 횟수 증가
-     */
+    /** 사용 횟수 증가 */
     public void incrementUsageCount() {
         this.usageCount = (this.usageCount == null ? 0 : this.usageCount) + 1;
     }

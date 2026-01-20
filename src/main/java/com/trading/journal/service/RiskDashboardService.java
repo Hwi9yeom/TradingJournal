@@ -9,21 +9,19 @@ import com.trading.journal.entity.Sector;
 import com.trading.journal.entity.Transaction;
 import com.trading.journal.repository.PortfolioRepository;
 import com.trading.journal.repository.TransactionRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -75,25 +73,28 @@ public class RiskDashboardService {
     private final StockPriceService stockPriceService;
     private final AccountService accountService;
 
-    /**
-     * 종합 리스크 대시보드 조회
-     */
+    /** 종합 리스크 대시보드 조회 */
     @Cacheable(value = "risk", key = "'dashboard_' + #accountId")
     public RiskDashboardDto getRiskDashboard(Long accountId) {
         Long targetAccountId = resolveAccountId(accountId);
 
         AccountRiskSettingsDto settings = riskSettingsService.getRiskSettings(targetAccountId);
-        BigDecimal capital = settings.getAccountCapital() != null ?
-                settings.getAccountCapital() : BigDecimal.ZERO;
+        BigDecimal capital =
+                settings.getAccountCapital() != null
+                        ? settings.getAccountCapital()
+                        : BigDecimal.ZERO;
 
         // 포트폴리오 가치 계산
         BigDecimal totalPortfolioValue = calculateTotalPortfolioValue(targetAccountId);
 
         // 오픈 리스크 계산
         BigDecimal totalOpenRisk = calculateTotalOpenRisk(targetAccountId);
-        BigDecimal openRiskPercent = capital.compareTo(BigDecimal.ZERO) > 0 ?
-                totalOpenRisk.divide(capital, DECIMAL_SCALE, RoundingMode.HALF_UP).multiply(PERCENT_MULTIPLIER) :
-                BigDecimal.ZERO;
+        BigDecimal openRiskPercent =
+                capital.compareTo(BigDecimal.ZERO) > 0
+                        ? totalOpenRisk
+                                .divide(capital, DECIMAL_SCALE, RoundingMode.HALF_UP)
+                                .multiply(PERCENT_MULTIPLIER)
+                        : BigDecimal.ZERO;
 
         // P&L 계산
         BigDecimal todayPnl = riskSettingsService.getTodayPnl(targetAccountId);
@@ -106,15 +107,16 @@ public class RiskDashboardService {
 
         // 한도 상태
         RiskLimitStatus dailyStatus = calculateDailyLossStatus(targetAccountId, settings, todayPnl);
-        RiskLimitStatus weeklyStatus = calculateWeeklyLossStatus(targetAccountId, settings, weekPnl);
+        RiskLimitStatus weeklyStatus =
+                calculateWeeklyLossStatus(targetAccountId, settings, weekPnl);
         RiskLimitStatus positionStatus = calculatePositionCountStatus(targetAccountId, settings);
 
         // 집중도 알림
         List<ConcentrationAlert> alerts = checkConcentrationLimits(targetAccountId, settings);
 
         // R-multiple 분석
-        RMultipleAnalysis rMultipleAnalysis = analyzeRMultiples(targetAccountId,
-                LocalDate.now().minusMonths(3), LocalDate.now());
+        RMultipleAnalysis rMultipleAnalysis =
+                analyzeRMultiples(targetAccountId, LocalDate.now().minusMonths(3), LocalDate.now());
 
         // 포지션별 리스크
         List<PositionRiskSummary> positionRisks = getPositionRisks(targetAccountId);
@@ -125,8 +127,9 @@ public class RiskDashboardService {
         // 기존 리스크 지표
         RiskMetricsDto riskMetrics = null;
         try {
-            riskMetrics = riskMetricsService.calculateRiskMetrics(targetAccountId,
-                    LocalDate.now().minusMonths(6), LocalDate.now());
+            riskMetrics =
+                    riskMetricsService.calculateRiskMetrics(
+                            targetAccountId, LocalDate.now().minusMonths(6), LocalDate.now());
         } catch (Exception e) {
             log.warn("Failed to get risk metrics: {}", e.getMessage());
         }
@@ -153,16 +156,16 @@ public class RiskDashboardService {
                 .build();
     }
 
-    /**
-     * R-multiple 분석
-     */
-    public RMultipleAnalysis analyzeRMultiples(Long accountId, LocalDate startDate, LocalDate endDate) {
+    /** R-multiple 분석 */
+    public RMultipleAnalysis analyzeRMultiples(
+            Long accountId, LocalDate startDate, LocalDate endDate) {
         Long targetAccountId = resolveAccountId(accountId);
         LocalDateTime start = startDate.atStartOfDay();
         LocalDateTime end = endDate.atTime(23, 59, 59);
 
-        List<Transaction> transactions = transactionRepository.findSellTransactionsWithRMultiple(
-                targetAccountId, start, end);
+        List<Transaction> transactions =
+                transactionRepository.findSellTransactionsWithRMultiple(
+                        targetAccountId, start, end);
 
         if (transactions.isEmpty()) {
             return RMultipleAnalysis.builder()
@@ -173,11 +176,12 @@ public class RiskDashboardService {
                     .build();
         }
 
-        List<BigDecimal> rMultiples = transactions.stream()
-                .map(Transaction::getRMultiple)
-                .filter(Objects::nonNull)
-                .sorted()
-                .collect(Collectors.toList());
+        List<BigDecimal> rMultiples =
+                transactions.stream()
+                        .map(Transaction::getRMultiple)
+                        .filter(Objects::nonNull)
+                        .sorted()
+                        .collect(Collectors.toList());
 
         if (rMultiples.isEmpty()) {
             return RMultipleAnalysis.builder()
@@ -190,13 +194,17 @@ public class RiskDashboardService {
 
         // 통계 계산
         BigDecimal sum = rMultiples.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal average = sum.divide(BigDecimal.valueOf(rMultiples.size()), DECIMAL_SCALE, RoundingMode.HALF_UP);
+        BigDecimal average =
+                sum.divide(
+                        BigDecimal.valueOf(rMultiples.size()), DECIMAL_SCALE, RoundingMode.HALF_UP);
         BigDecimal median = rMultiples.get(rMultiples.size() / 2);
         BigDecimal best = rMultiples.get(rMultiples.size() - 1);
         BigDecimal worst = rMultiples.get(0);
 
-        int positiveR = (int) rMultiples.stream().filter(r -> r.compareTo(BigDecimal.ZERO) > 0).count();
-        int negativeR = (int) rMultiples.stream().filter(r -> r.compareTo(BigDecimal.ZERO) < 0).count();
+        int positiveR =
+                (int) rMultiples.stream().filter(r -> r.compareTo(BigDecimal.ZERO) > 0).count();
+        int negativeR =
+                (int) rMultiples.stream().filter(r -> r.compareTo(BigDecimal.ZERO) < 0).count();
 
         // 기대값 (Expectancy) - Average R-multiple already represents expectancy
         BigDecimal expectancy = average;
@@ -216,19 +224,20 @@ public class RiskDashboardService {
                 .build();
     }
 
-    /**
-     * 포지션별 리스크 요약
-     */
+    /** 포지션별 리스크 요약 */
     public List<PositionRiskSummary> getPositionRisks(Long accountId) {
         Long targetAccountId = resolveAccountId(accountId);
         List<Portfolio> portfolios = portfolioRepository.findByAccountIdWithStock(targetAccountId);
 
         AccountRiskSettingsDto settings = riskSettingsService.getRiskSettings(targetAccountId);
-        BigDecimal capital = settings.getAccountCapital() != null ?
-                settings.getAccountCapital() : BigDecimal.ZERO;
+        BigDecimal capital =
+                settings.getAccountCapital() != null
+                        ? settings.getAccountCapital()
+                        : BigDecimal.ZERO;
 
         // 배치 로딩: 모든 BUY 거래를 한 번에 조회 (N+1 쿼리 최적화)
-        Map<Long, List<Transaction>> buyTransactionsByStock = batchFetchBuyTransactions(targetAccountId);
+        Map<Long, List<Transaction>> buyTransactionsByStock =
+                batchFetchBuyTransactions(targetAccountId);
 
         // 배치로 가격 조회 (N+1 쿼리 방지)
         Map<String, BigDecimal> priceMap = batchFetchCurrentPrices(portfolios);
@@ -245,9 +254,15 @@ public class RiskDashboardService {
 
             BigDecimal positionValue = portfolio.getQuantity().multiply(currentPrice);
             BigDecimal unrealizedPnl = positionValue.subtract(portfolio.getTotalInvestment());
-            BigDecimal unrealizedPnlPercent = portfolio.getTotalInvestment().compareTo(BigDecimal.ZERO) > 0 ?
-                    unrealizedPnl.divide(portfolio.getTotalInvestment(), DECIMAL_SCALE, RoundingMode.HALF_UP)
-                            .multiply(PERCENT_MULTIPLIER) : BigDecimal.ZERO;
+            BigDecimal unrealizedPnlPercent =
+                    portfolio.getTotalInvestment().compareTo(BigDecimal.ZERO) > 0
+                            ? unrealizedPnl
+                                    .divide(
+                                            portfolio.getTotalInvestment(),
+                                            DECIMAL_SCALE,
+                                            RoundingMode.HALF_UP)
+                                    .multiply(PERCENT_MULTIPLIER)
+                            : BigDecimal.ZERO;
 
             // 손절가 및 초기 리스크 조회 (최근 BUY 거래에서)
             BigDecimal stopLossPrice = null;
@@ -256,8 +271,9 @@ public class RiskDashboardService {
             BigDecimal currentR = null;
 
             // Map에서 해당 종목의 BUY 거래 조회 (이미 로드된 데이터 사용)
-            List<Transaction> buyTransactions = buyTransactionsByStock
-                    .getOrDefault(portfolio.getStock().getId(), Collections.emptyList());
+            List<Transaction> buyTransactions =
+                    buyTransactionsByStock.getOrDefault(
+                            portfolio.getStock().getId(), Collections.emptyList());
 
             if (!buyTransactions.isEmpty()) {
                 Transaction latestBuy = buyTransactions.get(buyTransactions.size() - 1);
@@ -265,41 +281,49 @@ public class RiskDashboardService {
                 takeProfitPrice = latestBuy.getTakeProfitPrice();
 
                 if (stopLossPrice != null) {
-                    riskAmount = portfolio.getAveragePrice().subtract(stopLossPrice).abs()
-                            .multiply(portfolio.getQuantity());
+                    riskAmount =
+                            portfolio
+                                    .getAveragePrice()
+                                    .subtract(stopLossPrice)
+                                    .abs()
+                                    .multiply(portfolio.getQuantity());
 
                     // 현재 R 계산
-                    currentR = calculateCurrentR(latestBuy, currentPrice, portfolio.getAveragePrice());
+                    currentR =
+                            calculateCurrentR(latestBuy, currentPrice, portfolio.getAveragePrice());
                 }
             }
 
-            BigDecimal positionRiskPercent = capital.compareTo(BigDecimal.ZERO) > 0 ?
-                    riskAmount.divide(capital, DECIMAL_SCALE, RoundingMode.HALF_UP).multiply(PERCENT_MULTIPLIER) :
-                    BigDecimal.ZERO;
+            BigDecimal positionRiskPercent =
+                    capital.compareTo(BigDecimal.ZERO) > 0
+                            ? riskAmount
+                                    .divide(capital, DECIMAL_SCALE, RoundingMode.HALF_UP)
+                                    .multiply(PERCENT_MULTIPLIER)
+                            : BigDecimal.ZERO;
 
-            risks.add(PositionRiskSummary.builder()
-                    .stockSymbol(symbol)
-                    .stockName(portfolio.getStock().getName())
-                    .quantity(portfolio.getQuantity())
-                    .entryPrice(portfolio.getAveragePrice())
-                    .currentPrice(currentPrice)
-                    .stopLossPrice(stopLossPrice)
-                    .takeProfitPrice(takeProfitPrice)
-                    .unrealizedPnl(unrealizedPnl)
-                    .unrealizedPnlPercent(unrealizedPnlPercent)
-                    .riskAmount(riskAmount)
-                    .positionRiskPercent(positionRiskPercent)
-                    .currentR(currentR)
-                    .build());
+            risks.add(
+                    PositionRiskSummary.builder()
+                            .stockSymbol(symbol)
+                            .stockName(portfolio.getStock().getName())
+                            .quantity(portfolio.getQuantity())
+                            .entryPrice(portfolio.getAveragePrice())
+                            .currentPrice(currentPrice)
+                            .stopLossPrice(stopLossPrice)
+                            .takeProfitPrice(takeProfitPrice)
+                            .unrealizedPnl(unrealizedPnl)
+                            .unrealizedPnlPercent(unrealizedPnlPercent)
+                            .riskAmount(riskAmount)
+                            .positionRiskPercent(positionRiskPercent)
+                            .currentR(currentR)
+                            .build());
         }
 
         return risks;
     }
 
-    /**
-     * 집중도 한도 체크
-     */
-    public List<ConcentrationAlert> checkConcentrationLimits(Long accountId, AccountRiskSettingsDto settings) {
+    /** 집중도 한도 체크 */
+    public List<ConcentrationAlert> checkConcentrationLimits(
+            Long accountId, AccountRiskSettingsDto settings) {
         Long targetAccountId = resolveAccountId(accountId);
         List<ConcentrationAlert> alerts = new ArrayList<>();
 
@@ -327,28 +351,30 @@ public class RiskDashboardService {
             BigDecimal currentPrice = getPrice(priceMap, symbol, portfolio.getAveragePrice());
 
             BigDecimal positionValue = portfolio.getQuantity().multiply(currentPrice);
-            BigDecimal concentration = positionValue.divide(capital, DECIMAL_SCALE, RoundingMode.HALF_UP)
-                    .multiply(PERCENT_MULTIPLIER);
+            BigDecimal concentration =
+                    positionValue
+                            .divide(capital, DECIMAL_SCALE, RoundingMode.HALF_UP)
+                            .multiply(PERCENT_MULTIPLIER);
 
             if (concentration.compareTo(settings.getMaxStockConcentrationPercent()) > 0) {
-                alerts.add(ConcentrationAlert.builder()
-                        .stockSymbol(symbol)
-                        .stockName(portfolio.getStock().getName())
-                        .sector(portfolio.getStock().getSector())
-                        .concentration(concentration)
-                        .limit(settings.getMaxStockConcentrationPercent())
-                        .alertType(ALERT_TYPE_STOCK)
-                        .build());
+                alerts.add(
+                        ConcentrationAlert.builder()
+                                .stockSymbol(symbol)
+                                .stockName(portfolio.getStock().getName())
+                                .sector(portfolio.getStock().getSector())
+                                .concentration(concentration)
+                                .limit(settings.getMaxStockConcentrationPercent())
+                                .alertType(ALERT_TYPE_STOCK)
+                                .build());
             }
         }
 
         return alerts;
     }
 
-    /**
-     * 섹터 노출 조회
-     */
-    public List<SectorExposure> getSectorExposures(Long accountId, AccountRiskSettingsDto settings) {
+    /** 섹터 노출 조회 */
+    public List<SectorExposure> getSectorExposures(
+            Long accountId, AccountRiskSettingsDto settings) {
         Long targetAccountId = resolveAccountId(accountId);
 
         if (settings == null) {
@@ -389,19 +415,24 @@ public class RiskDashboardService {
         final BigDecimal finalCapital = capital;
 
         return sectorValues.entrySet().stream()
-                .map(entry -> {
-                    BigDecimal percentage = entry.getValue()
-                            .divide(finalCapital, DECIMAL_SCALE, RoundingMode.HALF_UP)
-                            .multiply(PERCENT_MULTIPLIER);
-                    return SectorExposure.builder()
-                            .sector(entry.getKey())
-                            .sectorLabel(entry.getKey().getLabel())
-                            .value(entry.getValue())
-                            .percentage(percentage)
-                            .limit(sectorLimit)
-                            .exceedsLimit(percentage.compareTo(sectorLimit) > 0)
-                            .build();
-                })
+                .map(
+                        entry -> {
+                            BigDecimal percentage =
+                                    entry.getValue()
+                                            .divide(
+                                                    finalCapital,
+                                                    DECIMAL_SCALE,
+                                                    RoundingMode.HALF_UP)
+                                            .multiply(PERCENT_MULTIPLIER);
+                            return SectorExposure.builder()
+                                    .sector(entry.getKey())
+                                    .sectorLabel(entry.getKey().getLabel())
+                                    .value(entry.getValue())
+                                    .percentage(percentage)
+                                    .limit(sectorLimit)
+                                    .exceedsLimit(percentage.compareTo(sectorLimit) > 0)
+                                    .build();
+                        })
                 .sorted((a, b) -> b.getPercentage().compareTo(a.getPercentage()))
                 .collect(Collectors.toList());
     }
@@ -416,8 +447,7 @@ public class RiskDashboardService {
     }
 
     /**
-     * 포트폴리오의 모든 종목에 대해 현재 가격을 배치로 조회합니다. (N+1 쿼리 방지)
-     * 가격 조회 실패 시 평균 매수가를 fallback으로 사용합니다.
+     * 포트폴리오의 모든 종목에 대해 현재 가격을 배치로 조회합니다. (N+1 쿼리 방지) 가격 조회 실패 시 평균 매수가를 fallback으로 사용합니다.
      *
      * @param portfolios 포트폴리오 목록
      * @return 종목 심볼 -> 현재 가격 Map
@@ -426,11 +456,12 @@ public class RiskDashboardService {
         Map<String, BigDecimal> priceMap = new HashMap<>();
 
         // 활성 포지션의 심볼만 추출
-        List<String> symbols = portfolios.stream()
-                .filter(p -> p.getQuantity().compareTo(BigDecimal.ZERO) > 0)
-                .map(p -> p.getStock().getSymbol())
-                .distinct()
-                .collect(Collectors.toList());
+        List<String> symbols =
+                portfolios.stream()
+                        .filter(p -> p.getQuantity().compareTo(BigDecimal.ZERO) > 0)
+                        .map(p -> p.getStock().getSymbol())
+                        .distinct()
+                        .collect(Collectors.toList());
 
         if (symbols.isEmpty()) {
             return priceMap;
@@ -442,8 +473,10 @@ public class RiskDashboardService {
                 BigDecimal price = stockPriceService.getCurrentPrice(symbol);
                 priceMap.put(symbol, price);
             } catch (Exception e) {
-                log.debug("Price fetch failed for {}, will use average price as fallback: {}",
-                        symbol, e.getMessage());
+                log.debug(
+                        "Price fetch failed for {}, will use average price as fallback: {}",
+                        symbol,
+                        e.getMessage());
                 // fallback 가격은 호출 시점에 처리
             }
         }
@@ -452,15 +485,15 @@ public class RiskDashboardService {
     }
 
     /**
-     * 캐시된 가격 Map에서 현재 가격을 조회합니다.
-     * 가격이 없으면 fallback 가격을 반환합니다.
+     * 캐시된 가격 Map에서 현재 가격을 조회합니다. 가격이 없으면 fallback 가격을 반환합니다.
      *
      * @param priceMap 캐시된 가격 Map
      * @param symbol 종목 심볼
      * @param fallbackPrice fallback 가격 (일반적으로 평균 매수가)
      * @return 현재 가격 또는 fallback 가격
      */
-    private BigDecimal getPrice(Map<String, BigDecimal> priceMap, String symbol, BigDecimal fallbackPrice) {
+    private BigDecimal getPrice(
+            Map<String, BigDecimal> priceMap, String symbol, BigDecimal fallbackPrice) {
         return priceMap.getOrDefault(symbol, fallbackPrice);
     }
 
@@ -489,14 +522,17 @@ public class RiskDashboardService {
      * @param averagePrice 평균 매수가
      * @return 현재 R 값 (계산 불가 시 null)
      */
-    private BigDecimal calculateCurrentR(Transaction buyTransaction, BigDecimal currentPrice, BigDecimal averagePrice) {
-        if (buyTransaction.getInitialRiskAmount() == null ||
-            buyTransaction.getInitialRiskAmount().compareTo(BigDecimal.ZERO) <= 0) {
+    private BigDecimal calculateCurrentR(
+            Transaction buyTransaction, BigDecimal currentPrice, BigDecimal averagePrice) {
+        if (buyTransaction.getInitialRiskAmount() == null
+                || buyTransaction.getInitialRiskAmount().compareTo(BigDecimal.ZERO) <= 0) {
             return null;
         }
 
-        BigDecimal avgRiskPerShare = buyTransaction.getInitialRiskAmount()
-                .divide(buyTransaction.getQuantity(), DECIMAL_SCALE, RoundingMode.HALF_UP);
+        BigDecimal avgRiskPerShare =
+                buyTransaction
+                        .getInitialRiskAmount()
+                        .divide(buyTransaction.getQuantity(), DECIMAL_SCALE, RoundingMode.HALF_UP);
         BigDecimal currentRiskPerShare = currentPrice.subtract(averagePrice);
         return currentRiskPerShare.divide(avgRiskPerShare, DECIMAL_SCALE, RoundingMode.HALF_UP);
     }
@@ -536,14 +572,18 @@ public class RiskDashboardService {
             }
 
             // Map에서 해당 종목의 BUY 거래 조회 (이미 로드된 데이터 사용)
-            List<Transaction> buyTransactions = buyTransactionsByStock
-                    .getOrDefault(portfolio.getStock().getId(), Collections.emptyList());
+            List<Transaction> buyTransactions =
+                    buyTransactionsByStock.getOrDefault(
+                            portfolio.getStock().getId(), Collections.emptyList());
 
             if (!buyTransactions.isEmpty()) {
                 Transaction latestBuy = buyTransactions.get(buyTransactions.size() - 1);
                 if (latestBuy.getStopLossPrice() != null) {
-                    BigDecimal riskPerShare = portfolio.getAveragePrice()
-                            .subtract(latestBuy.getStopLossPrice()).abs();
+                    BigDecimal riskPerShare =
+                            portfolio
+                                    .getAveragePrice()
+                                    .subtract(latestBuy.getStopLossPrice())
+                                    .abs();
                     totalRisk = totalRisk.add(riskPerShare.multiply(portfolio.getQuantity()));
                 }
             }
@@ -565,23 +605,27 @@ public class RiskDashboardService {
         if (capital == null || capital.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
         }
-        return pnl.divide(capital, DECIMAL_SCALE, RoundingMode.HALF_UP).multiply(PERCENT_MULTIPLIER);
+        return pnl.divide(capital, DECIMAL_SCALE, RoundingMode.HALF_UP)
+                .multiply(PERCENT_MULTIPLIER);
     }
 
-    private RiskLimitStatus calculateDailyLossStatus(Long accountId, AccountRiskSettingsDto settings,
-                                                      BigDecimal todayPnl) {
+    private RiskLimitStatus calculateDailyLossStatus(
+            Long accountId, AccountRiskSettingsDto settings, BigDecimal todayPnl) {
         BigDecimal capital = settings.getAccountCapital();
         if (capital == null || capital.compareTo(BigDecimal.ZERO) == 0) {
             return RiskLimitStatus.builder().statusLabel(STATUS_NA).build();
         }
 
-        BigDecimal limit = capital.multiply(settings.getMaxDailyLossPercent())
-                .divide(PERCENT_MULTIPLIER, DECIMAL_SCALE, RoundingMode.HALF_UP);
+        BigDecimal limit =
+                capital.multiply(settings.getMaxDailyLossPercent())
+                        .divide(PERCENT_MULTIPLIER, DECIMAL_SCALE, RoundingMode.HALF_UP);
         BigDecimal current = todayPnl.negate(); // 손실은 양수로 표시
         BigDecimal remaining = limit.subtract(current.max(BigDecimal.ZERO));
-        BigDecimal percentUsed = current.compareTo(BigDecimal.ZERO) > 0 ?
-                current.divide(limit, DECIMAL_SCALE, RoundingMode.HALF_UP).multiply(PERCENT_MULTIPLIER) :
-                BigDecimal.ZERO;
+        BigDecimal percentUsed =
+                current.compareTo(BigDecimal.ZERO) > 0
+                        ? current.divide(limit, DECIMAL_SCALE, RoundingMode.HALF_UP)
+                                .multiply(PERCENT_MULTIPLIER)
+                        : BigDecimal.ZERO;
         boolean breached = todayPnl.compareTo(limit.negate()) < 0;
 
         String statusLabel = determineStatusLabel(breached, percentUsed);
@@ -596,20 +640,23 @@ public class RiskDashboardService {
                 .build();
     }
 
-    private RiskLimitStatus calculateWeeklyLossStatus(Long accountId, AccountRiskSettingsDto settings,
-                                                       BigDecimal weekPnl) {
+    private RiskLimitStatus calculateWeeklyLossStatus(
+            Long accountId, AccountRiskSettingsDto settings, BigDecimal weekPnl) {
         BigDecimal capital = settings.getAccountCapital();
         if (capital == null || capital.compareTo(BigDecimal.ZERO) == 0) {
             return RiskLimitStatus.builder().statusLabel(STATUS_NA).build();
         }
 
-        BigDecimal limit = capital.multiply(settings.getMaxWeeklyLossPercent())
-                .divide(PERCENT_MULTIPLIER, DECIMAL_SCALE, RoundingMode.HALF_UP);
+        BigDecimal limit =
+                capital.multiply(settings.getMaxWeeklyLossPercent())
+                        .divide(PERCENT_MULTIPLIER, DECIMAL_SCALE, RoundingMode.HALF_UP);
         BigDecimal current = weekPnl.negate();
         BigDecimal remaining = limit.subtract(current.max(BigDecimal.ZERO));
-        BigDecimal percentUsed = current.compareTo(BigDecimal.ZERO) > 0 ?
-                current.divide(limit, DECIMAL_SCALE, RoundingMode.HALF_UP).multiply(PERCENT_MULTIPLIER) :
-                BigDecimal.ZERO;
+        BigDecimal percentUsed =
+                current.compareTo(BigDecimal.ZERO) > 0
+                        ? current.divide(limit, DECIMAL_SCALE, RoundingMode.HALF_UP)
+                                .multiply(PERCENT_MULTIPLIER)
+                        : BigDecimal.ZERO;
         boolean breached = weekPnl.compareTo(limit.negate()) < 0;
 
         String statusLabel = determineStatusLabel(breached, percentUsed);
@@ -624,13 +671,15 @@ public class RiskDashboardService {
                 .build();
     }
 
-    private RiskLimitStatus calculatePositionCountStatus(Long accountId, AccountRiskSettingsDto settings) {
+    private RiskLimitStatus calculatePositionCountStatus(
+            Long accountId, AccountRiskSettingsDto settings) {
         int currentPositions = portfolioRepository.countActivePositionsByAccountId(accountId);
         int limit = settings.getMaxOpenPositions();
         int remaining = limit - currentPositions;
-        BigDecimal percentUsed = BigDecimal.valueOf(currentPositions)
-                .divide(BigDecimal.valueOf(limit), DECIMAL_SCALE, RoundingMode.HALF_UP)
-                .multiply(PERCENT_MULTIPLIER);
+        BigDecimal percentUsed =
+                BigDecimal.valueOf(currentPositions)
+                        .divide(BigDecimal.valueOf(limit), DECIMAL_SCALE, RoundingMode.HALF_UP)
+                        .multiply(PERCENT_MULTIPLIER);
         boolean breached = currentPositions >= limit;
 
         String statusLabel = determineStatusLabel(breached, percentUsed);
@@ -645,7 +694,8 @@ public class RiskDashboardService {
                 .build();
     }
 
-    private List<RMultipleDistribution> calculateRMultipleDistribution(List<BigDecimal> rMultiples) {
+    private List<RMultipleDistribution> calculateRMultipleDistribution(
+            List<BigDecimal> rMultiples) {
         // R-multiple 범위별 분포 계산
         Map<String, Integer> distribution = new LinkedHashMap<>();
         distribution.put(R_LABEL_BELOW_NEG_3, 0);
@@ -665,13 +715,19 @@ public class RiskDashboardService {
 
         int total = rMultiples.size();
         return distribution.entrySet().stream()
-                .map(entry -> RMultipleDistribution.builder()
-                        .range(entry.getKey())
-                        .count(entry.getValue())
-                        .percentage(BigDecimal.valueOf(entry.getValue())
-                                .divide(BigDecimal.valueOf(total), DECIMAL_SCALE, RoundingMode.HALF_UP)
-                                .multiply(PERCENT_MULTIPLIER))
-                        .build())
+                .map(
+                        entry ->
+                                RMultipleDistribution.builder()
+                                        .range(entry.getKey())
+                                        .count(entry.getValue())
+                                        .percentage(
+                                                BigDecimal.valueOf(entry.getValue())
+                                                        .divide(
+                                                                BigDecimal.valueOf(total),
+                                                                DECIMAL_SCALE,
+                                                                RoundingMode.HALF_UP)
+                                                        .multiply(PERCENT_MULTIPLIER))
+                                        .build())
                 .collect(Collectors.toList());
     }
 

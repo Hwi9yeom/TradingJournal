@@ -1,8 +1,6 @@
 package com.trading.journal.exception;
 
-/**
- * 분석 처리 중 발생하는 예외
- */
+/** 분석 처리 중 발생하는 예외 */
 public class AnalysisException extends RuntimeException {
 
     private final String analysisType;

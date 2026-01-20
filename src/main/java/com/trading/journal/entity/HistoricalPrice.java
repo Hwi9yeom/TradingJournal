@@ -1,24 +1,21 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import lombok.*;
 
-/**
- * 주식 과거 가격 데이터 (Yahoo Finance API 캐싱용)
- * 외부 API 호출 횟수를 줄이고 백테스팅 성능을 향상시킵니다.
- */
+/** 주식 과거 가격 데이터 (Yahoo Finance API 캐싱용) 외부 API 호출 횟수를 줄이고 백테스팅 성능을 향상시킵니다. */
 @Entity
-@Table(name = "historical_prices",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"symbol", "price_date"}),
-       indexes = {
-           @Index(name = "idx_historical_symbol", columnList = "symbol"),
-           @Index(name = "idx_historical_date", columnList = "price_date"),
-           @Index(name = "idx_historical_symbol_date", columnList = "symbol, price_date")
-       })
+@Table(
+        name = "historical_prices",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"symbol", "price_date"}),
+        indexes = {
+            @Index(name = "idx_historical_symbol", columnList = "symbol"),
+            @Index(name = "idx_historical_date", columnList = "price_date"),
+            @Index(name = "idx_historical_symbol_date", columnList = "symbol, price_date")
+        })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -58,8 +55,7 @@ public class HistoricalPrice {
     private BigDecimal adjClose;
 
     /** 거래량 */
-    @Column
-    private Long volume;
+    @Column private Long volume;
 
     /** 데이터 생성 시간 */
     @Column(name = "created_at")

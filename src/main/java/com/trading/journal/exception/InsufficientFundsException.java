@@ -2,9 +2,7 @@ package com.trading.journal.exception;
 
 import java.math.BigDecimal;
 
-/**
- * 잔고 부족 시 발생하는 예외
- */
+/** 잔고 부족 시 발생하는 예외 */
 public class InsufficientFundsException extends RuntimeException {
 
     private final BigDecimal required;
@@ -25,7 +23,8 @@ public class InsufficientFundsException extends RuntimeException {
         this.accountName = null;
     }
 
-    public InsufficientFundsException(String accountName, BigDecimal required, BigDecimal available) {
+    public InsufficientFundsException(
+            String accountName, BigDecimal required, BigDecimal available) {
         super(String.format("계좌 '%s' 잔고 부족: 필요 %s, 가용 %s", accountName, required, available));
         this.required = required;
         this.available = available;

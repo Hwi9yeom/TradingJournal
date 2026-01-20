@@ -1,16 +1,13 @@
 package com.trading.journal.dto;
 
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.util.List;
-
-/**
- * 포지션 사이징 계산 결과 DTO
- */
+/** 포지션 사이징 계산 결과 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -93,9 +90,7 @@ public class PositionSizingResultDto {
     /** 다양한 리스크 수준별 시나리오 */
     private List<PositionScenario> scenarios;
 
-    /**
-     * 포지션 시나리오
-     */
+    /** 포지션 시나리오 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

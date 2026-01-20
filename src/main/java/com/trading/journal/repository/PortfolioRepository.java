@@ -1,24 +1,27 @@
 package com.trading.journal.repository;
 
 import com.trading.journal.entity.Portfolio;
+import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
-
 @Repository
 public interface PortfolioRepository extends JpaRepository<Portfolio, Long> {
     // 기존 메서드 (하위 호환성) - account_id가 NULL인 경우 또는 전체 조회용
     Optional<Portfolio> findByStockId(Long stockId);
+
     Optional<Portfolio> findByStockSymbol(String symbol);
 
     // Account 기반 새로운 메서드
     Optional<Portfolio> findByAccountIdAndStockId(Long accountId, Long stockId);
+
     Optional<Portfolio> findByAccountIdAndStockSymbol(Long accountId, String symbol);
+
     List<Portfolio> findByAccountId(Long accountId);
+
     List<Portfolio> findByAccountIdOrderByUpdatedAtDesc(Long accountId);
 
     @Query("SELECT p FROM Portfolio p JOIN FETCH p.stock WHERE p.account.id = :accountId")

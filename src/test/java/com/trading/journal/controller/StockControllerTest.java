@@ -1,7 +1,15 @@
 package com.trading.journal.controller;
 
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import com.trading.journal.config.TestSecurityConfig;
 import com.trading.journal.entity.Stock;
 import com.trading.journal.repository.StockRepository;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,37 +17,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import com.trading.journal.config.TestSecurityConfig;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(StockController.class)
 @Import(TestSecurityConfig.class)
 class StockControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-    @MockitoBean
-    private StockRepository stockRepository;
+    @MockitoBean private StockRepository stockRepository;
 
     private Stock mockStock;
 
     @BeforeEach
     void setUp() {
-        mockStock = Stock.builder()
-                .id(1L)
-                .symbol("AAPL")
-                .name("Apple Inc.")
-                .exchange("NASDAQ")
-                .build();
+        mockStock =
+                Stock.builder().id(1L).symbol("AAPL").name("Apple Inc.").exchange("NASDAQ").build();
     }
 
     @Test
@@ -85,8 +78,7 @@ class StockControllerTest {
         when(stockRepository.findBySymbol("NONEXISTENT")).thenReturn(Optional.empty());
 
         // When & Then
-        mockMvc.perform(get("/api/stocks/NONEXISTENT"))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/stocks/NONEXISTENT")).andExpect(status().isNotFound());
 
         verify(stockRepository).findBySymbol("NONEXISTENT");
     }

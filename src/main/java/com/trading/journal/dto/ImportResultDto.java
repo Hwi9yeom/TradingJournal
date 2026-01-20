@@ -1,12 +1,11 @@
 package com.trading.journal.dto;
 
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -16,9 +15,8 @@ public class ImportResultDto {
     private int totalRows;
     private int successCount;
     private int failureCount;
-    @Builder.Default
-    private List<ImportErrorDto> errors = new ArrayList<>();
-    
+    @Builder.Default private List<ImportErrorDto> errors = new ArrayList<>();
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

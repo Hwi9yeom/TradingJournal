@@ -2,9 +2,7 @@ package com.trading.journal.exception;
 
 import java.time.LocalDate;
 
-/**
- * 가격 데이터 조회/처리 중 발생하는 예외
- */
+/** 가격 데이터 조회/처리 중 발생하는 예외 */
 public class PriceDataException extends RuntimeException {
 
     private final String symbol;
@@ -36,9 +34,9 @@ public class PriceDataException extends RuntimeException {
         this.dataSource = null;
     }
 
-    public PriceDataException(String symbol, LocalDate startDate, LocalDate endDate, String message) {
-        super(String.format("가격 데이터 조회 실패 [%s, %s ~ %s]: %s",
-                symbol, startDate, endDate, message));
+    public PriceDataException(
+            String symbol, LocalDate startDate, LocalDate endDate, String message) {
+        super(String.format("가격 데이터 조회 실패 [%s, %s ~ %s]: %s", symbol, startDate, endDate, message));
         this.symbol = symbol;
         this.startDate = startDate;
         this.endDate = endDate;
@@ -53,10 +51,18 @@ public class PriceDataException extends RuntimeException {
         this.dataSource = dataSource;
     }
 
-    public PriceDataException(String symbol, LocalDate startDate, LocalDate endDate,
-                              String dataSource, String message, Throwable cause) {
-        super(String.format("가격 데이터 조회 실패 [%s, %s ~ %s, 소스: %s]: %s",
-                symbol, startDate, endDate, dataSource, message), cause);
+    public PriceDataException(
+            String symbol,
+            LocalDate startDate,
+            LocalDate endDate,
+            String dataSource,
+            String message,
+            Throwable cause) {
+        super(
+                String.format(
+                        "가격 데이터 조회 실패 [%s, %s ~ %s, 소스: %s]: %s",
+                        symbol, startDate, endDate, dataSource, message),
+                cause);
         this.symbol = symbol;
         this.startDate = startDate;
         this.endDate = endDate;

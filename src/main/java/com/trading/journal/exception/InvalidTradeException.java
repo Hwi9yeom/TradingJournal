@@ -1,8 +1,6 @@
 package com.trading.journal.exception;
 
-/**
- * 잘못된 거래 요청 시 발생하는 예외
- */
+/** 잘못된 거래 요청 시 발생하는 예외 */
 public class InvalidTradeException extends RuntimeException {
 
     private final String tradeType;

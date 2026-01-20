@@ -1,8 +1,6 @@
 package com.trading.journal.entity;
 
-/**
- * 벤치마크 지수 유형
- */
+/** 벤치마크 지수 유형 */
 public enum BenchmarkType {
     SP500("S&P 500", "^GSPC", "미국 대형주 500개 종목 지수"),
     NASDAQ("NASDAQ", "^IXIC", "미국 나스닥 종합 지수"),

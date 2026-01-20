@@ -1,8 +1,6 @@
 package com.trading.journal.entity;
 
-/**
- * 투자 목표 유형
- */
+/** 투자 목표 유형 */
 public enum GoalType {
     /** 목표 수익률 (%) */
     RETURN_RATE,

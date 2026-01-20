@@ -5,12 +5,6 @@ import com.trading.journal.dto.BenchmarkComparisonDto.*;
 import com.trading.journal.entity.BenchmarkPrice;
 import com.trading.journal.entity.BenchmarkType;
 import com.trading.journal.repository.BenchmarkPriceRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -19,6 +13,11 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -32,21 +31,28 @@ public class BenchmarkService {
     private static final MathContext MC = new MathContext(10, RoundingMode.HALF_UP);
     private static final BigDecimal RISK_FREE_RATE = new BigDecimal("0.03"); // 3% 연간 무위험 이자율
 
-    /**
-     * 포트폴리오와 벤치마크 비교 분석
-     */
-    @Cacheable(value = "benchmarkComparison", key = "#accountId + '_' + #benchmark + '_' + #startDate + '_' + #endDate")
-    public BenchmarkComparisonDto compareToBenchmark(Long accountId, BenchmarkType benchmark,
-                                                      LocalDate startDate, LocalDate endDate) {
-        log.info("Comparing portfolio {} to benchmark {} from {} to {}", accountId, benchmark, startDate, endDate);
+    /** 포트폴리오와 벤치마크 비교 분석 */
+    @Cacheable(
+            value = "benchmarkComparison",
+            key = "#accountId + '_' + #benchmark + '_' + #startDate + '_' + #endDate")
+    public BenchmarkComparisonDto compareToBenchmark(
+            Long accountId, BenchmarkType benchmark, LocalDate startDate, LocalDate endDate) {
+        log.info(
+                "Comparing portfolio {} to benchmark {} from {} to {}",
+                accountId,
+                benchmark,
+                startDate,
+                endDate);
 
         // 포트폴리오 일간 수익률 가져오기
-        List<BigDecimal> portfolioDailyReturns = getPortfolioDailyReturns(accountId, startDate, endDate);
+        List<BigDecimal> portfolioDailyReturns =
+                getPortfolioDailyReturns(accountId, startDate, endDate);
         List<LocalDate> portfolioDates = getPortfolioDates(accountId, startDate, endDate);
 
         // 벤치마크 가격 데이터 가져오기
-        List<BenchmarkPrice> benchmarkPrices = benchmarkPriceRepository
-                .findByBenchmarkAndPriceDateBetweenOrderByPriceDateAsc(benchmark, startDate, endDate);
+        List<BenchmarkPrice> benchmarkPrices =
+                benchmarkPriceRepository.findByBenchmarkAndPriceDateBetweenOrderByPriceDateAsc(
+                        benchmark, startDate, endDate);
 
         if (benchmarkPrices.isEmpty()) {
             return buildEmptyComparison(benchmark, startDate, endDate);
@@ -104,9 +110,11 @@ public class BenchmarkService {
 
         BigDecimal beta = calculateBeta(matchedPortfolioReturns, matchedBenchmarkReturns);
         BigDecimal alpha = calculateAlpha(matchedPortfolioReturns, matchedBenchmarkReturns, beta);
-        BigDecimal correlation = calculateCorrelation(matchedPortfolioReturns, matchedBenchmarkReturns);
+        BigDecimal correlation =
+                calculateCorrelation(matchedPortfolioReturns, matchedBenchmarkReturns);
         BigDecimal rSquared = correlation.pow(2);
-        BigDecimal trackingError = calculateTrackingError(matchedPortfolioReturns, matchedBenchmarkReturns);
+        BigDecimal trackingError =
+                calculateTrackingError(matchedPortfolioReturns, matchedBenchmarkReturns);
         BigDecimal informationRatio = calculateInformationRatio(excessReturn, trackingError);
         BigDecimal treynorRatio = calculateTreynorRatio(portfolioTotalReturn, beta);
 
@@ -115,20 +123,27 @@ public class BenchmarkService {
         BigDecimal benchmarkVolatility = calculateVolatility(matchedBenchmarkReturns);
 
         // 샤프비율 계산
-        BigDecimal portfolioSharpe = calculateSharpe(portfolioTotalReturn, portfolioVolatility, matchedPortfolioReturns.size());
-        BigDecimal benchmarkSharpe = calculateSharpe(benchmarkTotalReturn, benchmarkVolatility, matchedBenchmarkReturns.size());
+        BigDecimal portfolioSharpe =
+                calculateSharpe(
+                        portfolioTotalReturn, portfolioVolatility, matchedPortfolioReturns.size());
+        BigDecimal benchmarkSharpe =
+                calculateSharpe(
+                        benchmarkTotalReturn, benchmarkVolatility, matchedBenchmarkReturns.size());
 
         // 최대 낙폭 계산
         BigDecimal portfolioMaxDrawdown = calculateMaxDrawdown(portfolioCumulativeReturns);
         BigDecimal benchmarkMaxDrawdown = calculateMaxDrawdown(benchmarkCumulativeReturns);
 
         // 월별 비교
-        List<MonthlyComparison> monthlyComparisons = calculateMonthlyComparisons(
-                portfolioDates, portfolioDailyReturns, benchmarkReturnMap);
+        List<MonthlyComparison> monthlyComparisons =
+                calculateMonthlyComparisons(
+                        portfolioDates, portfolioDailyReturns, benchmarkReturnMap);
 
-        int portfolioWinMonths = (int) monthlyComparisons.stream()
-                .filter(m -> Boolean.TRUE.equals(m.getPortfolioWin()))
-                .count();
+        int portfolioWinMonths =
+                (int)
+                        monthlyComparisons.stream()
+                                .filter(m -> Boolean.TRUE.equals(m.getPortfolioWin()))
+                                .count();
         int benchmarkWinMonths = monthlyComparisons.size() - portfolioWinMonths;
 
         return BenchmarkComparisonDto.builder()
@@ -162,81 +177,82 @@ public class BenchmarkService {
                 .build();
     }
 
-    /**
-     * 모든 벤치마크 요약 정보
-     */
+    /** 모든 벤치마크 요약 정보 */
     public List<BenchmarkSummary> getBenchmarkSummaries() {
         List<BenchmarkSummary> summaries = new ArrayList<>();
 
         for (BenchmarkType type : BenchmarkType.values()) {
-            Optional<BenchmarkPrice> latestOpt = benchmarkPriceRepository
-                    .findFirstByBenchmarkOrderByPriceDateDesc(type);
+            Optional<BenchmarkPrice> latestOpt =
+                    benchmarkPriceRepository.findFirstByBenchmarkOrderByPriceDateDesc(type);
 
             if (latestOpt.isPresent()) {
                 BenchmarkPrice latest = latestOpt.get();
 
                 // YTD 수익률 계산
                 LocalDate yearStart = LocalDate.of(latest.getPriceDate().getYear(), 1, 1);
-                BigDecimal ytdReturn = calculatePeriodReturn(type, yearStart, latest.getPriceDate());
+                BigDecimal ytdReturn =
+                        calculatePeriodReturn(type, yearStart, latest.getPriceDate());
 
-                summaries.add(BenchmarkSummary.builder()
-                        .benchmark(type)
-                        .label(type.getLabel())
-                        .symbol(type.getSymbol())
-                        .description(type.getDescription())
-                        .latestDate(latest.getPriceDate())
-                        .latestPrice(latest.getClosePrice())
-                        .dailyChange(latest.getDailyReturn())
-                        .ytdReturn(ytdReturn)
-                        .dataCount(benchmarkPriceRepository.countByBenchmark(type))
-                        .build());
+                summaries.add(
+                        BenchmarkSummary.builder()
+                                .benchmark(type)
+                                .label(type.getLabel())
+                                .symbol(type.getSymbol())
+                                .description(type.getDescription())
+                                .latestDate(latest.getPriceDate())
+                                .latestPrice(latest.getClosePrice())
+                                .dailyChange(latest.getDailyReturn())
+                                .ytdReturn(ytdReturn)
+                                .dataCount(benchmarkPriceRepository.countByBenchmark(type))
+                                .build());
             } else {
-                summaries.add(BenchmarkSummary.builder()
-                        .benchmark(type)
-                        .label(type.getLabel())
-                        .symbol(type.getSymbol())
-                        .description(type.getDescription())
-                        .dataCount(0L)
-                        .build());
+                summaries.add(
+                        BenchmarkSummary.builder()
+                                .benchmark(type)
+                                .label(type.getLabel())
+                                .symbol(type.getSymbol())
+                                .description(type.getDescription())
+                                .dataCount(0L)
+                                .build());
             }
         }
 
         return summaries;
     }
 
-    /**
-     * 벤치마크 가격 데이터 저장 (동기화용)
-     */
+    /** 벤치마크 가격 데이터 저장 (동기화용) */
     @Transactional
     public BenchmarkPrice saveBenchmarkPrice(BenchmarkPrice price) {
         return benchmarkPriceRepository.save(price);
     }
 
-    /**
-     * 벤치마크 가격 데이터 일괄 저장
-     */
+    /** 벤치마크 가격 데이터 일괄 저장 */
     @Transactional
     public List<BenchmarkPrice> saveBenchmarkPrices(List<BenchmarkPrice> prices) {
         return benchmarkPriceRepository.saveAll(prices);
     }
 
-    /**
-     * 샘플 벤치마크 데이터 생성 (테스트/데모용)
-     */
+    /** 샘플 벤치마크 데이터 생성 (테스트/데모용) */
     @Transactional
-    public void generateSampleBenchmarkData(BenchmarkType benchmark, LocalDate startDate, LocalDate endDate) {
-        log.info("Generating sample benchmark data for {} from {} to {}", benchmark, startDate, endDate);
+    public void generateSampleBenchmarkData(
+            BenchmarkType benchmark, LocalDate startDate, LocalDate endDate) {
+        log.info(
+                "Generating sample benchmark data for {} from {} to {}",
+                benchmark,
+                startDate,
+                endDate);
 
         List<BenchmarkPrice> prices = new ArrayList<>();
         Random random = new Random(benchmark.ordinal()); // 일관된 시드
 
-        BigDecimal basePrice = switch (benchmark) {
-            case SP500 -> new BigDecimal("4500");
-            case NASDAQ -> new BigDecimal("14000");
-            case KOSPI -> new BigDecimal("2500");
-            case KOSDAQ -> new BigDecimal("800");
-            case DOW -> new BigDecimal("35000");
-        };
+        BigDecimal basePrice =
+                switch (benchmark) {
+                    case SP500 -> new BigDecimal("4500");
+                    case NASDAQ -> new BigDecimal("14000");
+                    case KOSPI -> new BigDecimal("2500");
+                    case KOSDAQ -> new BigDecimal("800");
+                    case DOW -> new BigDecimal("35000");
+                };
 
         BigDecimal currentPrice = basePrice;
         LocalDate currentDate = startDate;
@@ -248,25 +264,35 @@ public class BenchmarkService {
                 double dailyReturn = (random.nextGaussian() * 1.5);
                 BigDecimal dailyReturnBd = BigDecimal.valueOf(dailyReturn);
 
-                BigDecimal change = currentPrice.multiply(dailyReturnBd.divide(BigDecimal.valueOf(100), MC));
+                BigDecimal change =
+                        currentPrice.multiply(dailyReturnBd.divide(BigDecimal.valueOf(100), MC));
                 BigDecimal openPrice = currentPrice;
                 currentPrice = currentPrice.add(change);
 
-                BigDecimal high = currentPrice.max(openPrice).multiply(
-                        BigDecimal.ONE.add(BigDecimal.valueOf(random.nextDouble() * 0.01)));
-                BigDecimal low = currentPrice.min(openPrice).multiply(
-                        BigDecimal.ONE.subtract(BigDecimal.valueOf(random.nextDouble() * 0.01)));
+                BigDecimal high =
+                        currentPrice
+                                .max(openPrice)
+                                .multiply(
+                                        BigDecimal.ONE.add(
+                                                BigDecimal.valueOf(random.nextDouble() * 0.01)));
+                BigDecimal low =
+                        currentPrice
+                                .min(openPrice)
+                                .multiply(
+                                        BigDecimal.ONE.subtract(
+                                                BigDecimal.valueOf(random.nextDouble() * 0.01)));
 
-                prices.add(BenchmarkPrice.builder()
-                        .benchmark(benchmark)
-                        .priceDate(currentDate)
-                        .openPrice(openPrice.setScale(2, RoundingMode.HALF_UP))
-                        .highPrice(high.setScale(2, RoundingMode.HALF_UP))
-                        .lowPrice(low.setScale(2, RoundingMode.HALF_UP))
-                        .closePrice(currentPrice.setScale(2, RoundingMode.HALF_UP))
-                        .dailyReturn(dailyReturnBd.setScale(4, RoundingMode.HALF_UP))
-                        .volume((long) (random.nextDouble() * 100000000) + 50000000)
-                        .build());
+                prices.add(
+                        BenchmarkPrice.builder()
+                                .benchmark(benchmark)
+                                .priceDate(currentDate)
+                                .openPrice(openPrice.setScale(2, RoundingMode.HALF_UP))
+                                .highPrice(high.setScale(2, RoundingMode.HALF_UP))
+                                .lowPrice(low.setScale(2, RoundingMode.HALF_UP))
+                                .closePrice(currentPrice.setScale(2, RoundingMode.HALF_UP))
+                                .dailyReturn(dailyReturnBd.setScale(4, RoundingMode.HALF_UP))
+                                .volume((long) (random.nextDouble() * 100000000) + 50000000)
+                                .build());
             }
             currentDate = currentDate.plusDays(1);
         }
@@ -277,7 +303,8 @@ public class BenchmarkService {
 
     // === Private Helper Methods ===
 
-    private List<BigDecimal> getPortfolioDailyReturns(Long accountId, LocalDate startDate, LocalDate endDate) {
+    private List<BigDecimal> getPortfolioDailyReturns(
+            Long accountId, LocalDate startDate, LocalDate endDate) {
         // AnalysisService를 통해 포트폴리오 일간 수익률 가져오기
         try {
             var equityCurve = analysisService.getEquityCurve(accountId, startDate, endDate);
@@ -290,7 +317,8 @@ public class BenchmarkService {
         return Collections.emptyList();
     }
 
-    private List<LocalDate> getPortfolioDates(Long accountId, LocalDate startDate, LocalDate endDate) {
+    private List<LocalDate> getPortfolioDates(
+            Long accountId, LocalDate startDate, LocalDate endDate) {
         try {
             var equityCurve = analysisService.getEquityCurve(accountId, startDate, endDate);
             if (equityCurve != null && equityCurve.getLabels() != null) {
@@ -304,7 +332,8 @@ public class BenchmarkService {
         return Collections.emptyList();
     }
 
-    private BigDecimal calculateBeta(List<BigDecimal> portfolioReturns, List<BigDecimal> benchmarkReturns) {
+    private BigDecimal calculateBeta(
+            List<BigDecimal> portfolioReturns, List<BigDecimal> benchmarkReturns) {
         if (portfolioReturns.size() < 2 || benchmarkReturns.size() < 2) {
             return BigDecimal.ONE;
         }
@@ -319,8 +348,8 @@ public class BenchmarkService {
         return covariance.divide(variance, MC);
     }
 
-    private BigDecimal calculateAlpha(List<BigDecimal> portfolioReturns, List<BigDecimal> benchmarkReturns,
-                                       BigDecimal beta) {
+    private BigDecimal calculateAlpha(
+            List<BigDecimal> portfolioReturns, List<BigDecimal> benchmarkReturns, BigDecimal beta) {
         if (portfolioReturns.isEmpty() || benchmarkReturns.isEmpty()) {
             return BigDecimal.ZERO;
         }
@@ -349,7 +378,8 @@ public class BenchmarkService {
         return covariance.divide(std1.multiply(std2), MC);
     }
 
-    private BigDecimal calculateTrackingError(List<BigDecimal> portfolioReturns, List<BigDecimal> benchmarkReturns) {
+    private BigDecimal calculateTrackingError(
+            List<BigDecimal> portfolioReturns, List<BigDecimal> benchmarkReturns) {
         if (portfolioReturns.size() != benchmarkReturns.size() || portfolioReturns.isEmpty()) {
             return BigDecimal.ZERO;
         }
@@ -362,7 +392,8 @@ public class BenchmarkService {
         return calculateStdDev(excessReturns);
     }
 
-    private BigDecimal calculateInformationRatio(BigDecimal excessReturn, BigDecimal trackingError) {
+    private BigDecimal calculateInformationRatio(
+            BigDecimal excessReturn, BigDecimal trackingError) {
         if (trackingError.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
         }
@@ -374,7 +405,8 @@ public class BenchmarkService {
             return BigDecimal.ZERO;
         }
         // Treynor = (Rp - Rf) / Beta
-        BigDecimal excessReturn = portfolioReturn.subtract(RISK_FREE_RATE.multiply(portfolioReturn.abs()));
+        BigDecimal excessReturn =
+                portfolioReturn.subtract(RISK_FREE_RATE.multiply(portfolioReturn.abs()));
         return excessReturn.divide(beta, MC);
     }
 
@@ -411,11 +443,16 @@ public class BenchmarkService {
         return maxDrawdown;
     }
 
-    private BigDecimal calculatePeriodReturn(BenchmarkType benchmark, LocalDate startDate, LocalDate endDate) {
-        Optional<BenchmarkPrice> startPriceOpt = benchmarkPriceRepository
-                .findFirstByBenchmarkAndPriceDateGreaterThanEqualOrderByPriceDateAsc(benchmark, startDate);
-        Optional<BenchmarkPrice> endPriceOpt = benchmarkPriceRepository
-                .findFirstByBenchmarkAndPriceDateLessThanEqualOrderByPriceDateDesc(benchmark, endDate);
+    private BigDecimal calculatePeriodReturn(
+            BenchmarkType benchmark, LocalDate startDate, LocalDate endDate) {
+        Optional<BenchmarkPrice> startPriceOpt =
+                benchmarkPriceRepository
+                        .findFirstByBenchmarkAndPriceDateGreaterThanEqualOrderByPriceDateAsc(
+                                benchmark, startDate);
+        Optional<BenchmarkPrice> endPriceOpt =
+                benchmarkPriceRepository
+                        .findFirstByBenchmarkAndPriceDateLessThanEqualOrderByPriceDateDesc(
+                                benchmark, endDate);
 
         if (startPriceOpt.isEmpty() || endPriceOpt.isEmpty()) {
             return BigDecimal.ZERO;
@@ -435,7 +472,9 @@ public class BenchmarkService {
     }
 
     private List<MonthlyComparison> calculateMonthlyComparisons(
-            List<LocalDate> dates, List<BigDecimal> portfolioReturns, Map<LocalDate, BigDecimal> benchmarkReturnMap) {
+            List<LocalDate> dates,
+            List<BigDecimal> portfolioReturns,
+            Map<LocalDate, BigDecimal> benchmarkReturnMap) {
 
         Map<YearMonth, List<BigDecimal>> portfolioByMonth = new LinkedHashMap<>();
         Map<YearMonth, List<BigDecimal>> benchmarkByMonth = new LinkedHashMap<>();
@@ -444,7 +483,9 @@ public class BenchmarkService {
             LocalDate date = dates.get(i);
             YearMonth ym = YearMonth.from(date);
 
-            portfolioByMonth.computeIfAbsent(ym, k -> new ArrayList<>()).add(portfolioReturns.get(i));
+            portfolioByMonth
+                    .computeIfAbsent(ym, k -> new ArrayList<>())
+                    .add(portfolioReturns.get(i));
 
             BigDecimal benchmarkReturn = benchmarkReturnMap.get(date);
             if (benchmarkReturn != null) {
@@ -462,19 +503,21 @@ public class BenchmarkService {
             BigDecimal pTotal = pReturns.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal bTotal = bReturns.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            comparisons.add(MonthlyComparison.builder()
-                    .month(ym.format(formatter))
-                    .portfolioReturn(pTotal.setScale(2, RoundingMode.HALF_UP))
-                    .benchmarkReturn(bTotal.setScale(2, RoundingMode.HALF_UP))
-                    .excessReturn(pTotal.subtract(bTotal).setScale(2, RoundingMode.HALF_UP))
-                    .portfolioWin(pTotal.compareTo(bTotal) > 0)
-                    .build());
+            comparisons.add(
+                    MonthlyComparison.builder()
+                            .month(ym.format(formatter))
+                            .portfolioReturn(pTotal.setScale(2, RoundingMode.HALF_UP))
+                            .benchmarkReturn(bTotal.setScale(2, RoundingMode.HALF_UP))
+                            .excessReturn(pTotal.subtract(bTotal).setScale(2, RoundingMode.HALF_UP))
+                            .portfolioWin(pTotal.compareTo(bTotal) > 0)
+                            .build());
         }
 
         return comparisons;
     }
 
-    private BenchmarkComparisonDto buildEmptyComparison(BenchmarkType benchmark, LocalDate startDate, LocalDate endDate) {
+    private BenchmarkComparisonDto buildEmptyComparison(
+            BenchmarkType benchmark, LocalDate startDate, LocalDate endDate) {
         return BenchmarkComparisonDto.builder()
                 .benchmark(benchmark)
                 .benchmarkLabel(benchmark.getLabel())
@@ -504,9 +547,10 @@ public class BenchmarkService {
     private BigDecimal calculateVariance(List<BigDecimal> values) {
         if (values.size() < 2) return BigDecimal.ZERO;
         BigDecimal mean = calculateMean(values);
-        BigDecimal sumSquares = values.stream()
-                .map(v -> v.subtract(mean).pow(2))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal sumSquares =
+                values.stream()
+                        .map(v -> v.subtract(mean).pow(2))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
         return sumSquares.divide(BigDecimal.valueOf(values.size() - 1), MC);
     }
 

@@ -4,9 +4,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * AI 분석 결과 응답 DTO
- */
+/** AI 분석 결과 응답 DTO */
 public class AIAnalysisResponseDto {
 
     private String analysisType;

@@ -1,5 +1,10 @@
 package com.trading.journal.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.trading.journal.dto.DividendDto;
 import com.trading.journal.dto.DividendSummaryDto;
 import com.trading.journal.dto.PortfolioSummaryDto;
@@ -7,6 +12,11 @@ import com.trading.journal.entity.Dividend;
 import com.trading.journal.entity.Stock;
 import com.trading.journal.repository.DividendRepository;
 import com.trading.journal.repository.StockRepository;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,32 +25,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class DividendServiceTest {
 
-    @Mock
-    private DividendRepository dividendRepository;
+    @Mock private DividendRepository dividendRepository;
 
-    @Mock
-    private StockRepository stockRepository;
-    
-    @Mock
-    private PortfolioAnalysisService portfolioAnalysisService;
+    @Mock private StockRepository stockRepository;
 
-    @InjectMocks
-    private DividendService dividendService;
+    @Mock private PortfolioAnalysisService portfolioAnalysisService;
+
+    @InjectMocks private DividendService dividendService;
 
     private Stock mockStock;
     private Dividend mockDividend;
@@ -48,34 +42,32 @@ class DividendServiceTest {
 
     @BeforeEach
     void setUp() {
-        mockStock = Stock.builder()
-                .id(1L)
-                .symbol("AAPL")
-                .name("Apple Inc.")
-                .exchange("NASDAQ")
-                .build();
+        mockStock =
+                Stock.builder().id(1L).symbol("AAPL").name("Apple Inc.").exchange("NASDAQ").build();
 
-        mockDividend = Dividend.builder()
-                .id(1L)
-                .stock(mockStock)
-                .exDividendDate(LocalDate.now().minusDays(30))
-                .paymentDate(LocalDate.now())
-                .dividendPerShare(new BigDecimal("0.25"))
-                .quantity(new BigDecimal("100"))
-                .totalAmount(new BigDecimal("25.00"))
-                .taxAmount(new BigDecimal("3.85"))
-                .netAmount(new BigDecimal("21.15"))
-                .memo("분기 배당")
-                .build();
+        mockDividend =
+                Dividend.builder()
+                        .id(1L)
+                        .stock(mockStock)
+                        .exDividendDate(LocalDate.now().minusDays(30))
+                        .paymentDate(LocalDate.now())
+                        .dividendPerShare(new BigDecimal("0.25"))
+                        .quantity(new BigDecimal("100"))
+                        .totalAmount(new BigDecimal("25.00"))
+                        .taxAmount(new BigDecimal("3.85"))
+                        .netAmount(new BigDecimal("21.15"))
+                        .memo("분기 배당")
+                        .build();
 
-        mockDividendDto = DividendDto.builder()
-                .stockId(1L)
-                .exDividendDate(LocalDate.now().minusDays(30))
-                .paymentDate(LocalDate.now())
-                .dividendPerShare(new BigDecimal("0.25"))
-                .quantity(new BigDecimal("100"))
-                .memo("분기 배당")
-                .build();
+        mockDividendDto =
+                DividendDto.builder()
+                        .stockId(1L)
+                        .exDividendDate(LocalDate.now().minusDays(30))
+                        .paymentDate(LocalDate.now())
+                        .dividendPerShare(new BigDecimal("0.25"))
+                        .quantity(new BigDecimal("100"))
+                        .memo("분기 배당")
+                        .build();
     }
 
     @Test
@@ -93,7 +85,7 @@ class DividendServiceTest {
         assertThat(result.getStockSymbol()).isEqualTo("AAPL");
         assertThat(result.getDividendPerShare()).isEqualTo(new BigDecimal("0.25"));
         assertThat(result.getQuantity()).isEqualTo(new BigDecimal("100"));
-        
+
         verify(stockRepository).findById(1L);
         verify(dividendRepository).save(any(Dividend.class));
     }
@@ -117,11 +109,12 @@ class DividendServiceTest {
     @DisplayName("배당금 기록 수정")
     void updateDividend_Success() {
         // Given
-        DividendDto updateDto = DividendDto.builder()
-                .dividendPerShare(new BigDecimal("0.30"))
-                .quantity(new BigDecimal("120"))
-                .memo("수정된 배당")
-                .build();
+        DividendDto updateDto =
+                DividendDto.builder()
+                        .dividendPerShare(new BigDecimal("0.30"))
+                        .quantity(new BigDecimal("120"))
+                        .memo("수정된 배당")
+                        .build();
 
         when(dividendRepository.findById(1L)).thenReturn(Optional.of(mockDividend));
         when(dividendRepository.save(any(Dividend.class))).thenReturn(mockDividend);
@@ -161,7 +154,7 @@ class DividendServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getId()).isEqualTo(1L);
         assertThat(result.getStockSymbol()).isEqualTo("AAPL");
-        
+
         verify(dividendRepository).findById(1L);
     }
 
@@ -192,7 +185,7 @@ class DividendServiceTest {
         // Then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStockSymbol()).isEqualTo("AAPL");
-        
+
         verify(dividendRepository).findByStockSymbol("AAPL");
     }
 
@@ -203,7 +196,7 @@ class DividendServiceTest {
         LocalDate startDate = LocalDate.of(2024, 1, 1);
         LocalDate endDate = LocalDate.of(2024, 12, 31);
         List<Dividend> dividends = Arrays.asList(mockDividend);
-        
+
         when(dividendRepository.findByPaymentDateBetweenOrderByPaymentDateDesc(startDate, endDate))
                 .thenReturn(dividends);
 
@@ -213,8 +206,9 @@ class DividendServiceTest {
         // Then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStockSymbol()).isEqualTo("AAPL");
-        
-        verify(dividendRepository).findByPaymentDateBetweenOrderByPaymentDateDesc(startDate, endDate);
+
+        verify(dividendRepository)
+                .findByPaymentDateBetweenOrderByPaymentDateDesc(startDate, endDate);
     }
 
     @Test
@@ -223,14 +217,14 @@ class DividendServiceTest {
         // Given
         List<Dividend> allDividends = Arrays.asList(mockDividend);
         when(dividendRepository.findAll()).thenReturn(allDividends);
-        when(dividendRepository.getTotalDividendsByPeriod(any(), any())).thenReturn(new BigDecimal("500.00"));
+        when(dividendRepository.getTotalDividendsByPeriod(any(), any()))
+                .thenReturn(new BigDecimal("500.00"));
         when(dividendRepository.getTopDividendStocks(any(), any())).thenReturn(Arrays.asList());
         when(dividendRepository.getMonthlyDividends()).thenReturn(Arrays.asList());
-        
+
         // PortfolioAnalysisService mock
-        PortfolioSummaryDto portfolioSummary = PortfolioSummaryDto.builder()
-                .totalCurrentValue(new BigDecimal("10000.00"))
-                .build();
+        PortfolioSummaryDto portfolioSummary =
+                PortfolioSummaryDto.builder().totalCurrentValue(new BigDecimal("10000.00")).build();
         when(portfolioAnalysisService.getPortfolioSummary()).thenReturn(portfolioSummary);
 
         // When
@@ -240,7 +234,7 @@ class DividendServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getTotalDividends()).isEqualTo(new BigDecimal("21.15"));
         assertThat(result.getTotalTax()).isEqualTo(new BigDecimal("3.85"));
-        
+
         verify(dividendRepository).findAll();
         verify(portfolioAnalysisService).getPortfolioSummary();
     }

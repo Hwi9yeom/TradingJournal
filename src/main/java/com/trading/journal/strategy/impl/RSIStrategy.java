@@ -1,35 +1,27 @@
 package com.trading.journal.strategy.impl;
 
 import com.trading.journal.strategy.TradingStrategy;
-import lombok.Builder;
-import lombok.Data;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.Builder;
+import lombok.Data;
 
-/**
- * RSI (상대강도지수) 전략
- * - RSI가 과매도 구간에서 반등: 매수
- * - RSI가 과매수 구간에서 하락: 매도
- */
+/** RSI (상대강도지수) 전략 - RSI가 과매도 구간에서 반등: 매수 - RSI가 과매수 구간에서 하락: 매도 */
 @Data
 @Builder
 public class RSIStrategy implements TradingStrategy {
 
     /** RSI 기간 */
-    @Builder.Default
-    private int period = 14;
+    @Builder.Default private int period = 14;
 
     /** 과매수 기준 */
-    @Builder.Default
-    private int overboughtLevel = 70;
+    @Builder.Default private int overboughtLevel = 70;
 
     /** 과매도 기준 */
-    @Builder.Default
-    private int oversoldLevel = 30;
+    @Builder.Default private int oversoldLevel = 30;
 
     @Override
     public Signal generateSignal(List<PriceData> prices, int index) {
@@ -56,9 +48,7 @@ public class RSIStrategy implements TradingStrategy {
         return Signal.HOLD;
     }
 
-    /**
-     * RSI 계산
-     */
+    /** RSI 계산 */
     private BigDecimal calculateRSI(List<PriceData> prices, int index) {
         BigDecimal avgGain = BigDecimal.ZERO;
         BigDecimal avgLoss = BigDecimal.ZERO;
@@ -81,9 +71,11 @@ public class RSIStrategy implements TradingStrategy {
         }
 
         BigDecimal rs = avgGain.divide(avgLoss, 6, RoundingMode.HALF_UP);
-        BigDecimal rsi = BigDecimal.valueOf(100).subtract(
-                BigDecimal.valueOf(100).divide(BigDecimal.ONE.add(rs), 4, RoundingMode.HALF_UP)
-        );
+        BigDecimal rsi =
+                BigDecimal.valueOf(100)
+                        .subtract(
+                                BigDecimal.valueOf(100)
+                                        .divide(BigDecimal.ONE.add(rs), 4, RoundingMode.HALF_UP));
 
         return rsi;
     }
@@ -109,7 +101,8 @@ public class RSIStrategy implements TradingStrategy {
 
     @Override
     public String getDescription() {
-        return String.format("RSI %d일 기준, %d 이하에서 반등 시 매수, %d 이상에서 하락 시 매도",
+        return String.format(
+                "RSI %d일 기준, %d 이하에서 반등 시 매수, %d 이상에서 하락 시 매도",
                 period, oversoldLevel, overboughtLevel);
     }
 

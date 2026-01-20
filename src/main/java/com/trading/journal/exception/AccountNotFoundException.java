@@ -1,8 +1,6 @@
 package com.trading.journal.exception;
 
-/**
- * 계좌를 찾을 수 없을 때 발생하는 예외
- */
+/** 계좌를 찾을 수 없을 때 발생하는 예외 */
 public class AccountNotFoundException extends RuntimeException {
 
     private final Long accountId;

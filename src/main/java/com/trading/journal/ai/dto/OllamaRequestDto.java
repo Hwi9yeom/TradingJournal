@@ -2,14 +2,10 @@ package com.trading.journal.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
 import java.util.Map;
 
-/**
- * Ollama API 요청 DTO
- * https://github.com/ollama/ollama/blob/main/docs/api.md
- */
+/** Ollama API 요청 DTO https://github.com/ollama/ollama/blob/main/docs/api.md */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class OllamaRequestDto {
 
@@ -41,7 +37,8 @@ public class OllamaRequestDto {
         return dto;
     }
 
-    public static OllamaRequestDto forChat(String model, List<ChatMessageDto> messages, boolean stream) {
+    public static OllamaRequestDto forChat(
+            String model, List<ChatMessageDto> messages, boolean stream) {
         OllamaRequestDto dto = new OllamaRequestDto();
         dto.setModel(model);
         dto.setMessages(messages);

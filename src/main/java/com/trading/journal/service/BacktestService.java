@@ -21,12 +21,6 @@ import com.trading.journal.strategy.impl.MACDStrategy;
 import com.trading.journal.strategy.impl.MomentumStrategy;
 import com.trading.journal.strategy.impl.MovingAverageCrossStrategy;
 import com.trading.journal.strategy.impl.RSIStrategy;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import yahoofinance.histquotes.HistoricalQuote;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -35,10 +29,13 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import yahoofinance.histquotes.HistoricalQuote;
 
-/**
- * 백테스트 서비스
- */
+/** 백테스트 서비스 */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -102,9 +99,7 @@ public class BacktestService {
 
     // === Inner Helper Classes ===
 
-    /**
-     * 포지션 상태를 관리하는 헬퍼 클래스
-     */
+    /** 포지션 상태를 관리하는 헬퍼 클래스 */
     private static class PositionState {
         private BigDecimal capital;
         private BigDecimal position = BigDecimal.ZERO;
@@ -128,8 +123,12 @@ public class BacktestService {
             return capital.add(position.multiply(currentPrice));
         }
 
-        void openPosition(BigDecimal newPosition, BigDecimal price, BigDecimal cost,
-                          LocalDate date, String signal) {
+        void openPosition(
+                BigDecimal newPosition,
+                BigDecimal price,
+                BigDecimal cost,
+                LocalDate date,
+                String signal) {
             this.position = newPosition;
             this.entryPrice = price;
             this.entryDate = date;
@@ -145,15 +144,14 @@ public class BacktestService {
         }
 
         BigDecimal calculateCurrentReturn(BigDecimal currentPrice) {
-            return currentPrice.subtract(entryPrice)
+            return currentPrice
+                    .subtract(entryPrice)
                     .divide(entryPrice, DECIMAL_SCALE, RoundingMode.HALF_UP)
                     .multiply(HUNDRED);
         }
     }
 
-    /**
-     * 거래 통계를 추적하는 헬퍼 클래스
-     */
+    /** 거래 통계를 추적하는 헬퍼 클래스 */
     private static class TradeStatistics {
         private int tradeNumber = 0;
         private int winningTrades = 0;
@@ -198,9 +196,7 @@ public class BacktestService {
         }
     }
 
-    /**
-     * 최대 낙폭(Drawdown) 추적용 헬퍼 클래스
-     */
+    /** 최대 낙폭(Drawdown) 추적용 헬퍼 클래스 */
     private static class DrawdownTracker {
         private BigDecimal peakEquity;
         private BigDecimal maxDrawdown = BigDecimal.ZERO;
@@ -213,9 +209,11 @@ public class BacktestService {
             if (portfolioValue.compareTo(peakEquity) > 0) {
                 peakEquity = portfolioValue;
             }
-            BigDecimal drawdown = peakEquity.subtract(portfolioValue)
-                    .divide(peakEquity, DECIMAL_SCALE, RoundingMode.HALF_UP)
-                    .multiply(HUNDRED);
+            BigDecimal drawdown =
+                    peakEquity
+                            .subtract(portfolioValue)
+                            .divide(peakEquity, DECIMAL_SCALE, RoundingMode.HALF_UP)
+                            .multiply(HUNDRED);
             if (drawdown.compareTo(maxDrawdown) > 0) {
                 maxDrawdown = drawdown;
             }
@@ -225,9 +223,7 @@ public class BacktestService {
 
     // === Public API ===
 
-    /**
-     * 백테스트 실행
-     */
+    /** 백테스트 실행 */
     @Transactional
     public BacktestResultDto runBacktest(BacktestRequestDto request) {
         long startTime = System.currentTimeMillis();
@@ -236,8 +232,9 @@ public class BacktestService {
         TradingStrategy strategy = createStrategy(request);
 
         // 2. 실제 가격 데이터 조회 (Yahoo Finance API)
-        List<PriceData> prices = fetchHistoricalPriceData(request.getSymbol(),
-                request.getStartDate(), request.getEndDate());
+        List<PriceData> prices =
+                fetchHistoricalPriceData(
+                        request.getSymbol(), request.getStartDate(), request.getEndDate());
 
         // 3. 백테스트 시뮬레이션 실행
         BacktestResult result = executeBacktest(request, strategy, prices);
@@ -255,9 +252,7 @@ public class BacktestService {
         return convertToDto(saved, prices);
     }
 
-    /**
-     * 전략 생성
-     */
+    /** 전략 생성 */
     private TradingStrategy createStrategy(BacktestRequestDto request) {
         Map<String, Object> params = request.getStrategyParams();
         if (params == null) {
@@ -304,12 +299,9 @@ public class BacktestService {
         }
     }
 
-    /**
-     * 백테스트 시뮬레이션 실행
-     */
-    private BacktestResult executeBacktest(BacktestRequestDto request,
-                                           TradingStrategy strategy,
-                                           List<PriceData> prices) {
+    /** 백테스트 시뮬레이션 실행 */
+    private BacktestResult executeBacktest(
+            BacktestRequestDto request, TradingStrategy strategy, List<PriceData> prices) {
         // 상태 초기화
         PositionState positionState = new PositionState(request.getInitialCapital());
         TradeStatistics stats = new TradeStatistics();
@@ -330,33 +322,44 @@ public class BacktestService {
             drawdownTracker.updateAndGetDrawdown(portfolioValue);
 
             // 시그널 결정
-            Signal signal = determineSignal(strategy, prices, i, request, positionState, currentPrice);
+            Signal signal =
+                    determineSignal(strategy, prices, i, request, positionState, currentPrice);
 
             // 시그널에 따른 거래 실행
-            processSignal(signal, positionState, stats, trades, request, strategy,
-                    price, currentPrice, commissionRate, slippage);
+            processSignal(
+                    signal,
+                    positionState,
+                    stats,
+                    trades,
+                    request,
+                    strategy,
+                    price,
+                    currentPrice,
+                    commissionRate,
+                    slippage);
         }
 
         // 잔여 포지션 청산
         liquidateRemainingPosition(positionState, prices);
 
         // 최종 결과 계산 및 반환
-        return buildBacktestResult(request, strategy, positionState, stats, drawdownTracker, trades);
+        return buildBacktestResult(
+                request, strategy, positionState, stats, drawdownTracker, trades);
     }
 
-    /**
-     * 백분율을 소수점 비율로 변환
-     */
+    /** 백분율을 소수점 비율로 변환 */
     private BigDecimal toDecimalRate(BigDecimal percentage) {
         return percentage.divide(HUNDRED, DECIMAL_SCALE, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 거래 시그널 결정 (전략 시그널 + 손절/익절 체크)
-     */
-    private Signal determineSignal(TradingStrategy strategy, List<PriceData> prices, int index,
-                                   BacktestRequestDto request, PositionState positionState,
-                                   BigDecimal currentPrice) {
+    /** 거래 시그널 결정 (전략 시그널 + 손절/익절 체크) */
+    private Signal determineSignal(
+            TradingStrategy strategy,
+            List<PriceData> prices,
+            int index,
+            BacktestRequestDto request,
+            PositionState positionState,
+            BigDecimal currentPrice) {
         Signal signal = strategy.generateSignal(prices, index);
 
         // 포지션 보유 중일 때만 손절/익절 체크
@@ -377,42 +380,62 @@ public class BacktestService {
         return signal;
     }
 
-    /**
-     * 손절 조건 체크
-     */
+    /** 손절 조건 체크 */
     private boolean shouldTriggerStopLoss(BacktestRequestDto request, BigDecimal currentReturn) {
         return request.getStopLossPercent() != null
                 && currentReturn.compareTo(request.getStopLossPercent().negate()) <= 0;
     }
 
-    /**
-     * 익절 조건 체크
-     */
+    /** 익절 조건 체크 */
     private boolean shouldTriggerTakeProfit(BacktestRequestDto request, BigDecimal currentReturn) {
         return request.getTakeProfitPercent() != null
                 && currentReturn.compareTo(request.getTakeProfitPercent()) >= 0;
     }
 
-    /**
-     * 시그널에 따른 거래 처리
-     */
-    private void processSignal(Signal signal, PositionState positionState, TradeStatistics stats,
-                               List<BacktestTrade> trades, BacktestRequestDto request,
-                               TradingStrategy strategy, PriceData price, BigDecimal currentPrice,
-                               BigDecimal commissionRate, BigDecimal slippage) {
+    /** 시그널에 따른 거래 처리 */
+    private void processSignal(
+            Signal signal,
+            PositionState positionState,
+            TradeStatistics stats,
+            List<BacktestTrade> trades,
+            BacktestRequestDto request,
+            TradingStrategy strategy,
+            PriceData price,
+            BigDecimal currentPrice,
+            BigDecimal commissionRate,
+            BigDecimal slippage) {
         if (signal == Signal.BUY && positionState.hasNoPosition()) {
-            executeBuyOrder(positionState, request, strategy, price, currentPrice, commissionRate, slippage);
+            executeBuyOrder(
+                    positionState,
+                    request,
+                    strategy,
+                    price,
+                    currentPrice,
+                    commissionRate,
+                    slippage);
         } else if (signal == Signal.SELL && positionState.hasPosition()) {
-            executeSellOrder(positionState, stats, trades, request, strategy, price, currentPrice, commissionRate, slippage);
+            executeSellOrder(
+                    positionState,
+                    stats,
+                    trades,
+                    request,
+                    strategy,
+                    price,
+                    currentPrice,
+                    commissionRate,
+                    slippage);
         }
     }
 
-    /**
-     * 매수 주문 실행
-     */
-    private void executeBuyOrder(PositionState positionState, BacktestRequestDto request,
-                                  TradingStrategy strategy, PriceData price,
-                                  BigDecimal currentPrice, BigDecimal commissionRate, BigDecimal slippage) {
+    /** 매수 주문 실행 */
+    private void executeBuyOrder(
+            PositionState positionState,
+            BacktestRequestDto request,
+            TradingStrategy strategy,
+            PriceData price,
+            BigDecimal currentPrice,
+            BigDecimal commissionRate,
+            BigDecimal slippage) {
         BigDecimal positionSizeRate = toDecimalRate(request.getPositionSizePercent());
         BigDecimal investAmount = positionState.capital.multiply(positionSizeRate);
 
@@ -426,16 +449,21 @@ public class BacktestService {
         // 포지션 수량 계산
         BigDecimal quantity = netAmount.divide(buyPrice, QUANTITY_SCALE, RoundingMode.DOWN);
 
-        positionState.openPosition(quantity, buyPrice, investAmount, price.getDate(), strategy.getName());
+        positionState.openPosition(
+                quantity, buyPrice, investAmount, price.getDate(), strategy.getName());
     }
 
-    /**
-     * 매도 주문 실행
-     */
-    private void executeSellOrder(PositionState positionState, TradeStatistics stats,
-                                   List<BacktestTrade> trades, BacktestRequestDto request,
-                                   TradingStrategy strategy, PriceData price,
-                                   BigDecimal currentPrice, BigDecimal commissionRate, BigDecimal slippage) {
+    /** 매도 주문 실행 */
+    private void executeSellOrder(
+            PositionState positionState,
+            TradeStatistics stats,
+            List<BacktestTrade> trades,
+            BacktestRequestDto request,
+            TradingStrategy strategy,
+            PriceData price,
+            BigDecimal currentPrice,
+            BigDecimal commissionRate,
+            BigDecimal slippage) {
         // 슬리피지 적용 (매도 시 가격 하락)
         BigDecimal sellPrice = currentPrice.multiply(BigDecimal.ONE.subtract(slippage));
 
@@ -446,12 +474,22 @@ public class BacktestService {
         // 손익 계산
         BigDecimal investedAmount = positionState.position.multiply(positionState.entryPrice);
         BigDecimal profit = netAmount.subtract(investedAmount);
-        BigDecimal profitPercent = profit.divide(investedAmount, DECIMAL_SCALE, RoundingMode.HALF_UP)
-                .multiply(HUNDRED);
+        BigDecimal profitPercent =
+                profit.divide(investedAmount, DECIMAL_SCALE, RoundingMode.HALF_UP)
+                        .multiply(HUNDRED);
 
         // 거래 기록 생성
-        BacktestTrade trade = createTradeRecord(positionState, stats, request, strategy,
-                price, sellPrice, profit, profitPercent, netAmount);
+        BacktestTrade trade =
+                createTradeRecord(
+                        positionState,
+                        stats,
+                        request,
+                        strategy,
+                        price,
+                        sellPrice,
+                        profit,
+                        profitPercent,
+                        netAmount);
         trades.add(trade);
 
         // 통계 업데이트
@@ -461,14 +499,17 @@ public class BacktestService {
         positionState.closePosition(netAmount);
     }
 
-    /**
-     * 거래 기록 생성
-     */
-    private BacktestTrade createTradeRecord(PositionState positionState, TradeStatistics stats,
-                                             BacktestRequestDto request, TradingStrategy strategy,
-                                             PriceData price, BigDecimal sellPrice,
-                                             BigDecimal profit, BigDecimal profitPercent,
-                                             BigDecimal netAmount) {
+    /** 거래 기록 생성 */
+    private BacktestTrade createTradeRecord(
+            PositionState positionState,
+            TradeStatistics stats,
+            BacktestRequestDto request,
+            TradingStrategy strategy,
+            PriceData price,
+            BigDecimal sellPrice,
+            BigDecimal profit,
+            BigDecimal profitPercent,
+            BigDecimal netAmount) {
         BigDecimal investedAmount = positionState.position.multiply(positionState.entryPrice);
 
         return BacktestTrade.builder()
@@ -483,15 +524,14 @@ public class BacktestService {
                 .profitPercent(profitPercent)
                 .entrySignal(positionState.entrySignal)
                 .exitSignal(strategy.getName())
-                .holdingDays((int) ChronoUnit.DAYS.between(positionState.entryDate, price.getDate()))
+                .holdingDays(
+                        (int) ChronoUnit.DAYS.between(positionState.entryDate, price.getDate()))
                 .portfolioValueAtEntry(investedAmount.add(positionState.capital))
                 .portfolioValueAtExit(positionState.capital.add(netAmount))
                 .build();
     }
 
-    /**
-     * 잔여 포지션 청산
-     */
+    /** 잔여 포지션 청산 */
     private void liquidateRemainingPosition(PositionState positionState, List<PriceData> prices) {
         if (!positionState.hasPosition()) {
             return;
@@ -503,13 +543,14 @@ public class BacktestService {
         positionState.closePosition(grossAmount);
     }
 
-    /**
-     * 백테스트 결과 엔티티 생성
-     */
-    private BacktestResult buildBacktestResult(BacktestRequestDto request, TradingStrategy strategy,
-                                                PositionState positionState, TradeStatistics stats,
-                                                DrawdownTracker drawdownTracker,
-                                                List<BacktestTrade> trades) {
+    /** 백테스트 결과 엔티티 생성 */
+    private BacktestResult buildBacktestResult(
+            BacktestRequestDto request,
+            TradingStrategy strategy,
+            PositionState positionState,
+            TradeStatistics stats,
+            DrawdownTracker drawdownTracker,
+            List<BacktestTrade> trades) {
         BigDecimal finalCapital = positionState.capital;
         long days = ChronoUnit.DAYS.between(request.getStartDate(), request.getEndDate());
 
@@ -529,31 +570,32 @@ public class BacktestService {
         BigDecimal sortinoRatio = calculateSortinoRatio(trades, totalReturn, days);
 
         // 결과 엔티티 생성
-        BacktestResult result = BacktestResult.builder()
-                .strategyName(strategy.getName())
-                .strategyConfig(toJson(strategy.getParameters()))
-                .symbol(request.getSymbol())
-                .startDate(request.getStartDate())
-                .endDate(request.getEndDate())
-                .initialCapital(request.getInitialCapital())
-                .finalCapital(finalCapital)
-                .totalReturn(totalReturn)
-                .cagr(BigDecimal.valueOf(cagr))
-                .maxDrawdown(drawdownTracker.maxDrawdown)
-                .sharpeRatio(sharpeRatio)
-                .sortinoRatio(sortinoRatio)
-                .totalTrades(stats.getTotalTrades())
-                .winningTrades(stats.winningTrades)
-                .losingTrades(stats.losingTrades)
-                .winRate(winRate)
-                .avgWin(avgWin)
-                .avgLoss(avgLoss)
-                .profitFactor(profitFactor)
-                .maxWinStreak(stats.maxWinStreak)
-                .maxLossStreak(stats.maxLossStreak)
-                .avgHoldingDays(avgHoldingDays)
-                .trades(new ArrayList<>())
-                .build();
+        BacktestResult result =
+                BacktestResult.builder()
+                        .strategyName(strategy.getName())
+                        .strategyConfig(toJson(strategy.getParameters()))
+                        .symbol(request.getSymbol())
+                        .startDate(request.getStartDate())
+                        .endDate(request.getEndDate())
+                        .initialCapital(request.getInitialCapital())
+                        .finalCapital(finalCapital)
+                        .totalReturn(totalReturn)
+                        .cagr(BigDecimal.valueOf(cagr))
+                        .maxDrawdown(drawdownTracker.maxDrawdown)
+                        .sharpeRatio(sharpeRatio)
+                        .sortinoRatio(sortinoRatio)
+                        .totalTrades(stats.getTotalTrades())
+                        .winningTrades(stats.winningTrades)
+                        .losingTrades(stats.losingTrades)
+                        .winRate(winRate)
+                        .avgWin(avgWin)
+                        .avgLoss(avgLoss)
+                        .profitFactor(profitFactor)
+                        .maxWinStreak(stats.maxWinStreak)
+                        .maxLossStreak(stats.maxLossStreak)
+                        .avgHoldingDays(avgHoldingDays)
+                        .trades(new ArrayList<>())
+                        .build();
 
         // 거래 연결
         linkTradesToResult(trades, result);
@@ -561,30 +603,28 @@ public class BacktestService {
         return result;
     }
 
-    /**
-     * 총 수익률 계산
-     */
+    /** 총 수익률 계산 */
     private BigDecimal calculateTotalReturn(BigDecimal initialCapital, BigDecimal finalCapital) {
-        return finalCapital.subtract(initialCapital)
+        return finalCapital
+                .subtract(initialCapital)
                 .divide(initialCapital, DECIMAL_SCALE, RoundingMode.HALF_UP)
                 .multiply(HUNDRED);
     }
 
-    /**
-     * CAGR (연평균 복합 성장률) 계산
-     */
+    /** CAGR (연평균 복합 성장률) 계산 */
     private double calculateCAGR(BigDecimal initialCapital, BigDecimal finalCapital, long days) {
         double years = days / DAYS_PER_YEAR;
         if (years <= 0) {
             return 0;
         }
-        double growthRatio = finalCapital.divide(initialCapital, DECIMAL_SCALE, RoundingMode.HALF_UP).doubleValue();
+        double growthRatio =
+                finalCapital
+                        .divide(initialCapital, DECIMAL_SCALE, RoundingMode.HALF_UP)
+                        .doubleValue();
         return (Math.pow(growthRatio, 1.0 / years) - 1) * 100;
     }
 
-    /**
-     * 승률 계산
-     */
+    /** 승률 계산 */
     private BigDecimal calculateWinRate(TradeStatistics stats) {
         int totalTrades = stats.getTotalTrades();
         if (totalTrades == 0) {
@@ -595,52 +635,43 @@ public class BacktestService {
                 .multiply(HUNDRED);
     }
 
-    /**
-     * 평균 수익 계산
-     */
+    /** 평균 수익 계산 */
     private BigDecimal calculateAverageWin(TradeStatistics stats) {
         if (stats.winningTrades == 0) {
             return BigDecimal.ZERO;
         }
-        return stats.totalWinAmount.divide(BigDecimal.valueOf(stats.winningTrades), DISPLAY_SCALE, RoundingMode.HALF_UP);
+        return stats.totalWinAmount.divide(
+                BigDecimal.valueOf(stats.winningTrades), DISPLAY_SCALE, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 평균 손실 계산
-     */
+    /** 평균 손실 계산 */
     private BigDecimal calculateAverageLoss(TradeStatistics stats) {
         if (stats.losingTrades == 0) {
             return BigDecimal.ZERO;
         }
-        return stats.totalLossAmount.divide(BigDecimal.valueOf(stats.losingTrades), DISPLAY_SCALE, RoundingMode.HALF_UP);
+        return stats.totalLossAmount.divide(
+                BigDecimal.valueOf(stats.losingTrades), DISPLAY_SCALE, RoundingMode.HALF_UP);
     }
 
-    /**
-     * Profit Factor 계산
-     */
+    /** Profit Factor 계산 */
     private BigDecimal calculateProfitFactor(TradeStatistics stats) {
         if (stats.totalLossAmount.compareTo(BigDecimal.ZERO) == 0) {
             return MAX_RATIO_VALUE;
         }
-        return stats.totalWinAmount.divide(stats.totalLossAmount, QUANTITY_SCALE, RoundingMode.HALF_UP);
+        return stats.totalWinAmount.divide(
+                stats.totalLossAmount, QUANTITY_SCALE, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 평균 보유 기간 계산
-     */
+    /** 평균 보유 기간 계산 */
     private BigDecimal calculateAverageHoldingDays(List<BacktestTrade> trades) {
         if (trades.isEmpty()) {
             return BigDecimal.ZERO;
         }
-        return BigDecimal.valueOf(trades.stream()
-                .mapToInt(BacktestTrade::getHoldingDays)
-                .average()
-                .orElse(0));
+        return BigDecimal.valueOf(
+                trades.stream().mapToInt(BacktestTrade::getHoldingDays).average().orElse(0));
     }
 
-    /**
-     * 거래 목록을 결과에 연결
-     */
+    /** 거래 목록을 결과에 연결 */
     private void linkTradesToResult(List<BacktestTrade> trades, BacktestResult result) {
         for (BacktestTrade trade : trades) {
             trade.setBacktestResult(result);
@@ -648,10 +679,9 @@ public class BacktestService {
         }
     }
 
-    /**
-     * 샤프 비율 계산
-     */
-    private BigDecimal calculateSharpeRatio(List<BacktestTrade> trades, BigDecimal totalReturn, long days) {
+    /** 샤프 비율 계산 */
+    private BigDecimal calculateSharpeRatio(
+            List<BacktestTrade> trades, BigDecimal totalReturn, long days) {
         if (trades.isEmpty()) {
             return BigDecimal.ZERO;
         }
@@ -664,14 +694,14 @@ public class BacktestService {
         BigDecimal annualizedReturn = annualizeReturn(totalReturn, days);
         BigDecimal annualizedStdDev = annualizeVolatility(stdDev, trades.size());
 
-        return annualizedReturn.subtract(RISK_FREE_RATE)
+        return annualizedReturn
+                .subtract(RISK_FREE_RATE)
                 .divide(annualizedStdDev, QUANTITY_SCALE, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 소르티노 비율 계산
-     */
-    private BigDecimal calculateSortinoRatio(List<BacktestTrade> trades, BigDecimal totalReturn, long days) {
+    /** 소르티노 비율 계산 */
+    private BigDecimal calculateSortinoRatio(
+            List<BacktestTrade> trades, BigDecimal totalReturn, long days) {
         if (trades.isEmpty()) {
             return BigDecimal.ZERO;
         }
@@ -684,68 +714,71 @@ public class BacktestService {
         BigDecimal annualizedReturn = annualizeReturn(totalReturn, days);
         BigDecimal annualizedDownside = annualizeVolatility(downsideDeviation, trades.size());
 
-        return annualizedReturn.subtract(RISK_FREE_RATE)
+        return annualizedReturn
+                .subtract(RISK_FREE_RATE)
                 .divide(annualizedDownside, QUANTITY_SCALE, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 수익률의 표준편차 계산
-     */
+    /** 수익률의 표준편차 계산 */
     private BigDecimal calculateStandardDeviation(List<BacktestTrade> trades) {
-        List<BigDecimal> returns = trades.stream()
-                .map(BacktestTrade::getProfitPercent)
-                .collect(Collectors.toList());
+        List<BigDecimal> returns =
+                trades.stream().map(BacktestTrade::getProfitPercent).collect(Collectors.toList());
 
-        BigDecimal avgReturn = returns.stream()
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .divide(BigDecimal.valueOf(returns.size()), DECIMAL_SCALE, RoundingMode.HALF_UP);
+        BigDecimal avgReturn =
+                returns.stream()
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(
+                                BigDecimal.valueOf(returns.size()),
+                                DECIMAL_SCALE,
+                                RoundingMode.HALF_UP);
 
-        BigDecimal sumSquaredDiff = returns.stream()
-                .map(r -> r.subtract(avgReturn).pow(2))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal sumSquaredDiff =
+                returns.stream()
+                        .map(r -> r.subtract(avgReturn).pow(2))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal variance = sumSquaredDiff.divide(BigDecimal.valueOf(returns.size()), DECIMAL_SCALE, RoundingMode.HALF_UP);
+        BigDecimal variance =
+                sumSquaredDiff.divide(
+                        BigDecimal.valueOf(returns.size()), DECIMAL_SCALE, RoundingMode.HALF_UP);
         return BigDecimal.valueOf(Math.sqrt(variance.doubleValue()));
     }
 
-    /**
-     * 하방 편차 계산 (음수 수익률만 고려)
-     */
+    /** 하방 편차 계산 (음수 수익률만 고려) */
     private BigDecimal calculateDownsideDeviation(List<BacktestTrade> trades) {
-        List<BigDecimal> negativeReturns = trades.stream()
-                .map(BacktestTrade::getProfitPercent)
-                .filter(r -> r.compareTo(BigDecimal.ZERO) < 0)
-                .collect(Collectors.toList());
+        List<BigDecimal> negativeReturns =
+                trades.stream()
+                        .map(BacktestTrade::getProfitPercent)
+                        .filter(r -> r.compareTo(BigDecimal.ZERO) < 0)
+                        .collect(Collectors.toList());
 
         if (negativeReturns.isEmpty()) {
             return BigDecimal.ZERO;
         }
 
-        BigDecimal downside = negativeReturns.stream()
-                .map(r -> r.pow(2))
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .divide(BigDecimal.valueOf(trades.size()), DECIMAL_SCALE, RoundingMode.HALF_UP);
+        BigDecimal downside =
+                negativeReturns.stream()
+                        .map(r -> r.pow(2))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(
+                                BigDecimal.valueOf(trades.size()),
+                                DECIMAL_SCALE,
+                                RoundingMode.HALF_UP);
 
         return BigDecimal.valueOf(Math.sqrt(downside.doubleValue()));
     }
 
-    /**
-     * 수익률 연환산
-     */
+    /** 수익률 연환산 */
     private BigDecimal annualizeReturn(BigDecimal totalReturn, long days) {
         return totalReturn.multiply(BigDecimal.valueOf(DAYS_PER_YEAR / days));
     }
 
-    /**
-     * 변동성 연환산
-     */
+    /** 변동성 연환산 */
     private BigDecimal annualizeVolatility(BigDecimal volatility, int tradeCount) {
-        return volatility.multiply(BigDecimal.valueOf(Math.sqrt(TRADING_DAYS_PER_YEAR / tradeCount)));
+        return volatility.multiply(
+                BigDecimal.valueOf(Math.sqrt(TRADING_DAYS_PER_YEAR / tradeCount)));
     }
 
-    /**
-     * Calmar Ratio 계산 (CAGR / MaxDrawdown)
-     */
+    /** Calmar Ratio 계산 (CAGR / MaxDrawdown) */
     private BigDecimal calculateCalmarRatio(BacktestResult result) {
         if (result.getMaxDrawdown() == null || result.getCagr() == null) {
             return BigDecimal.ZERO;
@@ -753,37 +786,56 @@ public class BacktestService {
         if (result.getMaxDrawdown().compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
         }
-        return result.getCagr().divide(result.getMaxDrawdown(), QUANTITY_SCALE, RoundingMode.HALF_UP);
+        return result.getCagr()
+                .divide(result.getMaxDrawdown(), QUANTITY_SCALE, RoundingMode.HALF_UP);
     }
 
     // === Price Data Fetching ===
 
-    /**
-     * Yahoo Finance API로 실제 가격 데이터 조회
-     * 실패 시 샘플 데이터로 폴백
-     */
-    private List<PriceData> fetchHistoricalPriceData(String symbol, LocalDate startDate, LocalDate endDate) {
+    /** Yahoo Finance API로 실제 가격 데이터 조회 실패 시 샘플 데이터로 폴백 */
+    private List<PriceData> fetchHistoricalPriceData(
+            String symbol, LocalDate startDate, LocalDate endDate) {
         try {
             log.info("Yahoo Finance에서 가격 데이터 조회: {} ({} ~ {})", symbol, startDate, endDate);
-            List<HistoricalQuote> quotes = stockPriceService.getHistoricalQuotes(symbol, startDate, endDate);
+            List<HistoricalQuote> quotes =
+                    stockPriceService.getHistoricalQuotes(symbol, startDate, endDate);
 
             if (quotes == null || quotes.isEmpty()) {
                 log.warn("가격 데이터가 없습니다. 샘플 데이터 사용: {}", symbol);
                 return generateSamplePriceData(symbol, startDate, endDate);
             }
 
-            List<PriceData> prices = quotes.stream()
-                    .filter(q -> q.getClose() != null)
-                    .map(q -> PriceData.builder()
-                            .date(q.getDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate())
-                            .open(q.getOpen() != null ? q.getOpen() : q.getClose())
-                            .high(q.getHigh() != null ? q.getHigh() : q.getClose())
-                            .low(q.getLow() != null ? q.getLow() : q.getClose())
-                            .close(q.getClose())
-                            .volume(q.getVolume() != null ? q.getVolume() : 0L)
-                            .build())
-                    .sorted(Comparator.comparing(PriceData::getDate))
-                    .collect(Collectors.toList());
+            List<PriceData> prices =
+                    quotes.stream()
+                            .filter(q -> q.getClose() != null)
+                            .map(
+                                    q ->
+                                            PriceData.builder()
+                                                    .date(
+                                                            q.getDate()
+                                                                    .toInstant()
+                                                                    .atZone(ZoneId.systemDefault())
+                                                                    .toLocalDate())
+                                                    .open(
+                                                            q.getOpen() != null
+                                                                    ? q.getOpen()
+                                                                    : q.getClose())
+                                                    .high(
+                                                            q.getHigh() != null
+                                                                    ? q.getHigh()
+                                                                    : q.getClose())
+                                                    .low(
+                                                            q.getLow() != null
+                                                                    ? q.getLow()
+                                                                    : q.getClose())
+                                                    .close(q.getClose())
+                                                    .volume(
+                                                            q.getVolume() != null
+                                                                    ? q.getVolume()
+                                                                    : 0L)
+                                                    .build())
+                            .sorted(Comparator.comparing(PriceData::getDate))
+                            .collect(Collectors.toList());
 
             log.info("가격 데이터 {} 건 조회 완료", prices.size());
             return prices;
@@ -793,10 +845,9 @@ public class BacktestService {
         }
     }
 
-    /**
-     * 샘플 가격 데이터 생성 (테스트용 / 폴백용)
-     */
-    private List<PriceData> generateSamplePriceData(String symbol, LocalDate startDate, LocalDate endDate) {
+    /** 샘플 가격 데이터 생성 (테스트용 / 폴백용) */
+    private List<PriceData> generateSamplePriceData(
+            String symbol, LocalDate startDate, LocalDate endDate) {
         List<PriceData> prices = new ArrayList<>();
         Random random = new Random(symbol.hashCode());
 
@@ -814,28 +865,30 @@ public class BacktestService {
         return prices;
     }
 
-    /**
-     * 주중인지 확인
-     */
+    /** 주중인지 확인 */
     private boolean isWeekday(LocalDate date) {
         return date.getDayOfWeek().getValue() <= LAST_WEEKDAY;
     }
 
-    /**
-     * 일일 가격 변동 적용
-     */
+    /** 일일 가격 변동 적용 */
     private BigDecimal applyDailyPriceChange(BigDecimal currentPrice, Random random) {
-        double change = (random.nextDouble() - SAMPLE_DAILY_CHANGE_BIAS) * SAMPLE_DAILY_CHANGE_RANGE;
+        double change =
+                (random.nextDouble() - SAMPLE_DAILY_CHANGE_BIAS) * SAMPLE_DAILY_CHANGE_RANGE;
         return currentPrice.multiply(BigDecimal.ONE.add(BigDecimal.valueOf(change)));
     }
 
-    /**
-     * 샘플 OHLCV 데이터 생성
-     */
+    /** 샘플 OHLCV 데이터 생성 */
     private PriceData createSamplePriceData(LocalDate date, BigDecimal closePrice, Random random) {
-        BigDecimal high = closePrice.multiply(BigDecimal.valueOf(1 + random.nextDouble() * SAMPLE_INTRADAY_RANGE));
-        BigDecimal low = closePrice.multiply(BigDecimal.valueOf(1 - random.nextDouble() * SAMPLE_INTRADAY_RANGE));
-        BigDecimal open = closePrice.multiply(BigDecimal.valueOf(1 + (random.nextDouble() - 0.5) * SAMPLE_OPEN_VARIATION));
+        BigDecimal high =
+                closePrice.multiply(
+                        BigDecimal.valueOf(1 + random.nextDouble() * SAMPLE_INTRADAY_RANGE));
+        BigDecimal low =
+                closePrice.multiply(
+                        BigDecimal.valueOf(1 - random.nextDouble() * SAMPLE_INTRADAY_RANGE));
+        BigDecimal open =
+                closePrice.multiply(
+                        BigDecimal.valueOf(
+                                1 + (random.nextDouble() - 0.5) * SAMPLE_OPEN_VARIATION));
 
         return PriceData.builder()
                 .date(date)
@@ -847,9 +900,7 @@ public class BacktestService {
                 .build();
     }
 
-    /**
-     * 계산된 차트 데이터를 엔티티에 캐싱 (저장 시 한 번만 계산)
-     */
+    /** 계산된 차트 데이터를 엔티티에 캐싱 (저장 시 한 번만 계산) */
     private void cacheComputedData(BacktestResult result, List<PriceData> prices) {
         try {
             cacheMonthlyPerformance(result);
@@ -861,32 +912,27 @@ public class BacktestService {
         }
     }
 
-    /**
-     * 월별 성과 데이터 캐싱
-     */
+    /** 월별 성과 데이터 캐싱 */
     private void cacheMonthlyPerformance(BacktestResult result) throws JsonProcessingException {
         Map<String, BacktestResultDto.MonthlyPerformance> monthlyMap = new LinkedHashMap<>();
 
         for (BacktestTrade trade : result.getTrades()) {
             String month = extractMonth(trade.getExitDate());
-            BacktestResultDto.MonthlyPerformance mp = monthlyMap.computeIfAbsent(month,
-                    this::createEmptyMonthlyPerformance);
+            BacktestResultDto.MonthlyPerformance mp =
+                    monthlyMap.computeIfAbsent(month, this::createEmptyMonthlyPerformance);
             updateMonthlyPerformance(mp, trade);
         }
 
-        result.setMonthlyPerformanceJson(objectMapper.writeValueAsString(new ArrayList<>(monthlyMap.values())));
+        result.setMonthlyPerformanceJson(
+                objectMapper.writeValueAsString(new ArrayList<>(monthlyMap.values())));
     }
 
-    /**
-     * 날짜에서 월 문자열 추출 (YYYY-MM)
-     */
+    /** 날짜에서 월 문자열 추출 (YYYY-MM) */
     private String extractMonth(LocalDate date) {
         return date.toString().substring(0, 7);
     }
 
-    /**
-     * 빈 월별 성과 객체 생성
-     */
+    /** 빈 월별 성과 객체 생성 */
     private BacktestResultDto.MonthlyPerformance createEmptyMonthlyPerformance(String month) {
         return BacktestResultDto.MonthlyPerformance.builder()
                 .month(month)
@@ -896,26 +942,25 @@ public class BacktestService {
                 .build();
     }
 
-    /**
-     * 월별 성과 업데이트
-     */
-    private void updateMonthlyPerformance(BacktestResultDto.MonthlyPerformance mp, BacktestTrade trade) {
+    /** 월별 성과 업데이트 */
+    private void updateMonthlyPerformance(
+            BacktestResultDto.MonthlyPerformance mp, BacktestTrade trade) {
         mp.setTradeCount(mp.getTradeCount() + 1);
         mp.setProfit(mp.getProfit().add(trade.getProfit()));
         mp.setReturnPct(mp.getReturnPct().add(trade.getProfitPercent()));
     }
 
-    /**
-     * Equity curve 및 관련 차트 데이터 캐싱
-     */
-    private void cacheEquityCurveData(BacktestResult result, List<PriceData> prices) throws JsonProcessingException {
+    /** Equity curve 및 관련 차트 데이터 캐싱 */
+    private void cacheEquityCurveData(BacktestResult result, List<PriceData> prices)
+            throws JsonProcessingException {
         List<String> equityLabels = new ArrayList<>();
         List<BigDecimal> equityCurve = new ArrayList<>();
         List<BigDecimal> drawdownCurve = new ArrayList<>();
         List<BigDecimal> benchmarkCurve = new ArrayList<>();
 
         if (!prices.isEmpty()) {
-            computeEquityCurves(result, prices, equityLabels, equityCurve, drawdownCurve, benchmarkCurve);
+            computeEquityCurves(
+                    result, prices, equityLabels, equityCurve, drawdownCurve, benchmarkCurve);
         }
 
         result.setEquityLabelsJson(objectMapper.writeValueAsString(equityLabels));
@@ -924,12 +969,14 @@ public class BacktestService {
         result.setBenchmarkCurveJson(objectMapper.writeValueAsString(benchmarkCurve));
     }
 
-    /**
-     * Equity curve 계산
-     */
-    private void computeEquityCurves(BacktestResult result, List<PriceData> prices,
-                                      List<String> equityLabels, List<BigDecimal> equityCurve,
-                                      List<BigDecimal> drawdownCurve, List<BigDecimal> benchmarkCurve) {
+    /** Equity curve 계산 */
+    private void computeEquityCurves(
+            BacktestResult result,
+            List<PriceData> prices,
+            List<String> equityLabels,
+            List<BigDecimal> equityCurve,
+            List<BigDecimal> drawdownCurve,
+            List<BigDecimal> benchmarkCurve) {
         BigDecimal peakEquity = result.getInitialCapital();
         BigDecimal benchmarkStart = prices.get(0).getClose();
         BigDecimal profitDelta = result.getFinalCapital().subtract(result.getInitialCapital());
@@ -940,8 +987,9 @@ public class BacktestService {
 
             // 선형 보간된 equity 계산
             double progress = (double) i / prices.size();
-            BigDecimal currentEquity = result.getInitialCapital().add(
-                    profitDelta.multiply(BigDecimal.valueOf(progress)));
+            BigDecimal currentEquity =
+                    result.getInitialCapital()
+                            .add(profitDelta.multiply(BigDecimal.valueOf(progress)));
             equityCurve.add(currentEquity);
 
             // Drawdown 계산
@@ -952,64 +1000,72 @@ public class BacktestService {
             drawdownCurve.add(drawdown);
 
             // Benchmark (Buy & Hold) 계산
-            BigDecimal benchmarkValue = calculateBenchmarkValue(result.getInitialCapital(), price.getClose(), benchmarkStart);
+            BigDecimal benchmarkValue =
+                    calculateBenchmarkValue(
+                            result.getInitialCapital(), price.getClose(), benchmarkStart);
             benchmarkCurve.add(benchmarkValue);
         }
     }
 
-    /**
-     * Drawdown 백분율 계산 (음수로 반환)
-     */
+    /** Drawdown 백분율 계산 (음수로 반환) */
     private BigDecimal calculateDrawdownPercent(BigDecimal peakEquity, BigDecimal currentEquity) {
-        return peakEquity.subtract(currentEquity)
+        return peakEquity
+                .subtract(currentEquity)
                 .divide(peakEquity, QUANTITY_SCALE, RoundingMode.HALF_UP)
                 .multiply(HUNDRED.negate());
     }
 
-    /**
-     * 벤치마크 가치 계산
-     */
-    private BigDecimal calculateBenchmarkValue(BigDecimal initialCapital, BigDecimal currentPrice, BigDecimal startPrice) {
+    /** 벤치마크 가치 계산 */
+    private BigDecimal calculateBenchmarkValue(
+            BigDecimal initialCapital, BigDecimal currentPrice, BigDecimal startPrice) {
         return initialCapital
                 .multiply(currentPrice)
                 .divide(startPrice, DISPLAY_SCALE, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 결과를 DTO로 변환 (캐시된 데이터 우선 사용)
-     */
+    /** 결과를 DTO로 변환 (캐시된 데이터 우선 사용) */
     private BacktestResultDto convertToDto(BacktestResult result, List<PriceData> prices) {
-        List<BacktestResultDto.TradeDto> tradeDtos = result.getTrades().stream()
-                .map(trade -> BacktestResultDto.TradeDto.builder()
-                        .tradeNumber(trade.getTradeNumber())
-                        .symbol(trade.getSymbol())
-                        .entryDate(trade.getEntryDate())
-                        .exitDate(trade.getExitDate())
-                        .entryPrice(trade.getEntryPrice())
-                        .exitPrice(trade.getExitPrice())
-                        .quantity(trade.getQuantity())
-                        .profit(trade.getProfit())
-                        .profitPercent(trade.getProfitPercent())
-                        .holdingDays(trade.getHoldingDays())
-                        .entrySignal(trade.getEntrySignal())
-                        .exitSignal(trade.getExitSignal())
-                        .portfolioValueAtEntry(trade.getPortfolioValueAtEntry())
-                        .portfolioValueAtExit(trade.getPortfolioValueAtExit())
-                        .build())
-                .collect(Collectors.toList());
+        List<BacktestResultDto.TradeDto> tradeDtos =
+                result.getTrades().stream()
+                        .map(
+                                trade ->
+                                        BacktestResultDto.TradeDto.builder()
+                                                .tradeNumber(trade.getTradeNumber())
+                                                .symbol(trade.getSymbol())
+                                                .entryDate(trade.getEntryDate())
+                                                .exitDate(trade.getExitDate())
+                                                .entryPrice(trade.getEntryPrice())
+                                                .exitPrice(trade.getExitPrice())
+                                                .quantity(trade.getQuantity())
+                                                .profit(trade.getProfit())
+                                                .profitPercent(trade.getProfitPercent())
+                                                .holdingDays(trade.getHoldingDays())
+                                                .entrySignal(trade.getEntrySignal())
+                                                .exitSignal(trade.getExitSignal())
+                                                .portfolioValueAtEntry(
+                                                        trade.getPortfolioValueAtEntry())
+                                                .portfolioValueAtExit(
+                                                        trade.getPortfolioValueAtExit())
+                                                .build())
+                        .collect(Collectors.toList());
 
         // 캐시된 데이터 사용 시도
-        List<String> equityLabels = loadCachedList(result.getEquityLabelsJson(), new TypeReference<>() {});
-        List<BigDecimal> equityCurve = loadCachedList(result.getEquityCurveJson(), new TypeReference<>() {});
-        List<BigDecimal> drawdownCurve = loadCachedList(result.getDrawdownCurveJson(), new TypeReference<>() {});
-        List<BigDecimal> benchmarkCurve = loadCachedList(result.getBenchmarkCurveJson(), new TypeReference<>() {});
-        List<BacktestResultDto.MonthlyPerformance> monthlyPerformance = loadCachedList(
-                result.getMonthlyPerformanceJson(), new TypeReference<>() {});
+        List<String> equityLabels =
+                loadCachedList(result.getEquityLabelsJson(), new TypeReference<>() {});
+        List<BigDecimal> equityCurve =
+                loadCachedList(result.getEquityCurveJson(), new TypeReference<>() {});
+        List<BigDecimal> drawdownCurve =
+                loadCachedList(result.getDrawdownCurveJson(), new TypeReference<>() {});
+        List<BigDecimal> benchmarkCurve =
+                loadCachedList(result.getBenchmarkCurveJson(), new TypeReference<>() {});
+        List<BacktestResultDto.MonthlyPerformance> monthlyPerformance =
+                loadCachedList(result.getMonthlyPerformanceJson(), new TypeReference<>() {});
 
         // 캐시가 없으면 실시간 계산 (하위 호환성)
         if (equityLabels.isEmpty() && !prices.isEmpty()) {
             log.debug("캐시된 차트 데이터 없음, 실시간 계산 수행: {}", result.getId());
-            computeChartDataRealtime(result, prices, equityLabels, equityCurve, drawdownCurve, benchmarkCurve);
+            computeChartDataRealtime(
+                    result, prices, equityLabels, equityCurve, drawdownCurve, benchmarkCurve);
         }
 
         if (monthlyPerformance.isEmpty()) {
@@ -1057,9 +1113,7 @@ public class BacktestService {
                 .build();
     }
 
-    /**
-     * 캐시된 JSON 데이터를 리스트로 로드
-     */
+    /** 캐시된 JSON 데이터를 리스트로 로드 */
     private <T> List<T> loadCachedList(String json, TypeReference<List<T>> typeRef) {
         if (json == null || json.isEmpty()) {
             return new ArrayList<>();
@@ -1072,33 +1126,33 @@ public class BacktestService {
         }
     }
 
-    /**
-     * 차트 데이터 실시간 계산 (캐시 미스 시)
-     */
-    private void computeChartDataRealtime(BacktestResult result, List<PriceData> prices,
-                                          List<String> equityLabels, List<BigDecimal> equityCurve,
-                                          List<BigDecimal> drawdownCurve, List<BigDecimal> benchmarkCurve) {
+    /** 차트 데이터 실시간 계산 (캐시 미스 시) */
+    private void computeChartDataRealtime(
+            BacktestResult result,
+            List<PriceData> prices,
+            List<String> equityLabels,
+            List<BigDecimal> equityCurve,
+            List<BigDecimal> drawdownCurve,
+            List<BigDecimal> benchmarkCurve) {
         // 기존 computeEquityCurves 메서드 재사용
-        computeEquityCurves(result, prices, equityLabels, equityCurve, drawdownCurve, benchmarkCurve);
+        computeEquityCurves(
+                result, prices, equityLabels, equityCurve, drawdownCurve, benchmarkCurve);
     }
 
-    /**
-     * 월별 성과 계산
-     */
-    private List<BacktestResultDto.MonthlyPerformance> computeMonthlyPerformance(BacktestResult result) {
+    /** 월별 성과 계산 */
+    private List<BacktestResultDto.MonthlyPerformance> computeMonthlyPerformance(
+            BacktestResult result) {
         Map<String, BacktestResultDto.MonthlyPerformance> monthlyMap = new LinkedHashMap<>();
         for (BacktestTrade trade : result.getTrades()) {
             String month = extractMonth(trade.getExitDate());
-            BacktestResultDto.MonthlyPerformance mp = monthlyMap.computeIfAbsent(month,
-                    this::createEmptyMonthlyPerformance);
+            BacktestResultDto.MonthlyPerformance mp =
+                    monthlyMap.computeIfAbsent(month, this::createEmptyMonthlyPerformance);
             updateMonthlyPerformance(mp, trade);
         }
         return new ArrayList<>(monthlyMap.values());
     }
 
-    /**
-     * 백테스트 히스토리 조회 (요약 정보만)
-     */
+    /** 백테스트 히스토리 조회 (요약 정보만) */
     @Transactional(readOnly = true)
     public List<BacktestSummaryDto> getHistory() {
         return backtestResultRepository.findTop20ByOrderByExecutedAtDesc().stream()
@@ -1106,9 +1160,7 @@ public class BacktestService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 결과를 요약 DTO로 변환 (목록 조회용 - 차트/거래 데이터 제외)
-     */
+    /** 결과를 요약 DTO로 변환 (목록 조회용 - 차트/거래 데이터 제외) */
     private BacktestSummaryDto convertToSummaryDto(BacktestResult result) {
         return BacktestSummaryDto.builder()
                 .id(result.getId())
@@ -1131,40 +1183,39 @@ public class BacktestService {
                 .build();
     }
 
-    /**
-     * 백테스트 결과 상세 조회
-     */
+    /** 백테스트 결과 상세 조회 */
     @Transactional(readOnly = true)
     public BacktestResultDto getResult(Long id) {
-        BacktestResult result = backtestResultRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("백테스트 결과를 찾을 수 없습니다: " + id));
+        BacktestResult result =
+                backtestResultRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("백테스트 결과를 찾을 수 없습니다: " + id));
 
         // 가격 데이터 재생성 (차트용)
-        List<PriceData> prices = generateSamplePriceData(result.getSymbol(),
-                result.getStartDate(), result.getEndDate());
+        List<PriceData> prices =
+                generateSamplePriceData(
+                        result.getSymbol(), result.getStartDate(), result.getEndDate());
 
         return convertToDto(result, prices);
     }
 
-    /**
-     * 사용 가능한 전략 목록
-     */
+    /** 사용 가능한 전략 목록 */
     public List<Map<String, Object>> getAvailableStrategies() {
         return Arrays.stream(TradingStrategy.StrategyType.values())
-                .map(type -> {
-                    Map<String, Object> strategy = new HashMap<>();
-                    strategy.put("type", type.name());
-                    strategy.put("label", type.getLabel());
-                    strategy.put("description", type.getDescription());
-                    strategy.put("parameters", getDefaultParameters(type));
-                    return strategy;
-                })
+                .map(
+                        type -> {
+                            Map<String, Object> strategy = new HashMap<>();
+                            strategy.put("type", type.name());
+                            strategy.put("label", type.getLabel());
+                            strategy.put("description", type.getDescription());
+                            strategy.put("parameters", getDefaultParameters(type));
+                            return strategy;
+                        })
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 전략별 기본 파라미터
-     */
+    /** 전략별 기본 파라미터 */
     private Map<String, Object> getDefaultParameters(TradingStrategy.StrategyType type) {
         Map<String, Object> params = new HashMap<>();
         switch (type) {
@@ -1200,74 +1251,95 @@ public class BacktestService {
 
     // === 전략 최적화 ===
 
-    /**
-     * 전략 파라미터 최적화 (그리드 서치)
-     */
+    /** 전략 파라미터 최적화 (그리드 서치) */
     @Transactional
     public OptimizationResultDto optimizeStrategy(OptimizationRequestDto request) {
         long startTime = System.currentTimeMillis();
         log.info("전략 최적화 시작: {} - {}", request.getStrategyType(), request.getSymbol());
 
         // 1. 파라미터 조합 생성
-        List<Map<String, Object>> paramCombinations = generateParameterCombinations(request.getParameterRanges());
+        List<Map<String, Object>> paramCombinations =
+                generateParameterCombinations(request.getParameterRanges());
         log.info("테스트할 파라미터 조합 수: {}", paramCombinations.size());
 
         // 2. 가격 데이터 미리 조회 (재사용)
-        List<PriceData> prices = fetchHistoricalPriceData(request.getSymbol(),
-                request.getStartDate(), request.getEndDate());
+        List<PriceData> prices =
+                fetchHistoricalPriceData(
+                        request.getSymbol(), request.getStartDate(), request.getEndDate());
 
         // 3. 각 조합에 대해 백테스트 실행 (병렬 처리)
         List<ParameterResult> results = Collections.synchronizedList(new ArrayList<>());
         final int totalCombinations = paramCombinations.size();
         final AtomicInteger completedCount = new AtomicInteger(0);
-        final AtomicInteger logInterval = new AtomicInteger(Math.max(1, totalCombinations / 10)); // 10% 단위 로깅
+        final AtomicInteger logInterval =
+                new AtomicInteger(Math.max(1, totalCombinations / 10)); // 10% 단위 로깅
 
-        paramCombinations.parallelStream().forEach(params -> {
-            try {
-                BacktestRequestDto backtestRequest = createBacktestRequestFromOptimization(request, params);
-                TradingStrategy strategy = createStrategy(backtestRequest);
-                BacktestResult result = executeBacktest(backtestRequest, strategy, prices);
+        paramCombinations.parallelStream()
+                .forEach(
+                        params -> {
+                            try {
+                                BacktestRequestDto backtestRequest =
+                                        createBacktestRequestFromOptimization(request, params);
+                                TradingStrategy strategy = createStrategy(backtestRequest);
+                                BacktestResult result =
+                                        executeBacktest(backtestRequest, strategy, prices);
 
-                BigDecimal targetValue = getTargetValue(result, request.getTarget());
+                                BigDecimal targetValue =
+                                        getTargetValue(result, request.getTarget());
 
-                results.add(ParameterResult.builder()
-                        .parameters(params)
-                        .targetValue(targetValue)
-                        .totalReturn(result.getTotalReturn())
-                        .maxDrawdown(result.getMaxDrawdown())
-                        .sharpeRatio(result.getSharpeRatio())
-                        .profitFactor(result.getProfitFactor())
-                        .totalTrades(result.getTotalTrades())
-                        .winRate(result.getWinRate())
-                        .build());
+                                results.add(
+                                        ParameterResult.builder()
+                                                .parameters(params)
+                                                .targetValue(targetValue)
+                                                .totalReturn(result.getTotalReturn())
+                                                .maxDrawdown(result.getMaxDrawdown())
+                                                .sharpeRatio(result.getSharpeRatio())
+                                                .profitFactor(result.getProfitFactor())
+                                                .totalTrades(result.getTotalTrades())
+                                                .winRate(result.getWinRate())
+                                                .build());
 
-                // 진행률 로깅 (10% 단위)
-                int completed = completedCount.incrementAndGet();
-                if (completed % logInterval.get() == 0 || completed == totalCombinations) {
-                    log.info("최적화 진행률: {}/{} ({}%)", completed, totalCombinations,
-                            String.format("%.0f", (double) completed / totalCombinations * 100));
-                }
-            } catch (Exception e) {
-                log.warn("파라미터 조합 테스트 실패: {} - {}", params, e.getMessage());
-                completedCount.incrementAndGet();
-            }
-        });
+                                // 진행률 로깅 (10% 단위)
+                                int completed = completedCount.incrementAndGet();
+                                if (completed % logInterval.get() == 0
+                                        || completed == totalCombinations) {
+                                    log.info(
+                                            "최적화 진행률: {}/{} ({}%)",
+                                            completed,
+                                            totalCombinations,
+                                            String.format(
+                                                    "%.0f",
+                                                    (double) completed / totalCombinations * 100));
+                                }
+                            } catch (Exception e) {
+                                log.warn("파라미터 조합 테스트 실패: {} - {}", params, e.getMessage());
+                                completedCount.incrementAndGet();
+                            }
+                        });
 
         if (results.isEmpty()) {
             throw new RuntimeException("최적화 실패: 유효한 결과가 없습니다");
         }
 
         // 4. 최적 파라미터 선택
-        ParameterResult best = results.stream()
-                .max(Comparator.comparing(r -> r.getTargetValue() != null ? r.getTargetValue() : BigDecimal.ZERO))
-                .orElseThrow(() -> new RuntimeException("최적 파라미터를 찾을 수 없습니다"));
+        ParameterResult best =
+                results.stream()
+                        .max(
+                                Comparator.comparing(
+                                        r ->
+                                                r.getTargetValue() != null
+                                                        ? r.getTargetValue()
+                                                        : BigDecimal.ZERO))
+                        .orElseThrow(() -> new RuntimeException("최적 파라미터를 찾을 수 없습니다"));
 
         // 5. 최적 파라미터로 전체 결과 생성 (저장 포함)
-        BacktestRequestDto bestRequest = createBacktestRequestFromOptimization(request, best.getParameters());
+        BacktestRequestDto bestRequest =
+                createBacktestRequestFromOptimization(request, best.getParameters());
         BacktestResultDto bestFullResult = runBacktest(bestRequest);
 
         long executionTime = System.currentTimeMillis() - startTime;
-        log.info("최적화 완료: {} 조합 테스트, 최적 수익률 {}%, 실행시간 {}ms",
+        log.info(
+                "최적화 완료: {} 조합 테스트, 최적 수익률 {}%, 실행시간 {}ms",
                 results.size(), best.getTotalReturn(), executionTime);
 
         return OptimizationResultDto.builder()
@@ -1280,10 +1352,9 @@ public class BacktestService {
                 .build();
     }
 
-    /**
-     * 파라미터 조합 생성 (카르테시안 곱)
-     */
-    private List<Map<String, Object>> generateParameterCombinations(Map<String, ParameterRange> ranges) {
+    /** 파라미터 조합 생성 (카르테시안 곱) */
+    private List<Map<String, Object>> generateParameterCombinations(
+            Map<String, ParameterRange> ranges) {
         List<Map<String, Object>> combinations = new ArrayList<>();
         combinations.add(new HashMap<>());
 
@@ -1311,9 +1382,7 @@ public class BacktestService {
         return combinations;
     }
 
-    /**
-     * 범위 값 생성
-     */
+    /** 범위 값 생성 */
     private List<Number> generateRangeValues(ParameterRange range) {
         List<Number> values = new ArrayList<>();
 
@@ -1337,11 +1406,9 @@ public class BacktestService {
         return values;
     }
 
-    /**
-     * 최적화 요청에서 백테스트 요청 생성
-     */
-    private BacktestRequestDto createBacktestRequestFromOptimization(OptimizationRequestDto optRequest,
-                                                                       Map<String, Object> params) {
+    /** 최적화 요청에서 백테스트 요청 생성 */
+    private BacktestRequestDto createBacktestRequestFromOptimization(
+            OptimizationRequestDto optRequest, Map<String, Object> params) {
         return BacktestRequestDto.builder()
                 .symbol(optRequest.getSymbol())
                 .strategyType(optRequest.getStrategyType())
@@ -1355,23 +1422,28 @@ public class BacktestService {
                 .build();
     }
 
-    /**
-     * 최적화 목표에 따른 값 추출
-     */
-    private BigDecimal getTargetValue(BacktestResult result, OptimizationRequestDto.OptimizationTarget target) {
+    /** 최적화 목표에 따른 값 추출 */
+    private BigDecimal getTargetValue(
+            BacktestResult result, OptimizationRequestDto.OptimizationTarget target) {
         switch (target) {
             case TOTAL_RETURN:
                 return result.getTotalReturn();
             case SHARPE_RATIO:
                 return result.getSharpeRatio() != null ? result.getSharpeRatio() : BigDecimal.ZERO;
             case PROFIT_FACTOR:
-                return result.getProfitFactor() != null ? result.getProfitFactor() : BigDecimal.ZERO;
+                return result.getProfitFactor() != null
+                        ? result.getProfitFactor()
+                        : BigDecimal.ZERO;
             case MIN_DRAWDOWN:
                 // MDD는 작을수록 좋으므로 음수로 변환
-                return result.getMaxDrawdown() != null ? result.getMaxDrawdown().negate() : BigDecimal.ZERO;
+                return result.getMaxDrawdown() != null
+                        ? result.getMaxDrawdown().negate()
+                        : BigDecimal.ZERO;
             case CALMAR_RATIO:
-                if (result.getMaxDrawdown() != null && result.getMaxDrawdown().compareTo(BigDecimal.ZERO) > 0) {
-                    return result.getCagr().divide(result.getMaxDrawdown(), 4, RoundingMode.HALF_UP);
+                if (result.getMaxDrawdown() != null
+                        && result.getMaxDrawdown().compareTo(BigDecimal.ZERO) > 0) {
+                    return result.getCagr()
+                            .divide(result.getMaxDrawdown(), 4, RoundingMode.HALF_UP);
                 }
                 return BigDecimal.ZERO;
             default:
@@ -1395,8 +1467,10 @@ public class BacktestService {
         return Double.parseDouble(value.toString());
     }
 
-    private MovingAverageCrossStrategy.MAType getMAType(Map<String, Object> params, String key,
-                                                         MovingAverageCrossStrategy.MAType defaultValue) {
+    private MovingAverageCrossStrategy.MAType getMAType(
+            Map<String, Object> params,
+            String key,
+            MovingAverageCrossStrategy.MAType defaultValue) {
         Object value = params.get(key);
         if (value == null) return defaultValue;
         return MovingAverageCrossStrategy.MAType.valueOf(value.toString());
@@ -1410,9 +1484,7 @@ public class BacktestService {
         }
     }
 
-    /**
-     * 리스트를 JSON 문자열로 변환
-     */
+    /** 리스트를 JSON 문자열로 변환 */
     private String toJsonList(Object list) {
         try {
             return objectMapper.writeValueAsString(list);

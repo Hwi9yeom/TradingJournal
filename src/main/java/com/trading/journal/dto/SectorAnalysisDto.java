@@ -1,19 +1,16 @@
 package com.trading.journal.dto;
 
 import com.trading.journal.entity.Sector;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-
-/**
- * 섹터별 분석 결과 DTO
- */
+/** 섹터별 분석 결과 DTO */
 @Data
 @Builder
 @NoArgsConstructor
@@ -56,9 +53,7 @@ public class SectorAnalysisDto {
     /** 섹터 분산 평가 */
     private String diversificationRating;
 
-    /**
-     * 섹터별 현재 배분
-     */
+    /** 섹터별 현재 배분 */
     @Data
     @Builder
     @NoArgsConstructor
@@ -72,9 +67,7 @@ public class SectorAnalysisDto {
         private List<StockInSector> stocks;
     }
 
-    /**
-     * 섹터 내 종목 정보
-     */
+    /** 섹터 내 종목 정보 */
     @Data
     @Builder
     @NoArgsConstructor
@@ -87,9 +80,7 @@ public class SectorAnalysisDto {
         private BigDecimal profitLossPercent;
     }
 
-    /**
-     * 섹터별 성과
-     */
+    /** 섹터별 성과 */
     @Data
     @Builder
     @NoArgsConstructor
@@ -110,23 +101,19 @@ public class SectorAnalysisDto {
         private BigDecimal worstTrade;
     }
 
-    /**
-     * 섹터 로테이션 히스토리
-     */
+    /** 섹터 로테이션 히스토리 */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class SectorRotation {
-        private String period;  // YYYY-MM
+        private String period; // YYYY-MM
         private Map<Sector, BigDecimal> sectorWeights;
         private Sector dominantSector;
         private BigDecimal dominantWeight;
     }
 
-    /**
-     * 섹터 옵션 (UI용)
-     */
+    /** 섹터 옵션 (UI용) */
     @Data
     @Builder
     @NoArgsConstructor

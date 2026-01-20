@@ -1,17 +1,14 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.*;
 
-/**
- * 백테스트 결과 엔티티
- */
+/** 백테스트 결과 엔티티 */
 @Entity
 @Table(name = "backtest_results")
 @Data
@@ -73,16 +70,13 @@ public class BacktestResult {
     private BigDecimal sortinoRatio;
 
     /** 총 거래 횟수 */
-    @Column
-    private Integer totalTrades;
+    @Column private Integer totalTrades;
 
     /** 승리 거래 횟수 */
-    @Column
-    private Integer winningTrades;
+    @Column private Integer winningTrades;
 
     /** 패배 거래 횟수 */
-    @Column
-    private Integer losingTrades;
+    @Column private Integer losingTrades;
 
     /** 승률 (%) */
     @Column(precision = 10, scale = 4)
@@ -101,12 +95,10 @@ public class BacktestResult {
     private BigDecimal profitFactor;
 
     /** 최대 연승 */
-    @Column
-    private Integer maxWinStreak;
+    @Column private Integer maxWinStreak;
 
     /** 최대 연패 */
-    @Column
-    private Integer maxLossStreak;
+    @Column private Integer maxLossStreak;
 
     /** 평균 보유 기간 (일) */
     @Column(precision = 10, scale = 2)
@@ -118,12 +110,10 @@ public class BacktestResult {
     private List<BacktestTrade> trades = new ArrayList<>();
 
     /** 실행 시각 */
-    @Column
-    private LocalDateTime executedAt;
+    @Column private LocalDateTime executedAt;
 
     /** 실행 소요 시간 (밀리초) */
-    @Column
-    private Long executionTimeMs;
+    @Column private Long executionTimeMs;
 
     // === 캐싱된 계산 결과 (JSON) ===
 

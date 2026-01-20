@@ -1,17 +1,13 @@
 package com.trading.journal.dto;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-
-/**
- * 리스크 지표 종합 DTO
- * VaR, Sortino, Calmar, Information Ratio 등 고급 리스크 메트릭스 포함
- */
+/** 리스크 지표 종합 DTO VaR, Sortino, Calmar, Information Ratio 등 고급 리스크 메트릭스 포함 */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -71,10 +67,7 @@ public class RiskMetricsDto {
     /** 총 거래일 수 */
     private Integer tradingDays;
 
-    /**
-     * VaR (Value at Risk) 상세 DTO
-     * Historical VaR 방식으로 계산된 최대 예상 손실
-     */
+    /** VaR (Value at Risk) 상세 DTO Historical VaR 방식으로 계산된 최대 예상 손실 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -96,9 +89,7 @@ public class RiskMetricsDto {
         private BigDecimal confidenceLevel;
     }
 
-    /**
-     * 리스크 등급 Enum
-     */
+    /** 리스크 등급 Enum */
     public enum RiskLevel {
         LOW("낮음", "안정적인 포트폴리오"),
         MEDIUM("중간", "적절한 리스크 수준"),

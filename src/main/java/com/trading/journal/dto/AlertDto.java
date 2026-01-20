@@ -3,17 +3,14 @@ package com.trading.journal.dto;
 import com.trading.journal.entity.AlertPriority;
 import com.trading.journal.entity.AlertStatus;
 import com.trading.journal.entity.AlertType;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
-/**
- * 알림 DTO
- */
+/** 알림 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -11,13 +11,16 @@ public class WebClientConfig {
     @Bean
     public WebClient webClient() {
         // 대용량 응답 처리를 위한 버퍼 크기 증가
-        ExchangeStrategies exchangeStrategies = ExchangeStrategies.builder()
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024)) // 10MB
-                .build();
+        ExchangeStrategies exchangeStrategies =
+                ExchangeStrategies.builder()
+                        .codecs(
+                                configurer ->
+                                        configurer
+                                                .defaultCodecs()
+                                                .maxInMemorySize(10 * 1024 * 1024)) // 10MB
+                        .build();
 
-        return WebClient.builder()
-                .exchangeStrategies(exchangeStrategies)
-                .build();
+        return WebClient.builder().exchangeStrategies(exchangeStrategies).build();
     }
 
     @Bean

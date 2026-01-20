@@ -1,17 +1,14 @@
 package com.trading.journal.dto;
 
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-
-/**
- * 전략 최적화 결과 DTO
- */
+/** 전략 최적화 결과 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -36,9 +33,7 @@ public class OptimizationResultDto {
     /** 최적화 목표 */
     private String targetType;
 
-    /**
-     * 개별 파라미터 조합 결과
-     */
+    /** 개별 파라미터 조합 결과 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

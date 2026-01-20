@@ -1,17 +1,14 @@
 package com.trading.journal.dto;
 
 import com.trading.journal.entity.Transaction;
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.util.List;
-
-/**
- * FIFO 계산 결과를 담는 DTO
- */
+/** FIFO 계산 결과를 담는 DTO */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -27,9 +24,7 @@ public class FifoResult {
     /** 소진된 매수 거래 목록 */
     private List<BuyConsumption> consumptions;
 
-    /**
-     * 매수 거래 소진 정보
-     */
+    /** 매수 거래 소진 정보 */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
