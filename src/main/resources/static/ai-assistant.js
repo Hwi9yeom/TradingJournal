@@ -1,112 +1,232 @@
 /**
- * AI 트레이딩 어시스턴트 JavaScript
+ * AI Trading Assistant JavaScript
+ *
+ * @fileoverview Provides AI assistant functionality including:
+ * - Chat interface with SSE streaming support
+ * - Performance and risk analysis
+ * - Ollama server health monitoring
+ * - Insight card management
+ *
+ * @requires utils.js - For escapeHtml and other utility functions
  */
 
-// 전역 변수
-let sessionId = generateSessionId();
-let lastAnalysisResult = null;
-let isStreaming = false;
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
-// 페이지 로드 시 초기화
+/**
+ * API endpoints for AI assistant
+ * @constant {Object}
+ */
+const AI_API = {
+    HEALTH: '/api/ai/health',
+    CHAT: '/api/ai/chat',
+    PERFORMANCE: '/api/ai/analyze/performance',
+    RISK: '/api/ai/analyze/risk'
+};
+
+/**
+ * Analysis types configuration
+ * @constant {Object}
+ */
+const ANALYSIS_TYPES = {
+    PERFORMANCE: {
+        key: 'performance',
+        title: '성과 분석',
+        icon: 'graph-up-arrow',
+        iconColor: 'text-success'
+    },
+    RISK: {
+        key: 'risk',
+        title: '리스크 분석',
+        icon: 'shield-exclamation',
+        iconColor: 'text-danger'
+    }
+};
+
+/**
+ * UI messages and labels
+ * @constant {Object}
+ */
+const UI_MESSAGES = {
+    AI_CONNECTED: 'AI 연결됨',
+    AI_DISCONNECTED: 'AI 연결 안됨',
+    ANALYZING: 'AI가 분석 중입니다. 잠시만 기다려주세요...',
+    ANALYSIS_ERROR: '분석 중 오류가 발생했습니다',
+    RESPONSE_ERROR: '죄송합니다. 응답 생성 중 오류가 발생했습니다. Ollama 서버가 실행 중인지 확인해주세요.',
+    SELECT_PERIOD: '분석 기간을 선택해주세요.',
+    CLEAR_CONFIRM: '대화 기록을 모두 삭제하시겠습니까?',
+    FOLLOW_UP_PLACEHOLDER: '분석 결과에 대해 추가 질문을 해보세요...',
+    WELCOME_MESSAGE: `안녕하세요! 저는 AI 트레이딩 어시스턴트입니다. 거래 분석, 리스크 관리, 전략 최적화 등에 대해 질문해주세요.
+        <br><br>
+        <strong>예시 질문:</strong>
+        <ul class="mb-0 mt-2">
+            <li>최근 3개월 거래 성과를 분석해줘</li>
+            <li>현재 리스크 상태가 어떤가요?</li>
+            <li>승률을 높이려면 어떻게 해야 할까요?</li>
+            <li>손절 전략에 대해 조언해줘</li>
+        </ul>`
+};
+
+/**
+ * Configuration values
+ * @constant {Object}
+ */
+const CONFIG = {
+    HEALTH_CHECK_INTERVAL: 30000,
+    DEFAULT_ACCOUNT_ID: 1,
+    MAX_INSIGHT_CARDS: 5,
+    INSIGHT_CONTENT_LENGTH: 150,
+    DEFAULT_ANALYSIS_MONTHS: 3,
+    FOCUS_DELAY: 300
+};
+
+// ============================================================================
+// STATE MANAGEMENT
+// ============================================================================
+
+/**
+ * Application state object
+ * @type {Object}
+ */
+const chatState = {
+    /** @type {string} - Current session identifier */
+    sessionId: generateSessionId(),
+    /** @type {Object|null} - Last analysis result for reference */
+    lastAnalysisResult: null,
+    /** @type {boolean} - Whether a streaming response is in progress */
+    isStreaming: false
+};
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+/**
+ * Initialize the AI assistant on page load.
+ * Sets up date inputs and starts health monitoring.
+ */
 document.addEventListener('DOMContentLoaded', function() {
     initializeDateInputs();
     checkOllamaHealth();
 
-    // 주기적 상태 확인 (30초마다)
-    setInterval(checkOllamaHealth, 30000);
+    // Periodic health check
+    setInterval(checkOllamaHealth, CONFIG.HEALTH_CHECK_INTERVAL);
 });
 
 /**
- * 세션 ID 생성
+ * Generate a unique session identifier.
+ * @returns {string} Session ID in format 'session_{timestamp}_{random}'
  */
 function generateSessionId() {
     return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
 /**
- * 날짜 입력 필드 초기화
+ * Initialize date input fields with default values.
+ * Sets end date to today and start date to 3 months ago.
  */
 function initializeDateInputs() {
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - 3);
+    startDate.setMonth(startDate.getMonth() - CONFIG.DEFAULT_ANALYSIS_MONTHS);
 
     document.getElementById('analysisEndDate').value = endDate.toISOString().split('T')[0];
     document.getElementById('analysisStartDate').value = startDate.toISOString().split('T')[0];
 }
 
+// ============================================================================
+// HEALTH MONITORING
+// ============================================================================
+
 /**
- * Ollama 서버 상태 확인
+ * Check Ollama server health status.
+ * Updates UI indicators based on connection status.
+ * @returns {Promise<void>}
  */
 async function checkOllamaHealth() {
-    try {
-        const response = await fetch('/api/ai/health');
-        const data = await response.json();
+    const statusIndicator = document.getElementById('ollamaStatus');
+    const statusText = document.getElementById('ollamaStatusText');
 
-        const statusIndicator = document.getElementById('ollamaStatus');
-        const statusText = document.getElementById('ollamaStatusText');
+    try {
+        const response = await fetch(AI_API.HEALTH);
+        const data = await response.json();
 
         if (data.status === 'UP') {
             statusIndicator.className = 'status-indicator connected';
-            statusText.textContent = 'AI 연결됨';
+            statusText.textContent = UI_MESSAGES.AI_CONNECTED;
         } else {
-            statusIndicator.className = 'status-indicator disconnected';
-            statusText.textContent = 'AI 연결 안됨';
+            setDisconnectedStatus(statusIndicator, statusText);
         }
     } catch (error) {
-        const statusIndicator = document.getElementById('ollamaStatus');
-        const statusText = document.getElementById('ollamaStatusText');
-        statusIndicator.className = 'status-indicator disconnected';
-        statusText.textContent = 'AI 연결 안됨';
+        setDisconnectedStatus(statusIndicator, statusText);
     }
 }
 
 /**
- * 성과 분석 실행
+ * Set disconnected status on UI elements.
+ * @param {HTMLElement} indicator - Status indicator element
+ * @param {HTMLElement} textElement - Status text element
+ */
+function setDisconnectedStatus(indicator, textElement) {
+    indicator.className = 'status-indicator disconnected';
+    textElement.textContent = UI_MESSAGES.AI_DISCONNECTED;
+}
+
+// ============================================================================
+// ANALYSIS FUNCTIONS
+// ============================================================================
+
+/**
+ * Execute performance analysis for the selected date range.
+ * @returns {Promise<void>}
  */
 async function analyzePerformance() {
     const startDate = document.getElementById('analysisStartDate').value;
     const endDate = document.getElementById('analysisEndDate').value;
 
     if (!startDate || !endDate) {
-        alert('분석 기간을 선택해주세요.');
+        alert(UI_MESSAGES.SELECT_PERIOD);
         return;
     }
 
-    showAnalysisModal('성과 분석');
+    showAnalysisModal(ANALYSIS_TYPES.PERFORMANCE.title);
 
     try {
-        const response = await fetch(`/api/ai/analyze/performance?accountId=1&startDate=${startDate}&endDate=${endDate}`);
+        const url = `${AI_API.PERFORMANCE}?accountId=${CONFIG.DEFAULT_ACCOUNT_ID}&startDate=${startDate}&endDate=${endDate}`;
+        const response = await fetch(url);
         const data = await response.json();
 
-        lastAnalysisResult = data;
-        displayAnalysisResult(data, 'performance');
-        addInsightCard('performance', '성과 분석', data.summary);
+        chatState.lastAnalysisResult = data;
+        displayAnalysisResult(data, ANALYSIS_TYPES.PERFORMANCE);
+        addInsightCard(ANALYSIS_TYPES.PERFORMANCE.key, ANALYSIS_TYPES.PERFORMANCE.title, data.summary);
     } catch (error) {
         displayAnalysisError(error.message);
     }
 }
 
 /**
- * 리스크 분석 실행
+ * Execute risk analysis for the current account.
+ * @returns {Promise<void>}
  */
 async function analyzeRisk() {
-    showAnalysisModal('리스크 분석');
+    showAnalysisModal(ANALYSIS_TYPES.RISK.title);
 
     try {
-        const response = await fetch('/api/ai/analyze/risk?accountId=1');
+        const response = await fetch(`${AI_API.RISK}?accountId=${CONFIG.DEFAULT_ACCOUNT_ID}`);
         const data = await response.json();
 
-        lastAnalysisResult = data;
-        displayAnalysisResult(data, 'risk');
-        addInsightCard('risk', '리스크 분석', data.summary);
+        chatState.lastAnalysisResult = data;
+        displayAnalysisResult(data, ANALYSIS_TYPES.RISK);
+        addInsightCard(ANALYSIS_TYPES.RISK.key, ANALYSIS_TYPES.RISK.title, data.summary);
     } catch (error) {
         displayAnalysisError(error.message);
     }
 }
 
 /**
- * 분석 모달 표시
+ * Display the analysis modal with loading state.
+ * @param {string} title - Modal title
  */
 function showAnalysisModal(title) {
     document.getElementById('analysisModalTitle').innerHTML =
@@ -116,7 +236,7 @@ function showAnalysisModal(title) {
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">분석 중...</span>
             </div>
-            <p class="mt-3 text-muted">AI가 분석 중입니다. 잠시만 기다려주세요...</p>
+            <p class="mt-3 text-muted">${UI_MESSAGES.ANALYZING}</p>
         </div>
     `;
 
@@ -125,20 +245,19 @@ function showAnalysisModal(title) {
 }
 
 /**
- * 분석 결과 표시
+ * Display analysis result in the modal.
+ * @param {Object} data - Analysis result data
+ * @param {Object} analysisType - Analysis type configuration
  */
-function displayAnalysisResult(data, type) {
-    const iconClass = type === 'performance' ? 'graph-up-arrow text-success' : 'shield-exclamation text-danger';
-
-    // Markdown-like 포맷팅 적용
-    let formattedContent = formatAIResponse(data.summary || data.rawResponse);
+function displayAnalysisResult(data, analysisType) {
+    const formattedContent = formatAIResponse(data.summary || data.rawResponse);
 
     document.getElementById('analysisModalBody').innerHTML = `
         <div class="analysis-result">
             <div class="d-flex align-items-center mb-3">
-                <i class="bi bi-${iconClass} fs-3 me-2"></i>
+                <i class="bi bi-${analysisType.icon} ${analysisType.iconColor} fs-3 me-2"></i>
                 <div>
-                    <h6 class="mb-0">${type === 'performance' ? '성과 분석' : '리스크 분석'} 완료</h6>
+                    <h6 class="mb-0">${analysisType.title} 완료</h6>
                     <small class="text-muted">${new Date(data.analyzedAt).toLocaleString()}</small>
                 </div>
             </div>
@@ -150,13 +269,14 @@ function displayAnalysisResult(data, type) {
 }
 
 /**
- * 분석 에러 표시
+ * Display analysis error in the modal.
+ * @param {string} message - Error message
  */
 function displayAnalysisError(message) {
     document.getElementById('analysisModalBody').innerHTML = `
         <div class="alert alert-danger">
             <i class="bi bi-exclamation-triangle me-2"></i>
-            분석 중 오류가 발생했습니다: ${message}
+            ${UI_MESSAGES.ANALYSIS_ERROR}: ${escapeHtml(message)}
         </div>
         <p class="text-muted">
             Ollama 서버가 실행 중인지 확인해주세요.<br>
@@ -165,14 +285,23 @@ function displayAnalysisError(message) {
     `;
 }
 
+// ============================================================================
+// INSIGHT CARDS
+// ============================================================================
+
 /**
- * 인사이트 카드 추가
+ * Add an insight card to the insights list.
+ * @param {string} type - Insight type (performance, risk)
+ * @param {string} title - Card title
+ * @param {string} content - Card content
  */
 function addInsightCard(type, title, content) {
     const insightsList = document.getElementById('insightsList');
-    const truncatedContent = content.length > 150 ? content.substring(0, 150) + '...' : content;
+    const truncatedContent = content.length > CONFIG.INSIGHT_CONTENT_LENGTH
+        ? content.substring(0, CONFIG.INSIGHT_CONTENT_LENGTH) + '...'
+        : content;
 
-    // 기존 빈 상태 메시지 제거
+    // Remove empty state message if present
     if (insightsList.querySelector('.text-center')) {
         insightsList.innerHTML = '';
     }
@@ -181,95 +310,108 @@ function addInsightCard(type, title, content) {
     card.className = `insight-card ${type} p-3 border-bottom`;
     card.innerHTML = `
         <div class="d-flex justify-content-between align-items-start mb-2">
-            <h6 class="mb-0">${title}</h6>
+            <h6 class="mb-0">${escapeHtml(title)}</h6>
             <small class="text-muted">${new Date().toLocaleTimeString()}</small>
         </div>
-        <p class="mb-0 small text-muted">${truncatedContent}</p>
+        <p class="mb-0 small text-muted">${escapeHtml(truncatedContent)}</p>
     `;
 
     insightsList.insertBefore(card, insightsList.firstChild);
 
-    // 최대 5개까지만 유지
-    while (insightsList.children.length > 5) {
+    // Maintain maximum card count
+    while (insightsList.children.length > CONFIG.MAX_INSIGHT_CARDS) {
         insightsList.removeChild(insightsList.lastChild);
     }
 }
 
+// ============================================================================
+// CHAT FUNCTIONS
+// ============================================================================
+
 /**
- * 메시지 전송
+ * Send a chat message and handle streaming response.
+ * @returns {Promise<void>}
  */
 async function sendMessage() {
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
 
-    if (!message || isStreaming) return;
+    if (!message || chatState.isStreaming) return;
 
     input.value = '';
     addMessageToChat('user', message);
 
-    isStreaming = true;
+    chatState.isStreaming = true;
     updateSendButton(true);
 
-    // 타이핑 인디케이터 표시
     const typingId = showTypingIndicator();
 
     try {
-        // SSE 스트리밍 사용
-        const response = await fetch('/api/ai/chat', {
+        const response = await fetch(AI_API.CHAT, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                sessionId: sessionId,
+                sessionId: chatState.sessionId,
                 message: message
             })
         });
 
-        // 타이핑 인디케이터 제거
         removeTypingIndicator(typingId);
 
         if (!response.ok) {
             throw new Error('응답 오류');
         }
 
-        // 어시스턴트 메시지 컨테이너 생성
         const assistantMessageId = addMessageToChat('assistant', '', true);
-
-        // 스트리밍 응답 처리
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let fullResponse = '';
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-                if (line.startsWith('data:')) {
-                    const data = line.substring(5).trim();
-                    if (data) {
-                        fullResponse += data;
-                        updateAssistantMessage(assistantMessageId, formatAIResponse(fullResponse));
-                    }
-                }
-            }
-        }
+        await processStreamingResponse(response, assistantMessageId);
 
     } catch (error) {
         removeTypingIndicator(typingId);
-        addMessageToChat('assistant', '죄송합니다. 응답 생성 중 오류가 발생했습니다. Ollama 서버가 실행 중인지 확인해주세요.');
+        addMessageToChat('assistant', UI_MESSAGES.RESPONSE_ERROR);
     } finally {
-        isStreaming = false;
+        chatState.isStreaming = false;
         updateSendButton(false);
     }
 }
 
 /**
- * 채팅에 메시지 추가
+ * Process SSE streaming response and update message content.
+ * @param {Response} response - Fetch response object
+ * @param {string} messageId - ID of the message element to update
+ * @returns {Promise<void>}
+ */
+async function processStreamingResponse(response, messageId) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullResponse = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+            if (line.startsWith('data:')) {
+                const data = line.substring(5).trim();
+                if (data) {
+                    fullResponse += data;
+                    updateAssistantMessage(messageId, formatAIResponse(fullResponse));
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Add a message to the chat container.
+ * @param {('user'|'assistant')} role - Message role
+ * @param {string} content - Message content (HTML)
+ * @param {boolean} [streaming=false] - Whether this is a streaming message placeholder
+ * @returns {string} The message element ID
  */
 function addMessageToChat(role, content, streaming = false) {
     const chatMessages = document.getElementById('chatMessages');
@@ -287,7 +429,9 @@ function addMessageToChat(role, content, streaming = false) {
 }
 
 /**
- * 어시스턴트 메시지 업데이트
+ * Update an assistant message with new content.
+ * @param {string} messageId - Message element ID
+ * @param {string} content - New HTML content
  */
 function updateAssistantMessage(messageId, content) {
     const messageDiv = document.getElementById(messageId);
@@ -298,8 +442,13 @@ function updateAssistantMessage(messageId, content) {
     }
 }
 
+// ============================================================================
+// TYPING INDICATOR
+// ============================================================================
+
 /**
- * 타이핑 인디케이터 표시
+ * Show typing indicator in chat.
+ * @returns {string} The indicator element ID
  */
 function showTypingIndicator() {
     const chatMessages = document.getElementById('chatMessages');
@@ -323,7 +472,8 @@ function showTypingIndicator() {
 }
 
 /**
- * 타이핑 인디케이터 제거
+ * Remove typing indicator from chat.
+ * @param {string} indicatorId - Indicator element ID
  */
 function removeTypingIndicator(indicatorId) {
     const indicator = document.getElementById(indicatorId);
@@ -333,7 +483,8 @@ function removeTypingIndicator(indicatorId) {
 }
 
 /**
- * 전송 버튼 상태 업데이트
+ * Update send button state based on streaming status.
+ * @param {boolean} isSending - Whether a message is being sent
  */
 function updateSendButton(isSending) {
     const sendBtn = document.getElementById('sendBtn');
@@ -351,80 +502,88 @@ function updateSendButton(isSending) {
     }
 }
 
+// ============================================================================
+// AI RESPONSE FORMATTING
+// ============================================================================
+
 /**
- * AI 응답 포맷팅
+ * Format AI response text with Markdown-like styling.
+ * Converts markdown syntax to HTML for display.
+ * @param {string} text - Raw response text
+ * @returns {string} Formatted HTML string
  */
 function formatAIResponse(text) {
     if (!text) return '';
 
-    // 줄바꿈 처리
-    let formatted = text.replace(/\n/g, '<br>');
+    let formatted = text;
 
-    // 굵은 글씨 (**text**)
+    // Line breaks
+    formatted = formatted.replace(/\n/g, '<br>');
+
+    // Bold text (**text**)
     formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
-    // 리스트 항목 (- 또는 *)
+    // List items (- or *)
     formatted = formatted.replace(/^[-*]\s+(.+)/gm, '<li>$1</li>');
 
-    // 숫자 리스트 (1. 2. 등)
+    // Numbered list items (1. 2. etc.)
     formatted = formatted.replace(/^\d+\.\s+(.+)/gm, '<li>$1</li>');
 
-    // 연속된 li 태그를 ul로 감싸기
+    // Wrap consecutive li tags in ul
     formatted = formatted.replace(/(<li>.*?<\/li>)+/g, '<ul class="mb-2">$&</ul>');
 
-    // 코드 블록
+    // Code blocks
     formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
 
-    // 인라인 코드
+    // Inline code
     formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
 
     return formatted;
 }
 
+// ============================================================================
+// CHAT MANAGEMENT
+// ============================================================================
+
 /**
- * 대화 초기화
+ * Clear chat history and reset session.
  */
 function clearChat() {
-    if (!confirm('대화 기록을 모두 삭제하시겠습니까?')) return;
+    if (!confirm(UI_MESSAGES.CLEAR_CONFIRM)) return;
 
-    // 서버 세션 초기화
-    fetch(`/api/ai/chat/${sessionId}`, { method: 'DELETE' });
+    // Delete server session
+    fetch(`${AI_API.CHAT}/${chatState.sessionId}`, { method: 'DELETE' });
 
-    // 새 세션 생성
-    sessionId = generateSessionId();
+    // Generate new session
+    chatState.sessionId = generateSessionId();
 
-    // 채팅 UI 초기화
+    // Reset chat UI
     const chatMessages = document.getElementById('chatMessages');
     chatMessages.innerHTML = `
         <div class="message assistant">
-            안녕하세요! 저는 AI 트레이딩 어시스턴트입니다. 거래 분석, 리스크 관리, 전략 최적화 등에 대해 질문해주세요.
-            <br><br>
-            <strong>예시 질문:</strong>
-            <ul class="mb-0 mt-2">
-                <li>최근 3개월 거래 성과를 분석해줘</li>
-                <li>현재 리스크 상태가 어떤가요?</li>
-                <li>승률을 높이려면 어떻게 해야 할까요?</li>
-                <li>손절 전략에 대해 조언해줘</li>
-            </ul>
+            ${UI_MESSAGES.WELCOME_MESSAGE}
         </div>
     `;
 }
 
 /**
- * 분석 결과를 채팅으로 복사
+ * Copy last analysis result to chat window.
  */
 function copyAnalysisToChat() {
-    if (lastAnalysisResult) {
+    if (chatState.lastAnalysisResult) {
         const modal = bootstrap.Modal.getInstance(document.getElementById('analysisModal'));
         modal.hide();
 
-        // 분석 결과를 채팅에 추가
-        addMessageToChat('assistant', formatAIResponse(lastAnalysisResult.summary || lastAnalysisResult.rawResponse));
+        // Add analysis result to chat
+        addMessageToChat('assistant', formatAIResponse(
+            chatState.lastAnalysisResult.summary || chatState.lastAnalysisResult.rawResponse
+        ));
 
-        // 후속 질문 유도
+        // Prompt for follow-up questions
         setTimeout(() => {
-            document.getElementById('chatInput').focus();
-            document.getElementById('chatInput').placeholder = '분석 결과에 대해 추가 질문을 해보세요...';
-        }, 300);
+            const chatInput = document.getElementById('chatInput');
+            chatInput.focus();
+            chatInput.placeholder = UI_MESSAGES.FOLLOW_UP_PLACEHOLDER;
+        }, CONFIG.FOCUS_DELAY);
     }
 }

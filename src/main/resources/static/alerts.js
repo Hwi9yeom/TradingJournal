@@ -1,26 +1,102 @@
 /**
  * 알림 센터 JavaScript
+ * @fileoverview Alert center functionality including loading, filtering, and managing alerts.
+ * @requires utils.js - escapeHtml, formatDateTime, ToastNotification
  */
 
-let allAlerts = [];
-let currentFilter = 'all';
-let currentPage = 0;
-let totalPages = 0;
-let currentAlertId = null;
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
-// 페이지 로드 시 초기화
+/**
+ * Alert priority CSS classes for icon backgrounds
+ * @constant {Object<string, string>}
+ */
+const PRIORITY_CLASSES = {
+    CRITICAL: 'priority-critical',
+    HIGH: 'priority-high',
+    MEDIUM: 'priority-medium',
+    LOW: 'priority-low'
+};
+
+/**
+ * Alert priority badge CSS classes
+ * @constant {Object<string, string>}
+ */
+const PRIORITY_BADGE_CLASSES = {
+    CRITICAL: 'bg-danger',
+    HIGH: 'bg-warning text-dark',
+    MEDIUM: 'bg-info',
+    LOW: 'bg-secondary'
+};
+
+/**
+ * Alert types grouped by category for filtering
+ * @constant {Object<string, string[]>}
+ */
+const ALERT_TYPE_FILTERS = {
+    goal: ['GOAL_MILESTONE', 'GOAL_COMPLETED', 'GOAL_DEADLINE', 'GOAL_OVERDUE'],
+    trade: [
+        'PROFIT_TARGET', 'LOSS_LIMIT', 'DAILY_LOSS_LIMIT', 'DRAWDOWN_WARNING',
+        'TRADE_EXECUTED', 'WINNING_STREAK', 'LOSING_STREAK'
+    ]
+};
+
+/**
+ * Default page size for alert pagination
+ * @constant {number}
+ */
+const DEFAULT_PAGE_SIZE = 20;
+
+/**
+ * Alert refresh interval in milliseconds (30 seconds)
+ * @constant {number}
+ */
+const ALERT_REFRESH_INTERVAL = 30000;
+
+// ============================================================================
+// STATE
+// ============================================================================
+
+/**
+ * Alert center state object
+ * @type {Object}
+ * @property {Array} alerts - All loaded alerts
+ * @property {string} filter - Current filter type ('all', 'unread', 'goal', 'trade')
+ * @property {number} page - Current page number (0-indexed)
+ * @property {number} totalPages - Total number of pages
+ * @property {number|null} currentAlertId - Currently selected alert ID for detail modal
+ */
+const alertState = {
+    alerts: [],
+    filter: 'all',
+    page: 0,
+    totalPages: 0,
+    currentAlertId: null
+};
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+/**
+ * Initialize the alert center on page load
+ */
 $(document).ready(function() {
     loadAlertSummary();
     loadAlerts();
 
-    // 30초마다 알림 갱신
-    setInterval(function() {
-        loadAlertSummary();
-    }, 30000);
+    // Auto-refresh alert summary
+    setInterval(loadAlertSummary, ALERT_REFRESH_INTERVAL);
 });
 
+// ============================================================================
+// DATA LOADING
+// ============================================================================
+
 /**
- * 알림 요약 로드
+ * Load alert summary statistics
+ * @returns {void}
  */
 function loadAlertSummary() {
     $.ajax({
@@ -37,7 +113,44 @@ function loadAlertSummary() {
 }
 
 /**
- * 요약 카드 업데이트
+ * Load paginated alert list
+ * @param {number} [page=0] - Page number to load (0-indexed)
+ * @returns {void}
+ */
+function loadAlerts(page = 0) {
+    alertState.page = page;
+
+    $.ajax({
+        url: `/api/alerts?page=${page}&size=${DEFAULT_PAGE_SIZE}`,
+        method: 'GET',
+        success: function(response) {
+            alertState.alerts = response.content || [];
+            alertState.totalPages = response.totalPages || 0;
+
+            $('#tab-all-count').text(response.totalElements || 0);
+
+            renderAlerts(filterAlertsByType(alertState.filter));
+            renderPagination();
+        },
+        error: function(xhr) {
+            console.error('알림 로드 실패:', xhr);
+            ToastNotification.error('알림을 불러오는데 실패했습니다.');
+        }
+    });
+}
+
+// ============================================================================
+// UI UPDATE FUNCTIONS
+// ============================================================================
+
+/**
+ * Update summary statistic cards
+ * @param {Object} summary - Summary data from API
+ * @param {number} summary.unreadCount - Number of unread alerts
+ * @param {number} summary.criticalCount - Number of critical alerts
+ * @param {number} summary.highPriorityCount - Number of high priority alerts
+ * @param {number} summary.todayCount - Number of alerts created today
+ * @returns {void}
  */
 function updateSummaryCards(summary) {
     $('#unread-count').text(summary.unreadCount || 0);
@@ -46,17 +159,21 @@ function updateSummaryCards(summary) {
     $('#today-count').text(summary.todayCount || 0);
     $('#tab-unread-count').text(summary.unreadCount || 0);
 
-    // 네비게이션 뱃지 업데이트
+    // Update navigation badge
     const navBadge = $('#nav-unread-count');
-    if (summary.unreadCount > 0) {
-        navBadge.text(summary.unreadCount > 99 ? '99+' : summary.unreadCount).show();
+    const unreadCount = summary.unreadCount || 0;
+
+    if (unreadCount > 0) {
+        navBadge.text(unreadCount > 99 ? '99+' : unreadCount).show();
     } else {
         navBadge.hide();
     }
 }
 
 /**
- * 긴급 알림 섹션 업데이트
+ * Update critical alerts section
+ * @param {Array} criticalAlerts - Array of critical alert objects
+ * @returns {void}
  */
 function updateCriticalSection(criticalAlerts) {
     const section = $('#critical-section');
@@ -75,38 +192,19 @@ function updateCriticalSection(criticalAlerts) {
     });
 }
 
-/**
- * 알림 목록 로드
- */
-function loadAlerts(page = 0) {
-    currentPage = page;
-
-    $.ajax({
-        url: `/api/alerts?page=${page}&size=20`,
-        method: 'GET',
-        success: function(response) {
-            allAlerts = response.content || [];
-            totalPages = response.totalPages || 0;
-
-            $('#tab-all-count').text(response.totalElements || 0);
-
-            renderAlerts(filterAlertsByType(currentFilter));
-            renderPagination();
-        },
-        error: function(xhr) {
-            console.error('알림 로드 실패:', xhr);
-            showToast('알림을 불러오는데 실패했습니다.', 'danger');
-        }
-    });
-}
+// ============================================================================
+// FILTERING
+// ============================================================================
 
 /**
- * 필터 적용
+ * Apply filter and re-render alerts
+ * @param {string} filter - Filter type ('all', 'unread', 'goal', 'trade')
+ * @returns {void}
  */
 function filterAlerts(filter) {
-    currentFilter = filter;
+    alertState.filter = filter;
 
-    // 탭 활성화 상태 업데이트
+    // Update tab active state
     $('#alertTabs .nav-link').removeClass('active');
     $(`#alertTabs .nav-link[onclick*="${filter}"]`).addClass('active');
 
@@ -114,28 +212,33 @@ function filterAlerts(filter) {
 }
 
 /**
- * 필터링 로직
+ * Filter alerts by type
+ * @param {string} filter - Filter type ('all', 'unread', 'goal', 'trade')
+ * @returns {Array} Filtered alerts array
  */
 function filterAlertsByType(filter) {
-    switch(filter) {
+    const { alerts } = alertState;
+
+    switch (filter) {
         case 'unread':
-            return allAlerts.filter(a => a.status === 'UNREAD');
+            return alerts.filter(a => a.status === 'UNREAD');
         case 'goal':
-            return allAlerts.filter(a =>
-                ['GOAL_MILESTONE', 'GOAL_COMPLETED', 'GOAL_DEADLINE', 'GOAL_OVERDUE'].includes(a.alertType)
-            );
+            return alerts.filter(a => ALERT_TYPE_FILTERS.goal.includes(a.alertType));
         case 'trade':
-            return allAlerts.filter(a =>
-                ['PROFIT_TARGET', 'LOSS_LIMIT', 'DAILY_LOSS_LIMIT', 'DRAWDOWN_WARNING',
-                 'TRADE_EXECUTED', 'WINNING_STREAK', 'LOSING_STREAK'].includes(a.alertType)
-            );
+            return alerts.filter(a => ALERT_TYPE_FILTERS.trade.includes(a.alertType));
         default:
-            return allAlerts;
+            return alerts;
     }
 }
 
+// ============================================================================
+// RENDERING
+// ============================================================================
+
 /**
- * 알림 목록 렌더링
+ * Render alert list
+ * @param {Array} alerts - Array of alert objects to render
+ * @returns {void}
  */
 function renderAlerts(alerts) {
     const container = $('#alerts-container');
@@ -156,7 +259,19 @@ function renderAlerts(alerts) {
 }
 
 /**
- * 알림 아이템 생성
+ * Create HTML for a single alert item
+ * @param {Object} alert - Alert object
+ * @param {number} alert.id - Alert ID
+ * @param {string} alert.status - Alert status ('UNREAD', 'READ', etc.)
+ * @param {string} alert.priority - Alert priority level
+ * @param {string} alert.title - Alert title
+ * @param {string} [alert.message] - Alert message
+ * @param {string} [alert.iconClass] - Bootstrap icon class
+ * @param {string} [alert.timeAgo] - Human-readable time ago string
+ * @param {string} alert.alertType - Alert type code
+ * @param {string} [alert.alertTypeLabel] - Human-readable alert type
+ * @param {string} [alert.priorityLabel] - Human-readable priority
+ * @returns {string} HTML string for the alert item
  */
 function createAlertItem(alert) {
     const isUnread = alert.status === 'UNREAD';
@@ -186,37 +301,31 @@ function createAlertItem(alert) {
 }
 
 /**
- * 우선순위에 따른 아이콘 배경 클래스
+ * Get CSS class for priority icon background
+ * @param {string} priority - Priority level ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW')
+ * @returns {string} CSS class name
  */
 function getPriorityClass(priority) {
-    const classes = {
-        'CRITICAL': 'priority-critical',
-        'HIGH': 'priority-high',
-        'MEDIUM': 'priority-medium',
-        'LOW': 'priority-low'
-    };
-    return classes[priority] || 'priority-medium';
+    return PRIORITY_CLASSES[priority] || PRIORITY_CLASSES.MEDIUM;
 }
 
 /**
- * 우선순위에 따른 뱃지 클래스
+ * Get CSS class for priority badge
+ * @param {string} priority - Priority level ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW')
+ * @returns {string} CSS class name
  */
 function getPriorityBadgeClass(priority) {
-    const classes = {
-        'CRITICAL': 'bg-danger',
-        'HIGH': 'bg-warning text-dark',
-        'MEDIUM': 'bg-info',
-        'LOW': 'bg-secondary'
-    };
-    return classes[priority] || 'bg-secondary';
+    return PRIORITY_BADGE_CLASSES[priority] || PRIORITY_BADGE_CLASSES.LOW;
 }
 
 /**
- * 페이지네이션 렌더링
+ * Render pagination controls
+ * @returns {void}
  */
 function renderPagination() {
     const container = $('#pagination');
     const paginationContainer = $('#pagination-container');
+    const { page, totalPages } = alertState;
 
     if (totalPages <= 1) {
         paginationContainer.hide();
@@ -226,45 +335,51 @@ function renderPagination() {
     paginationContainer.show();
     container.empty();
 
-    // 이전 버튼
+    // Previous button
     container.append(`
-        <li class="page-item ${currentPage === 0 ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="loadAlerts(${currentPage - 1})">이전</a>
+        <li class="page-item ${page === 0 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="loadAlerts(${page - 1})">이전</a>
         </li>
     `);
 
-    // 페이지 번호
-    const startPage = Math.max(0, currentPage - 2);
-    const endPage = Math.min(totalPages - 1, currentPage + 2);
+    // Page numbers
+    const startPage = Math.max(0, page - 2);
+    const endPage = Math.min(totalPages - 1, page + 2);
 
     for (let i = startPage; i <= endPage; i++) {
         container.append(`
-            <li class="page-item ${i === currentPage ? 'active' : ''}">
+            <li class="page-item ${i === page ? 'active' : ''}">
                 <a class="page-link" href="#" onclick="loadAlerts(${i})">${i + 1}</a>
             </li>
         `);
     }
 
-    // 다음 버튼
+    // Next button
     container.append(`
-        <li class="page-item ${currentPage >= totalPages - 1 ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="loadAlerts(${currentPage + 1})">다음</a>
+        <li class="page-item ${page >= totalPages - 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="loadAlerts(${page + 1})">다음</a>
         </li>
     `);
 }
 
+// ============================================================================
+// ALERT DETAIL MODAL
+// ============================================================================
+
 /**
- * 알림 상세 보기
+ * Show alert detail modal
+ * @param {number} id - Alert ID to display
+ * @returns {void}
  */
 function showAlertDetail(id) {
     $.ajax({
         url: `/api/alerts/${id}`,
         method: 'GET',
         success: function(alert) {
-            currentAlertId = alert.id;
+            alertState.currentAlertId = alert.id;
             renderAlertDetail(alert);
 
-            // 읽지 않은 경우 읽음 처리
+            // Mark as read if unread
             if (alert.status === 'UNREAD') {
                 markAsRead(id, false);
             }
@@ -273,13 +388,15 @@ function showAlertDetail(id) {
         },
         error: function(xhr) {
             console.error('상세 조회 실패:', xhr);
-            showToast('알림을 불러올 수 없습니다.', 'danger');
+            ToastNotification.error('알림을 불러올 수 없습니다.');
         }
     });
 }
 
 /**
- * 상세 모달 렌더링
+ * Render alert detail content in modal
+ * @param {Object} alert - Alert object with full details
+ * @returns {void}
  */
 function renderAlertDetail(alert) {
     $('#alertDetailTitle').html(`
@@ -325,12 +442,13 @@ function renderAlertDetail(alert) {
 
     $('#alertDetailContent').html(content);
 
-    // 버튼 설정
     setupDetailButtons(alert);
 }
 
 /**
- * 상세 모달 버튼 설정
+ * Setup detail modal action buttons
+ * @param {Object} alert - Alert object
+ * @returns {void}
  */
 function setupDetailButtons(alert) {
     $('#btnDismissAlert').off('click').on('click', function() {
@@ -353,8 +471,15 @@ function setupDetailButtons(alert) {
     }
 }
 
+// ============================================================================
+// ALERT ACTIONS
+// ============================================================================
+
 /**
- * 알림 읽음 처리
+ * Mark a single alert as read
+ * @param {number} id - Alert ID
+ * @param {boolean} [reload=true] - Whether to reload alerts after marking
+ * @returns {void}
  */
 function markAsRead(id, reload = true) {
     $.ajax({
@@ -362,7 +487,7 @@ function markAsRead(id, reload = true) {
         method: 'PATCH',
         success: function() {
             if (reload) {
-                loadAlerts(currentPage);
+                loadAlerts(alertState.page);
                 loadAlertSummary();
             }
         },
@@ -373,26 +498,29 @@ function markAsRead(id, reload = true) {
 }
 
 /**
- * 모든 알림 읽음 처리
+ * Mark all alerts as read
+ * @returns {void}
  */
 function markAllAsRead() {
     $.ajax({
         url: '/api/alerts/read-all',
         method: 'PATCH',
         success: function() {
-            loadAlerts(currentPage);
+            loadAlerts(alertState.page);
             loadAlertSummary();
-            showToast('모든 알림이 읽음 처리되었습니다.', 'success');
+            ToastNotification.success('모든 알림이 읽음 처리되었습니다.');
         },
         error: function(xhr) {
             console.error('전체 읽음 처리 실패:', xhr);
-            showToast('처리에 실패했습니다.', 'danger');
+            ToastNotification.error('처리에 실패했습니다.');
         }
     });
 }
 
 /**
- * 알림 무시
+ * Dismiss an alert (mark as dismissed/ignored)
+ * @param {number} id - Alert ID
+ * @returns {void}
  */
 function dismissAlert(id) {
     $.ajax({
@@ -400,19 +528,21 @@ function dismissAlert(id) {
         method: 'PATCH',
         success: function() {
             $('#alertDetailModal').modal('hide');
-            loadAlerts(currentPage);
+            loadAlerts(alertState.page);
             loadAlertSummary();
-            showToast('알림이 무시되었습니다.', 'info');
+            ToastNotification.info('알림이 무시되었습니다.');
         },
         error: function(xhr) {
             console.error('무시 처리 실패:', xhr);
-            showToast('처리에 실패했습니다.', 'danger');
+            ToastNotification.error('처리에 실패했습니다.');
         }
     });
 }
 
 /**
- * 알림 삭제
+ * Delete an alert permanently
+ * @param {number} id - Alert ID
+ * @returns {void}
  */
 function deleteAlert(id) {
     $.ajax({
@@ -420,56 +550,13 @@ function deleteAlert(id) {
         method: 'DELETE',
         success: function() {
             $('#alertDetailModal').modal('hide');
-            loadAlerts(currentPage);
+            loadAlerts(alertState.page);
             loadAlertSummary();
-            showToast('알림이 삭제되었습니다.', 'success');
+            ToastNotification.success('알림이 삭제되었습니다.');
         },
         error: function(xhr) {
             console.error('삭제 실패:', xhr);
-            showToast('삭제에 실패했습니다.', 'danger');
+            ToastNotification.error('삭제에 실패했습니다.');
         }
-    });
-}
-
-/**
- * 날짜 시간 포맷
- */
-function formatDateTime(dateTimeStr) {
-    if (!dateTimeStr) return '-';
-    const date = new Date(dateTimeStr);
-    return date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-}
-
-/**
- * HTML 이스케이프
- */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-/**
- * 토스트 메시지
- */
-function showToast(message, type) {
-    const toastHtml = `
-        <div class="toast align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3" role="alert">
-            <div class="d-flex">
-                <div class="toast-body">${message}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        </div>
-    `;
-
-    const toast = $(toastHtml);
-    $('body').append(toast);
-
-    const bsToast = new bootstrap.Toast(toast[0], { delay: 3000 });
-    bsToast.show();
-
-    toast.on('hidden.bs.toast', function() {
-        $(this).remove();
     });
 }

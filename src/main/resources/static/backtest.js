@@ -1,50 +1,514 @@
+/**
+ * Trading Journal - Backtest Module
+ * Handles strategy management, backtest execution, chart visualization,
+ * parameter optimization, and template management.
+ */
+
+// ==================== 상수 정의 ====================
 const API_BASE_URL = '/api';
-let equityChart, drawdownChart, monthlyChart;
-let selectedStrategy = null;
-let strategies = [];
-let currentResult = null;
-let templates = [];
+
+const CHART_COLORS = {
+    PRIMARY: '#0d6efd',
+    PRIMARY_BG: 'rgba(13, 110, 253, 0.1)',
+    SECONDARY: '#6c757d',
+    SUCCESS: 'rgba(34, 197, 94, 0.8)',
+    DANGER: 'rgba(239, 68, 68, 0.8)',
+    DANGER_BG: 'rgba(220, 53, 69, 0.3)',
+    DANGER_BORDER: '#dc3545'
+};
+
+const STRATEGY_ICONS = {
+    'MOVING_AVERAGE': 'bi-graph-up',
+    'RSI': 'bi-speedometer2',
+    'BOLLINGER_BAND': 'bi-bar-chart',
+    'MOMENTUM': 'bi-lightning',
+    'MACD': 'bi-activity',
+    'CUSTOM': 'bi-gear'
+};
+
+const PARAM_LABELS = {
+    'shortPeriod': '단기 MA 기간',
+    'longPeriod': '장기 MA 기간',
+    'maType': 'MA 유형',
+    'period': '기간',
+    'overboughtLevel': '과매수 레벨',
+    'oversoldLevel': '과매도 레벨',
+    'stdDevMultiplier': '표준편차 배수',
+    'entryThreshold': '진입 임계값 (%)',
+    'exitThreshold': '청산 임계값 (%)'
+};
+
+const OPTIMIZATION_PARAM_CONFIG = {
+    'shortPeriod': { label: '단기 MA 기간', defaultMin: 5, defaultMax: 30, defaultStep: 5 },
+    'longPeriod': { label: '장기 MA 기간', defaultMin: 20, defaultMax: 100, defaultStep: 10 },
+    'maType': null,
+    'period': { label: '기간', defaultMin: 5, defaultMax: 30, defaultStep: 5 },
+    'overboughtLevel': { label: '과매수 레벨', defaultMin: 60, defaultMax: 80, defaultStep: 5 },
+    'oversoldLevel': { label: '과매도 레벨', defaultMin: 20, defaultMax: 40, defaultStep: 5 },
+    'stdDevMultiplier': { label: '표준편차 배수', defaultMin: 1.5, defaultMax: 3.0, defaultStep: 0.5 },
+    'entryThreshold': { label: '진입 임계값 (%)', defaultMin: -5, defaultMax: 5, defaultStep: 1 },
+    'exitThreshold': { label: '청산 임계값 (%)', defaultMin: -5, defaultMax: 5, defaultStep: 1 },
+    'fastPeriod': { label: '단기 EMA 기간', defaultMin: 8, defaultMax: 16, defaultStep: 2 },
+    'slowPeriod': { label: '장기 EMA 기간', defaultMin: 20, defaultMax: 32, defaultStep: 3 },
+    'signalPeriod': { label: '시그널 기간', defaultMin: 5, defaultMax: 12, defaultStep: 1 }
+};
+
+const WARNING_COMBINATION_THRESHOLD = 1000;
+
+// ==================== 상태 관리 ====================
+const backtestState = {
+    charts: {
+        equity: null,
+        drawdown: null,
+        monthly: null
+    },
+    selectedStrategy: null,
+    strategies: [],
+    currentResult: null,
+    templates: [],
+    optimizationResult: null
+};
+
+// ==================== 유틸리티 함수 ====================
+
+/**
+ * 날짜를 API 호출용 YYYY-MM-DD 형식으로 변환합니다.
+ * @param {Date} date - 변환할 날짜 객체
+ * @returns {string} YYYY-MM-DD 형식의 문자열
+ */
+function formatDateForApi(date) {
+    return date.toISOString().split('T')[0];
+}
+
+/**
+ * 통화 형식으로 포맷팅합니다.
+ * @param {number} value - 포맷팅할 값
+ * @returns {string} 포맷된 문자열
+ */
+function formatCurrency(value) {
+    if (value === null || value === undefined) return '-';
+    const num = parseFloat(value);
+    return '₩' + Math.round(num).toLocaleString();
+}
+
+/**
+ * 통화를 간략한 형식으로 포맷팅합니다 (억, 만 단위).
+ * @param {number} value - 포맷팅할 값
+ * @returns {string} 포맷된 문자열
+ */
+function formatCurrencyShort(value) {
+    const num = parseFloat(value);
+    if (Math.abs(num) >= 100000000) {
+        return (num / 100000000).toFixed(1) + '억';
+    } else if (Math.abs(num) >= 10000) {
+        return (num / 10000).toFixed(0) + '만';
+    }
+    return num.toLocaleString();
+}
+
+/**
+ * 퍼센트 형식으로 포맷팅합니다.
+ * @param {number} value - 포맷팅할 값
+ * @returns {string} 포맷된 문자열
+ */
+function formatPercent(value) {
+    if (value === null || value === undefined) return '-';
+    const num = parseFloat(value);
+    return (num >= 0 ? '+' : '') + num.toFixed(2) + '%';
+}
+
+/**
+ * 날짜/시간을 한국 형식으로 포맷팅합니다.
+ * @param {string} dateTimeStr - ISO 형식의 날짜 문자열
+ * @returns {string} 포맷된 문자열
+ */
+function formatDateTime(dateTimeStr) {
+    if (!dateTimeStr) return '-';
+    const date = new Date(dateTimeStr);
+    return date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'});
+}
+
+// ==================== 폼 데이터 수집 ====================
+
+/**
+ * 백테스트 실행을 위한 요청 객체를 수집합니다.
+ * @returns {Object|null} 백테스트 요청 객체 또는 전략 미선택시 null
+ */
+function collectBacktestRequest() {
+    if (!backtestState.selectedStrategy) {
+        return null;
+    }
+
+    return {
+        symbol: $('#symbol').val(),
+        strategyType: backtestState.selectedStrategy,
+        strategyParams: getStrategyParams(),
+        startDate: $('#startDate').val(),
+        endDate: $('#endDate').val(),
+        initialCapital: parseFloat($('#initialCapital').val()),
+        positionSizePercent: parseFloat($('#positionSize').val()),
+        commissionRate: parseFloat($('#commission').val()),
+        slippage: parseFloat($('#slippage').val()),
+        stopLossPercent: $('#stopLoss').val() ? parseFloat($('#stopLoss').val()) : null,
+        takeProfitPercent: $('#takeProfit').val() ? parseFloat($('#takeProfit').val()) : null
+    };
+}
+
+/**
+ * 최적화 실행을 위한 요청 객체를 수집합니다.
+ * @param {Object} ranges - 파라미터 범위 객체
+ * @returns {Object} 최적화 요청 객체
+ */
+function collectOptimizationRequest(ranges) {
+    return {
+        symbol: $('#symbol').val(),
+        strategyType: backtestState.selectedStrategy,
+        startDate: $('#startDate').val(),
+        endDate: $('#endDate').val(),
+        initialCapital: parseFloat($('#initialCapital').val()),
+        positionSizePercent: parseFloat($('#positionSize').val()),
+        commissionRate: parseFloat($('#commission').val()),
+        slippage: parseFloat($('#slippage').val()),
+        parameterRanges: ranges,
+        target: $('#optimizationTarget').val()
+    };
+}
+
+/**
+ * 템플릿 저장을 위한 요청 객체를 수집합니다.
+ * @param {string} name - 템플릿 이름
+ * @param {string} selectedColor - 선택된 색상
+ * @returns {Object} 템플릿 요청 객체
+ */
+function collectTemplateRequest(name, selectedColor) {
+    return {
+        name: name,
+        description: $('#templateDescription').val(),
+        strategyType: backtestState.selectedStrategy,
+        parameters: getStrategyParams(),
+        positionSizePercent: parseFloat($('#positionSize').val()),
+        stopLossPercent: $('#stopLoss').val() ? parseFloat($('#stopLoss').val()) : null,
+        takeProfitPercent: $('#takeProfit').val() ? parseFloat($('#takeProfit').val()) : null,
+        commissionRate: parseFloat($('#commission').val()),
+        isDefault: $('#templateDefault').is(':checked'),
+        color: selectedColor
+    };
+}
+
+// ==================== 차트 관리 ====================
+
+/**
+ * 모든 차트 인스턴스를 초기화합니다.
+ */
+function initializeCharts() {
+    backtestState.charts.equity = createEquityChart();
+    backtestState.charts.drawdown = createDrawdownChart();
+    backtestState.charts.monthly = createMonthlyChart();
+}
+
+/**
+ * 자산 곡선 차트를 생성합니다.
+ * @returns {Chart} Chart.js 인스턴스
+ */
+function createEquityChart() {
+    const ctx = document.getElementById('equityChart').getContext('2d');
+    return new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: '전략',
+                    data: [],
+                    borderColor: CHART_COLORS.PRIMARY,
+                    backgroundColor: CHART_COLORS.PRIMARY_BG,
+                    fill: true,
+                    tension: 0.1
+                },
+                {
+                    label: 'Buy & Hold',
+                    data: [],
+                    borderColor: CHART_COLORS.SECONDARY,
+                    borderDash: [5, 5],
+                    fill: false,
+                    tension: 0.1
+                }
+            ]
+        },
+        options: createLineChartOptions({
+            tooltipCallback: (context) => context.dataset.label + ': ' + formatCurrency(context.parsed.y),
+            yTickCallback: (value) => formatCurrencyShort(value)
+        })
+    });
+}
+
+/**
+ * 낙폭 차트를 생성합니다.
+ * @returns {Chart} Chart.js 인스턴스
+ */
+function createDrawdownChart() {
+    const ctx = document.getElementById('drawdownChart').getContext('2d');
+    return new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Drawdown',
+                data: [],
+                borderColor: CHART_COLORS.DANGER_BORDER,
+                backgroundColor: CHART_COLORS.DANGER_BG,
+                fill: true,
+                tension: 0.1
+            }]
+        },
+        options: createLineChartOptions({
+            showLegend: false,
+            tooltipCallback: (context) => 'Drawdown: ' + context.parsed.y.toFixed(2) + '%',
+            yTickCallback: (value) => value + '%',
+            yMax: 0
+        })
+    });
+}
+
+/**
+ * 월별 성과 차트를 생성합니다.
+ * @returns {Chart} Chart.js 인스턴스
+ */
+function createMonthlyChart() {
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    return new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: '월간 수익률',
+                data: [],
+                backgroundColor: []
+            }]
+        },
+        options: createBarChartOptions({
+            tooltipCallback: (context) => '수익률: ' + context.parsed.y.toFixed(2) + '%',
+            yTickCallback: (value) => value + '%'
+        })
+    });
+}
+
+/**
+ * 라인 차트 공통 옵션을 생성합니다.
+ * @param {Object} customOptions - 커스텀 옵션
+ * @returns {Object} Chart.js 옵션 객체
+ */
+function createLineChartOptions(customOptions = {}) {
+    const { showLegend = true, tooltipCallback, yTickCallback, yMax } = customOptions;
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: showLegend,
+                position: 'top'
+            },
+            tooltip: {
+                callbacks: {}
+            }
+        },
+        scales: {
+            y: {
+                ticks: {}
+            }
+        }
+    };
+
+    if (tooltipCallback) {
+        options.plugins.tooltip.callbacks.label = tooltipCallback;
+    }
+
+    if (yTickCallback) {
+        options.scales.y.ticks.callback = yTickCallback;
+    }
+
+    if (yMax !== undefined) {
+        options.scales.y.max = yMax;
+    }
+
+    return options;
+}
+
+/**
+ * 바 차트 공통 옵션을 생성합니다.
+ * @param {Object} customOptions - 커스텀 옵션
+ * @returns {Object} Chart.js 옵션 객체
+ */
+function createBarChartOptions(customOptions = {}) {
+    const { tooltipCallback, yTickCallback } = customOptions;
+
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                callbacks: {
+                    label: tooltipCallback
+                }
+            }
+        },
+        scales: {
+            y: {
+                ticks: {
+                    callback: yTickCallback
+                }
+            }
+        }
+    };
+}
+
+/**
+ * 모든 차트를 초기 상태로 리셋합니다.
+ */
+function resetCharts() {
+    const { equity, drawdown, monthly } = backtestState.charts;
+
+    if (equity) {
+        equity.data.labels = [];
+        equity.data.datasets[0].data = [];
+        equity.data.datasets[1].data = [];
+        equity.update();
+    }
+
+    if (drawdown) {
+        drawdown.data.labels = [];
+        drawdown.data.datasets[0].data = [];
+        drawdown.update();
+    }
+
+    if (monthly) {
+        monthly.data.labels = [];
+        monthly.data.datasets[0].data = [];
+        monthly.update();
+    }
+}
+
+/**
+ * 자산 곡선 차트를 업데이트합니다.
+ * @param {Object} result - 백테스트 결과
+ */
+function updateEquityChart(result) {
+    const chart = backtestState.charts.equity;
+    if (!chart) return;
+
+    chart.data.labels = result.equityLabels || [];
+    chart.data.datasets[0].data = result.equityCurve || [];
+    chart.data.datasets[1].data = result.benchmarkCurve || [];
+    chart.update();
+}
+
+/**
+ * 낙폭 차트를 업데이트합니다.
+ * @param {Object} result - 백테스트 결과
+ */
+function updateDrawdownChart(result) {
+    const chart = backtestState.charts.drawdown;
+    if (!chart) return;
+
+    chart.data.labels = result.equityLabels || [];
+    chart.data.datasets[0].data = result.drawdownCurve || [];
+    chart.update();
+}
+
+/**
+ * 월별 성과 차트를 업데이트합니다.
+ * @param {Object} result - 백테스트 결과
+ */
+function updateMonthlyChart(result) {
+    const chart = backtestState.charts.monthly;
+    if (!chart) return;
+
+    if (!result.monthlyPerformance || result.monthlyPerformance.length === 0) {
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
+        chart.update();
+        return;
+    }
+
+    chart.data.labels = result.monthlyPerformance.map(m => m.month);
+    chart.data.datasets[0].data = result.monthlyPerformance.map(m => m.returnPct);
+    chart.data.datasets[0].backgroundColor = result.monthlyPerformance.map(m =>
+        m.returnPct >= 0 ? CHART_COLORS.SUCCESS : CHART_COLORS.DANGER);
+    chart.update();
+}
+
+// ==================== 초기화 ====================
 
 $(document).ready(function() {
     if (!checkAuth()) {
         return;
     }
 
-    // 기본 날짜 설정 (1년 전 ~ 오늘)
+    initializeDateInputs();
+    initializeEventHandlers();
+    loadStrategies();
+    loadTemplates();
+    initializeCharts();
+});
+
+/**
+ * 날짜 입력 필드를 기본값으로 초기화합니다.
+ */
+function initializeDateInputs() {
     const today = new Date();
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(today.getFullYear() - 1);
 
-    $('#startDate').val(oneYearAgo.toISOString().split('T')[0]);
-    $('#endDate').val(today.toISOString().split('T')[0]);
+    $('#startDate').val(formatDateForApi(oneYearAgo));
+    $('#endDate').val(formatDateForApi(today));
+}
 
+/**
+ * 이벤트 핸들러를 초기화합니다.
+ */
+function initializeEventHandlers() {
     // 포지션 크기 슬라이더
     $('#positionSize').on('input', function() {
         $('#positionSizeValue').text($(this).val());
     });
-
-    // 전략 목록 로드
-    loadStrategies();
-
-    // 템플릿 목록 로드
-    loadTemplates();
-
-    // 차트 초기화
-    initializeCharts();
 
     // 색상 선택 이벤트
     $(document).on('click', '.color-btn', function() {
         $(this).closest('.d-flex').find('.color-btn').removeClass('selected');
         $(this).addClass('selected');
     });
-});
 
+    // 히스토리 모달 열릴 때 로드
+    $('#historyModal').on('show.bs.modal', function() {
+        loadHistory();
+    });
+
+    // 최적화 모달이 열릴 때 파라미터 범위 입력 UI 생성
+    $('#optimizeModal').on('show.bs.modal', function() {
+        renderParamRangeInputs();
+    });
+
+    // 템플릿 관리 모달이 열릴 때
+    $('#templateModal').on('show.bs.modal', function() {
+        loadTemplateTable();
+    });
+}
+
+// ==================== 전략 관리 ====================
+
+/**
+ * 전략 목록을 로드합니다.
+ */
 function loadStrategies() {
     $.ajax({
         url: `${API_BASE_URL}/backtest/strategies`,
         method: 'GET',
         success: function(data) {
-            strategies = data;
+            backtestState.strategies = data;
             renderStrategies(data);
         },
         error: function(xhr) {
@@ -53,21 +517,16 @@ function loadStrategies() {
     });
 }
 
+/**
+ * 전략 목록을 렌더링합니다.
+ * @param {Array} strategies - 전략 배열
+ */
 function renderStrategies(strategies) {
     const $container = $('#strategyList');
     $container.empty();
 
-    const icons = {
-        'MOVING_AVERAGE': 'bi-graph-up',
-        'RSI': 'bi-speedometer2',
-        'BOLLINGER_BAND': 'bi-bar-chart',
-        'MOMENTUM': 'bi-lightning',
-        'MACD': 'bi-activity',
-        'CUSTOM': 'bi-gear'
-    };
-
-    strategies.forEach((strategy, index) => {
-        const icon = icons[strategy.type] || 'bi-diagram-3';
+    strategies.forEach((strategy) => {
+        const icon = STRATEGY_ICONS[strategy.type] || 'bi-diagram-3';
         const html = `
             <div class="card strategy-card mb-2" data-strategy="${strategy.type}" onclick="selectStrategy('${strategy.type}')">
                 <div class="card-body py-2">
@@ -85,15 +544,19 @@ function renderStrategies(strategies) {
     });
 }
 
+/**
+ * 전략을 선택합니다.
+ * @param {string} type - 전략 타입
+ */
 function selectStrategy(type) {
-    selectedStrategy = type;
+    backtestState.selectedStrategy = type;
 
     // 카드 선택 상태 업데이트
     $('.strategy-card').removeClass('selected');
     $(`.strategy-card[data-strategy="${type}"]`).addClass('selected');
 
     // 파라미터 표시
-    const strategy = strategies.find(s => s.type === type);
+    const strategy = backtestState.strategies.find(s => s.type === type);
     if (strategy && strategy.parameters) {
         renderParameters(strategy.parameters);
         $('#strategyParams').show();
@@ -102,24 +565,16 @@ function selectStrategy(type) {
     }
 }
 
+/**
+ * 전략 파라미터 입력 필드를 렌더링합니다.
+ * @param {Object} params - 파라미터 객체
+ */
 function renderParameters(params) {
     const $container = $('#paramInputs');
     $container.empty();
 
-    const labels = {
-        'shortPeriod': '단기 MA 기간',
-        'longPeriod': '장기 MA 기간',
-        'maType': 'MA 유형',
-        'period': '기간',
-        'overboughtLevel': '과매수 레벨',
-        'oversoldLevel': '과매도 레벨',
-        'stdDevMultiplier': '표준편차 배수',
-        'entryThreshold': '진입 임계값 (%)',
-        'exitThreshold': '청산 임계값 (%)'
-    };
-
     for (const [key, value] of Object.entries(params)) {
-        const label = labels[key] || key;
+        const label = PARAM_LABELS[key] || key;
 
         if (key === 'maType') {
             $container.append(`
@@ -143,6 +598,10 @@ function renderParameters(params) {
     }
 }
 
+/**
+ * 현재 입력된 전략 파라미터를 수집합니다.
+ * @returns {Object} 파라미터 객체
+ */
 function getStrategyParams() {
     const params = {};
     $('#paramInputs [data-param]').each(function() {
@@ -158,27 +617,20 @@ function getStrategyParams() {
     return params;
 }
 
+// ==================== 백테스트 실행 ====================
+
+/**
+ * 백테스트를 실행합니다.
+ */
 function runBacktest() {
-    if (!selectedStrategy) {
+    const request = collectBacktestRequest();
+
+    if (!request) {
         alert('전략을 선택해주세요.');
         return;
     }
 
-    const request = {
-        symbol: $('#symbol').val(),
-        strategyType: selectedStrategy,
-        strategyParams: getStrategyParams(),
-        startDate: $('#startDate').val(),
-        endDate: $('#endDate').val(),
-        initialCapital: parseFloat($('#initialCapital').val()),
-        positionSizePercent: parseFloat($('#positionSize').val()),
-        commissionRate: parseFloat($('#commission').val()),
-        slippage: parseFloat($('#slippage').val()),
-        stopLossPercent: $('#stopLoss').val() ? parseFloat($('#stopLoss').val()) : null,
-        takeProfitPercent: $('#takeProfit').val() ? parseFloat($('#takeProfit').val()) : null
-    };
-
-    $('#loadingOverlay').css('display', 'flex');
+    showLoading('백테스트 실행 중...');
 
     $.ajax({
         url: `${API_BASE_URL}/backtest/run`,
@@ -186,34 +638,76 @@ function runBacktest() {
         contentType: 'application/json',
         data: JSON.stringify(request),
         success: function(data) {
-            currentResult = data;
+            backtestState.currentResult = data;
             displayResult(data);
-            $('#loadingOverlay').hide();
+            hideLoading();
         },
         error: function(xhr) {
             console.error('백테스트 실행 실패:', xhr);
             alert('백테스트 실행에 실패했습니다: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
-            $('#loadingOverlay').hide();
+            hideLoading();
         }
     });
 }
 
+/**
+ * 로딩 오버레이를 표시합니다.
+ * @param {string} message - 표시할 메시지
+ */
+function showLoading(message = '로딩 중...') {
+    $('#loadingOverlay').css('display', 'flex');
+    $('#loadingOverlay h5').text(message);
+}
+
+/**
+ * 로딩 오버레이를 숨깁니다.
+ */
+function hideLoading() {
+    $('#loadingOverlay').hide();
+    $('#loadingOverlay h5').text('백테스트 실행 중...');
+}
+
+/**
+ * 백테스트 결과를 화면에 표시합니다.
+ * @param {Object} result - 백테스트 결과
+ */
 function displayResult(result) {
     $('#noResultPanel').hide();
     $('#resultPanel').show();
 
-    // 성과 요약 업데이트
+    displayPerformanceSummary(result);
+    displayProfitabilityStats(result);
+    displayTradeStats(result);
+    displayTradeList(result);
+
+    // 차트 업데이트
+    updateEquityChart(result);
+    updateDrawdownChart(result);
+    updateMonthlyChart(result);
+}
+
+/**
+ * 성과 요약 카드를 업데이트합니다.
+ * @param {Object} result - 백테스트 결과
+ */
+function displayPerformanceSummary(result) {
     const returnClass = result.totalReturn >= 0 ? 'text-success' : 'text-danger';
     $('#totalReturn').text(formatPercent(result.totalReturn)).removeClass('text-success text-danger').addClass(returnClass);
     $('#cagr').text(formatPercent(result.cagr)).removeClass('text-success text-danger').addClass(returnClass);
     $('#maxDrawdown').text(formatPercent(-Math.abs(result.maxDrawdown)));
     $('#sharpeRatio').text(result.sharpeRatio ? result.sharpeRatio.toFixed(2) : '-');
+}
 
-    // 수익성 지표 테이블
+/**
+ * 수익성 지표 테이블을 업데이트합니다.
+ * @param {Object} result - 백테스트 결과
+ */
+function displayProfitabilityStats(result) {
+    const profitClass = result.totalProfit >= 0 ? 'text-success' : 'text-danger';
     $('#profitabilityStats').html(`
         <tr><td>초기 자본금</td><td class="text-end">${formatCurrency(result.initialCapital)}</td></tr>
         <tr><td>최종 자본금</td><td class="text-end">${formatCurrency(result.finalCapital)}</td></tr>
-        <tr><td>총 손익</td><td class="text-end ${result.totalProfit >= 0 ? 'text-success' : 'text-danger'}">${formatCurrency(result.totalProfit)}</td></tr>
+        <tr><td>총 손익</td><td class="text-end ${profitClass}">${formatCurrency(result.totalProfit)}</td></tr>
         <tr><td>총 수익률</td><td class="text-end">${formatPercent(result.totalReturn)}</td></tr>
         <tr><td>CAGR</td><td class="text-end">${formatPercent(result.cagr)}</td></tr>
         <tr><td>최대 낙폭</td><td class="text-end text-danger">${formatPercent(-Math.abs(result.maxDrawdown))}</td></tr>
@@ -221,8 +715,13 @@ function displayResult(result) {
         <tr><td>소르티노 비율</td><td class="text-end">${result.sortinoRatio?.toFixed(2) || '-'}</td></tr>
         <tr><td>칼마 비율</td><td class="text-end">${result.calmarRatio?.toFixed(2) || '-'}</td></tr>
     `);
+}
 
-    // 거래 통계 테이블
+/**
+ * 거래 통계 테이블을 업데이트합니다.
+ * @param {Object} result - 백테스트 결과
+ */
+function displayTradeStats(result) {
     $('#tradeStats').html(`
         <tr><td>총 거래 횟수</td><td class="text-end">${result.totalTrades}회</td></tr>
         <tr><td>승리 거래</td><td class="text-end text-success">${result.winningTrades}회</td></tr>
@@ -235,8 +734,13 @@ function displayResult(result) {
         <tr><td>최대 연패</td><td class="text-end">${result.maxLossStreak}연패</td></tr>
         <tr><td>평균 보유 기간</td><td class="text-end">${result.avgHoldingDays?.toFixed(1) || '-'}일</td></tr>
     `);
+}
 
-    // 거래 목록
+/**
+ * 거래 목록 테이블을 업데이트합니다.
+ * @param {Object} result - 백테스트 결과
+ */
+function displayTradeList(result) {
     $('#tradeCount').text(result.totalTrades + '건');
     const $tradeList = $('#tradeList');
     $tradeList.empty();
@@ -262,177 +766,13 @@ function displayResult(result) {
     } else {
         $tradeList.append('<tr><td colspan="8" class="text-center text-muted">거래 내역이 없습니다.</td></tr>');
     }
-
-    // 차트 업데이트
-    updateEquityChart(result);
-    updateDrawdownChart(result);
-    updateMonthlyChart(result);
 }
 
-function initializeCharts() {
-    // 자산 곡선 차트
-    const equityCtx = document.getElementById('equityChart').getContext('2d');
-    equityChart = new Chart(equityCtx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [
-                {
-                    label: '전략',
-                    data: [],
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    fill: true,
-                    tension: 0.1
-                },
-                {
-                    label: 'Buy & Hold',
-                    data: [],
-                    borderColor: '#6c757d',
-                    borderDash: [5, 5],
-                    fill: false,
-                    tension: 0.1
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'top'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    ticks: {
-                        callback: function(value) {
-                            return formatCurrencyShort(value);
-                        }
-                    }
-                }
-            }
-        }
-    });
+// ==================== 히스토리 관리 ====================
 
-    // 낙폭 차트
-    const drawdownCtx = document.getElementById('drawdownChart').getContext('2d');
-    drawdownChart = new Chart(drawdownCtx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [{
-                label: 'Drawdown',
-                data: [],
-                borderColor: '#dc3545',
-                backgroundColor: 'rgba(220, 53, 69, 0.3)',
-                fill: true,
-                tension: 0.1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return 'Drawdown: ' + context.parsed.y.toFixed(2) + '%';
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    max: 0,
-                    ticks: {
-                        callback: function(value) {
-                            return value + '%';
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    // 월별 성과 차트
-    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
-    monthlyChart = new Chart(monthlyCtx, {
-        type: 'bar',
-        data: {
-            labels: [],
-            datasets: [{
-                label: '월간 수익률',
-                data: [],
-                backgroundColor: []
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return '수익률: ' + context.parsed.y.toFixed(2) + '%';
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    ticks: {
-                        callback: function(value) {
-                            return value + '%';
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-function updateEquityChart(result) {
-    equityChart.data.labels = result.equityLabels || [];
-    equityChart.data.datasets[0].data = result.equityCurve || [];
-    equityChart.data.datasets[1].data = result.benchmarkCurve || [];
-    equityChart.update();
-}
-
-function updateDrawdownChart(result) {
-    drawdownChart.data.labels = result.equityLabels || [];
-    drawdownChart.data.datasets[0].data = result.drawdownCurve || [];
-    drawdownChart.update();
-}
-
-function updateMonthlyChart(result) {
-    if (!result.monthlyPerformance || result.monthlyPerformance.length === 0) {
-        monthlyChart.data.labels = [];
-        monthlyChart.data.datasets[0].data = [];
-        monthlyChart.update();
-        return;
-    }
-
-    monthlyChart.data.labels = result.monthlyPerformance.map(m => m.month);
-    monthlyChart.data.datasets[0].data = result.monthlyPerformance.map(m => m.returnPct);
-    monthlyChart.data.datasets[0].backgroundColor = result.monthlyPerformance.map(m =>
-        m.returnPct >= 0 ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)');
-    monthlyChart.update();
-}
-
+/**
+ * 백테스트 히스토리를 로드합니다.
+ */
 function loadHistory() {
     $.ajax({
         url: `${API_BASE_URL}/backtest/history`,
@@ -443,6 +783,10 @@ function loadHistory() {
     });
 }
 
+/**
+ * 히스토리 테이블을 렌더링합니다.
+ * @param {Array} history - 히스토리 배열
+ */
 function renderHistory(history) {
     const $list = $('#historyList');
     $list.empty();
@@ -472,101 +816,50 @@ function renderHistory(history) {
     });
 }
 
+/**
+ * 저장된 백테스트 결과를 로드합니다.
+ * @param {number} id - 결과 ID
+ */
 function loadResult(id) {
     $.ajax({
         url: `${API_BASE_URL}/backtest/${id}`,
         method: 'GET',
         success: function(data) {
-            currentResult = data;
+            backtestState.currentResult = data;
             displayResult(data);
             bootstrap.Modal.getInstance(document.getElementById('historyModal')).hide();
         }
     });
 }
 
-// 히스토리 모달 열릴 때 로드
-$('#historyModal').on('show.bs.modal', function() {
-    loadHistory();
-});
+// ==================== 파라미터 최적화 ====================
 
-// === Helper Functions ===
-
-function formatCurrency(value) {
-    if (value === null || value === undefined) return '-';
-    const num = parseFloat(value);
-    return '₩' + Math.round(num).toLocaleString();
-}
-
-function formatCurrencyShort(value) {
-    const num = parseFloat(value);
-    if (Math.abs(num) >= 100000000) {
-        return (num / 100000000).toFixed(1) + '억';
-    } else if (Math.abs(num) >= 10000) {
-        return (num / 10000).toFixed(0) + '만';
-    }
-    return num.toLocaleString();
-}
-
-function formatPercent(value) {
-    if (value === null || value === undefined) return '-';
-    const num = parseFloat(value);
-    return (num >= 0 ? '+' : '') + num.toFixed(2) + '%';
-}
-
-function formatDateTime(dateTimeStr) {
-    if (!dateTimeStr) return '-';
-    const date = new Date(dateTimeStr);
-    return date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'});
-}
-
-// === 최적화 기능 ===
-
-let optimizationResult = null;
-
-// 최적화 모달이 열릴 때 파라미터 범위 입력 UI 생성
-$('#optimizeModal').on('show.bs.modal', function() {
-    renderParamRangeInputs();
-});
-
+/**
+ * 파라미터 범위 입력 UI를 렌더링합니다.
+ */
 function renderParamRangeInputs() {
     const container = $('#paramRangeInputs');
     container.empty();
 
-    if (!selectedStrategy) {
+    if (!backtestState.selectedStrategy) {
         container.html('<p class="text-muted">먼저 전략을 선택하세요.</p>');
         return;
     }
 
-    const strategy = strategies.find(function(s) { return s.type === selectedStrategy; });
+    const strategy = backtestState.strategies.find(s => s.type === backtestState.selectedStrategy);
     if (!strategy || !strategy.parameters) {
         container.html('<p class="text-muted">파라미터가 없는 전략입니다.</p>');
         return;
     }
-
-    const paramLabels = {
-        'shortPeriod': { label: '단기 MA 기간', defaultMin: 5, defaultMax: 30, defaultStep: 5 },
-        'longPeriod': { label: '장기 MA 기간', defaultMin: 20, defaultMax: 100, defaultStep: 10 },
-        'maType': null,
-        'period': { label: '기간', defaultMin: 5, defaultMax: 30, defaultStep: 5 },
-        'overboughtLevel': { label: '과매수 레벨', defaultMin: 60, defaultMax: 80, defaultStep: 5 },
-        'oversoldLevel': { label: '과매도 레벨', defaultMin: 20, defaultMax: 40, defaultStep: 5 },
-        'stdDevMultiplier': { label: '표준편차 배수', defaultMin: 1.5, defaultMax: 3.0, defaultStep: 0.5 },
-        'entryThreshold': { label: '진입 임계값 (%)', defaultMin: -5, defaultMax: 5, defaultStep: 1 },
-        'exitThreshold': { label: '청산 임계값 (%)', defaultMin: -5, defaultMax: 5, defaultStep: 1 },
-        'fastPeriod': { label: '단기 EMA 기간', defaultMin: 8, defaultMax: 16, defaultStep: 2 },
-        'slowPeriod': { label: '장기 EMA 기간', defaultMin: 20, defaultMax: 32, defaultStep: 3 },
-        'signalPeriod': { label: '시그널 기간', defaultMin: 5, defaultMax: 12, defaultStep: 1 }
-    };
 
     container.append('<h6 class="mb-3">파라미터 범위 설정</h6>');
 
     for (var key in strategy.parameters) {
         if (!strategy.parameters.hasOwnProperty(key)) continue;
 
-        var config = paramLabels[key];
+        var config = OPTIMIZATION_PARAM_CONFIG[key];
         if (!config) continue;
 
-        var defaultValue = strategy.parameters[key];
         var html = '<div class="card mb-2">' +
             '<div class="card-body py-2">' +
             '<div class="d-flex justify-content-between align-items-center mb-2">' +
@@ -603,6 +896,9 @@ function renderParamRangeInputs() {
     container.find('input').on('change', updateEstimatedCombinations);
 }
 
+/**
+ * 예상 파라미터 조합 수를 업데이트합니다.
+ */
 function updateEstimatedCombinations() {
     var ranges = getParameterRanges();
     var total = 1;
@@ -617,7 +913,7 @@ function updateEstimatedCombinations() {
 
     $('#estimatedCombinations strong').text(total + '개');
 
-    if (total > 1000) {
+    if (total > WARNING_COMBINATION_THRESHOLD) {
         $('#estimatedCombinations').removeClass('alert-secondary').addClass('alert-warning');
         $('#estimatedCombinations').html('<i class="bi bi-exclamation-triangle me-2"></i>예상 조합 수: <strong>' + total + '개</strong> (많은 시간이 소요될 수 있습니다)');
     } else {
@@ -625,6 +921,10 @@ function updateEstimatedCombinations() {
     }
 }
 
+/**
+ * 파라미터 범위를 수집합니다.
+ * @returns {Object} 파라미터 범위 객체
+ */
 function getParameterRanges() {
     var ranges = {};
 
@@ -644,8 +944,11 @@ function getParameterRanges() {
     return ranges;
 }
 
+/**
+ * 파라미터 최적화를 실행합니다.
+ */
 function runOptimization() {
-    if (!selectedStrategy) {
+    if (!backtestState.selectedStrategy) {
         alert('전략을 선택해주세요.');
         return;
     }
@@ -656,25 +959,12 @@ function runOptimization() {
         return;
     }
 
-    var request = {
-        symbol: $('#symbol').val(),
-        strategyType: selectedStrategy,
-        startDate: $('#startDate').val(),
-        endDate: $('#endDate').val(),
-        initialCapital: parseFloat($('#initialCapital').val()),
-        positionSizePercent: parseFloat($('#positionSize').val()),
-        commissionRate: parseFloat($('#commission').val()),
-        slippage: parseFloat($('#slippage').val()),
-        parameterRanges: ranges,
-        target: $('#optimizationTarget').val()
-    };
+    var request = collectOptimizationRequest(ranges);
 
     // 모달 닫기
     bootstrap.Modal.getInstance(document.getElementById('optimizeModal')).hide();
 
-    // 로딩 표시
-    $('#loadingOverlay').css('display', 'flex');
-    $('#loadingOverlay h5').text('파라미터 최적화 중...');
+    showLoading('파라미터 최적화 중...');
 
     $.ajax({
         url: API_BASE_URL + '/backtest/optimize',
@@ -682,10 +972,9 @@ function runOptimization() {
         contentType: 'application/json',
         data: JSON.stringify(request),
         success: function(data) {
-            optimizationResult = data;
+            backtestState.optimizationResult = data;
             displayOptimizationResult(data);
-            $('#loadingOverlay').hide();
-            $('#loadingOverlay h5').text('백테스트 실행 중...');
+            hideLoading();
 
             // 결과 모달 표시
             var resultModal = new bootstrap.Modal(document.getElementById('optimizeResultModal'));
@@ -694,12 +983,15 @@ function runOptimization() {
         error: function(xhr) {
             console.error('최적화 실패:', xhr);
             alert('최적화 실행에 실패했습니다: ' + (xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : '알 수 없는 오류'));
-            $('#loadingOverlay').hide();
-            $('#loadingOverlay h5').text('백테스트 실행 중...');
+            hideLoading();
         }
     });
 }
 
+/**
+ * 최적화 결과를 표시합니다.
+ * @param {Object} result - 최적화 결과
+ */
 function displayOptimizationResult(result) {
     // 최적 파라미터 표시
     var bestParamsHtml = '';
@@ -756,13 +1048,16 @@ function displayOptimizationResult(result) {
     $('#allResultsList').html(listHtml);
 }
 
+/**
+ * 최적 파라미터를 현재 설정에 적용합니다.
+ */
 function applyBestParams() {
-    if (!optimizationResult || !optimizationResult.bestParameters) {
+    if (!backtestState.optimizationResult || !backtestState.optimizationResult.bestParameters) {
         return;
     }
 
     // 최적 파라미터를 입력 폼에 적용
-    var params = optimizationResult.bestParameters;
+    var params = backtestState.optimizationResult.bestParameters;
     for (var key in params) {
         if (params.hasOwnProperty(key)) {
             var input = $('#paramInputs [data-param="' + key + '"]');
@@ -776,22 +1071,25 @@ function applyBestParams() {
     bootstrap.Modal.getInstance(document.getElementById('optimizeResultModal')).hide();
 
     // 최적 결과로 메인 결과 패널 업데이트
-    if (optimizationResult.bestResult) {
-        currentResult = optimizationResult.bestResult;
-        displayResult(optimizationResult.bestResult);
+    if (backtestState.optimizationResult.bestResult) {
+        backtestState.currentResult = backtestState.optimizationResult.bestResult;
+        displayResult(backtestState.optimizationResult.bestResult);
     }
 
     alert('최적 파라미터가 적용되었습니다.');
 }
 
-// === 템플릿 기능 ===
+// ==================== 템플릿 관리 ====================
 
+/**
+ * 템플릿 목록을 로드합니다.
+ */
 function loadTemplates() {
     $.ajax({
         url: `${API_BASE_URL}/templates/list`,
         method: 'GET',
         success: function(data) {
-            templates = data;
+            backtestState.templates = data;
             renderTemplateList(data);
         },
         error: function(xhr) {
@@ -800,6 +1098,10 @@ function loadTemplates() {
     });
 }
 
+/**
+ * 템플릿 버튼 목록을 렌더링합니다.
+ * @param {Array} templates - 템플릿 배열
+ */
 function renderTemplateList(templates) {
     const $container = $('#templateList');
     $container.empty();
@@ -824,6 +1126,10 @@ function renderTemplateList(templates) {
     });
 }
 
+/**
+ * 템플릿을 적용합니다.
+ * @param {number} templateId - 템플릿 ID
+ */
 function applyTemplate(templateId) {
     $.ajax({
         url: `${API_BASE_URL}/templates/${templateId}/apply`,
@@ -873,8 +1179,11 @@ function applyTemplate(templateId) {
     });
 }
 
+/**
+ * 현재 설정을 템플릿으로 저장하는 모달을 엽니다.
+ */
 function saveCurrentAsTemplate() {
-    if (!selectedStrategy) {
+    if (!backtestState.selectedStrategy) {
         alert('먼저 전략을 선택해주세요.');
         return;
     }
@@ -891,6 +1200,9 @@ function saveCurrentAsTemplate() {
     modal.show();
 }
 
+/**
+ * 템플릿 저장을 확인합니다.
+ */
 function confirmSaveTemplate() {
     const name = $('#templateName').val().trim();
     if (!name) {
@@ -899,19 +1211,7 @@ function confirmSaveTemplate() {
     }
 
     const selectedColor = $('#colorPicker .color-btn.selected').data('color') || 'primary';
-
-    const request = {
-        name: name,
-        description: $('#templateDescription').val(),
-        strategyType: selectedStrategy,
-        parameters: getStrategyParams(),
-        positionSizePercent: parseFloat($('#positionSize').val()),
-        stopLossPercent: $('#stopLoss').val() ? parseFloat($('#stopLoss').val()) : null,
-        takeProfitPercent: $('#takeProfit').val() ? parseFloat($('#takeProfit').val()) : null,
-        commissionRate: parseFloat($('#commission').val()),
-        isDefault: $('#templateDefault').is(':checked'),
-        color: selectedColor
-    };
+    const request = collectTemplateRequest(name, selectedColor);
 
     $.ajax({
         url: `${API_BASE_URL}/templates`,
@@ -930,11 +1230,9 @@ function confirmSaveTemplate() {
     });
 }
 
-// 템플릿 관리 모달이 열릴 때
-$('#templateModal').on('show.bs.modal', function() {
-    loadTemplateTable();
-});
-
+/**
+ * 템플릿 관리 테이블을 로드합니다.
+ */
 function loadTemplateTable() {
     $.ajax({
         url: `${API_BASE_URL}/templates`,
@@ -948,6 +1246,10 @@ function loadTemplateTable() {
     });
 }
 
+/**
+ * 템플릿 관리 테이블을 렌더링합니다.
+ * @param {Array} templates - 템플릿 배열
+ */
 function renderTemplateTable(templates) {
     const $tbody = $('#templateTableBody');
     $tbody.empty();
@@ -985,6 +1287,10 @@ function renderTemplateTable(templates) {
     });
 }
 
+/**
+ * 템플릿을 편집합니다.
+ * @param {number} id - 템플릿 ID
+ */
 function editTemplate(id) {
     $.ajax({
         url: `${API_BASE_URL}/templates/${id}`,
@@ -1017,6 +1323,9 @@ function editTemplate(id) {
     });
 }
 
+/**
+ * 템플릿 수정을 확인합니다.
+ */
 function confirmEditTemplate() {
     const id = $('#editTemplateId').val();
     const name = $('#editTemplateName').val().trim();
@@ -1069,6 +1378,10 @@ function confirmEditTemplate() {
     });
 }
 
+/**
+ * 템플릿을 복제합니다.
+ * @param {number} id - 템플릿 ID
+ */
 function duplicateTemplate(id) {
     if (!confirm('이 템플릿을 복사하시겠습니까?')) return;
 
@@ -1086,6 +1399,10 @@ function duplicateTemplate(id) {
     });
 }
 
+/**
+ * 템플릿을 삭제합니다.
+ * @param {number} id - 템플릿 ID
+ */
 function deleteTemplate(id) {
     if (!confirm('정말 이 템플릿을 삭제하시겠습니까?')) return;
 

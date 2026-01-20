@@ -1,6 +1,80 @@
+/**
+ * Trading Journal - Dividend Management Module
+ * Handles dividend tracking, display, and chart visualization
+ *
+ * @fileoverview Provides dividend-related functionality including:
+ * - Dividend CRUD operations
+ * - Summary statistics display
+ * - Monthly dividend chart visualization
+ * - Filtering by time period
+ *
+ * @requires utils.js - formatCurrency, formatNumber, formatDate, ToastNotification
+ */
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
 const API_BASE_URL = '/api';
-let monthlyDividendChart;
-let dividends = [];
+
+/**
+ * Chart color configuration for monthly dividend chart
+ * @constant {Object}
+ */
+const CHART_COLORS = {
+    BACKGROUND: 'rgba(75, 192, 192, 0.8)',
+    BORDER: 'rgba(75, 192, 192, 1)',
+    BORDER_WIDTH: 1
+};
+
+/**
+ * Display settings
+ * @constant {Object}
+ */
+const DISPLAY_SETTINGS = {
+    MONTHS_TO_SHOW: 12,
+    DEFAULT_TAX_RATE: '15.4',
+    TABLE_COLUMNS: {
+        DIVIDEND_LIST: 10,
+        TOP_STOCKS: 3
+    }
+};
+
+/**
+ * Korean text labels
+ * @constant {Object}
+ */
+const LABELS = {
+    CHART_TITLE: '월별 배당금',
+    CHART_TOOLTIP_PREFIX: '배당금: ',
+    EMPTY_DIVIDEND_LIST: '배당금 내역이 없습니다',
+    EMPTY_TOP_STOCKS: '배당금 지급 종목 없음',
+    PAYMENT_COUNT_SUFFIX: '회',
+    SUCCESS_ADD: '배당금이 추가되었습니다.',
+    SUCCESS_DELETE: '배당금 기록이 삭제되었습니다.',
+    ERROR_ADD: '배당금 추가에 실패했습니다.',
+    ERROR_DELETE: '배당금 삭제에 실패했습니다.',
+    CONFIRM_DELETE: '정말로 이 배당금 기록을 삭제하시겠습니까?'
+};
+
+// ============================================================================
+// STATE MANAGEMENT
+// ============================================================================
+
+/**
+ * Application state object containing chart instances and data
+ * @type {Object}
+ */
+const state = {
+    /** @type {Chart|null} Chart.js instance for monthly dividend chart */
+    monthlyDividendChart: null,
+    /** @type {Array} Array of dividend records */
+    dividends: []
+};
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
 
 $(document).ready(function() {
     // Check authentication first
@@ -15,17 +89,27 @@ $(document).ready(function() {
     initializeChart();
 });
 
+/**
+ * Set up event handlers for form submission and filtering
+ */
 function setupEventHandlers() {
     $('#dividend-form').on('submit', function(e) {
         e.preventDefault();
         addDividend();
     });
-    
+
     $('#dividend-filter').on('change', function() {
         filterDividends($(this).val());
     });
 }
 
+// ============================================================================
+// DATA LOADING
+// ============================================================================
+
+/**
+ * Load available stocks and populate the stock select dropdown
+ */
 function loadStockOptions() {
     $.ajax({
         url: `${API_BASE_URL}/stocks`,
@@ -42,6 +126,9 @@ function loadStockOptions() {
     });
 }
 
+/**
+ * Load dividend summary data and update UI components
+ */
 function loadDividendSummary() {
     $.ajax({
         url: `${API_BASE_URL}/dividends/summary`,
@@ -57,56 +144,15 @@ function loadDividendSummary() {
     });
 }
 
-function updateSummaryCards(summary) {
-    $('#total-dividends').text(formatCurrency(summary.totalDividends || 0));
-    $('#yearly-dividends').text(formatCurrency(summary.yearlyDividends || 0));
-    $('#monthly-average').text(formatCurrency(summary.monthlyAverage || 0));
-    $('#dividend-yield').text((summary.dividendYield || 0).toFixed(2) + '%');
-}
-
-function updateTopDividendStocks(topStocks) {
-    const tbody = $('#top-dividend-stocks');
-    tbody.empty();
-    
-    if (!topStocks || topStocks.length === 0) {
-        tbody.append('<tr><td colspan="3" class="text-center text-muted">배당금 지급 종목 없음</td></tr>');
-        return;
-    }
-    
-    topStocks.forEach(stock => {
-        const row = $('<tr>');
-        row.append(`<td>${stock.stockName}</td>`);
-        row.append(`<td class="text-end">${formatCurrency(stock.totalDividend)}</td>`);
-        row.append(`<td class="text-end">${stock.paymentCount}회</td>`);
-        tbody.append(row);
-    });
-}
-
-function updateMonthlyChart(monthlyData) {
-    if (!monthlyData || monthlyData.length === 0) return;
-    
-    // 최근 12개월 데이터 준비
-    const labels = [];
-    const data = [];
-    
-    monthlyData.slice(0, 12).reverse().forEach(item => {
-        labels.push(`${item.year}.${String(item.month).padStart(2, '0')}`);
-        data.push(item.amount);
-    });
-    
-    if (monthlyDividendChart) {
-        monthlyDividendChart.data.labels = labels;
-        monthlyDividendChart.data.datasets[0].data = data;
-        monthlyDividendChart.update();
-    }
-}
-
+/**
+ * Load all dividend records
+ */
 function loadDividends() {
     $.ajax({
         url: `${API_BASE_URL}/dividends`,
         method: 'GET',
         success: function(data) {
-            dividends = data;
+            state.dividends = data;
             displayDividends(data);
         },
         error: function(xhr) {
@@ -115,15 +161,89 @@ function loadDividends() {
     });
 }
 
+// ============================================================================
+// UI UPDATE FUNCTIONS
+// ============================================================================
+
+/**
+ * Update summary statistics cards with dividend data
+ * @param {Object} summary - Summary object from API
+ * @param {number} summary.totalDividends - Total dividends received
+ * @param {number} summary.yearlyDividends - Dividends received this year
+ * @param {number} summary.monthlyAverage - Average monthly dividend
+ * @param {number} summary.dividendYield - Dividend yield percentage
+ */
+function updateSummaryCards(summary) {
+    $('#total-dividends').text(formatCurrency(summary.totalDividends || 0));
+    $('#yearly-dividends').text(formatCurrency(summary.yearlyDividends || 0));
+    $('#monthly-average').text(formatCurrency(summary.monthlyAverage || 0));
+    $('#dividend-yield').text((summary.dividendYield || 0).toFixed(2) + '%');
+}
+
+/**
+ * Update the top dividend stocks table
+ * @param {Array} topStocks - Array of top dividend-paying stocks
+ * @param {string} topStocks[].stockName - Stock name
+ * @param {number} topStocks[].totalDividend - Total dividend amount
+ * @param {number} topStocks[].paymentCount - Number of dividend payments
+ */
+function updateTopDividendStocks(topStocks) {
+    const tbody = $('#top-dividend-stocks');
+    tbody.empty();
+
+    if (!topStocks || topStocks.length === 0) {
+        tbody.append(`<tr><td colspan="${DISPLAY_SETTINGS.TABLE_COLUMNS.TOP_STOCKS}" class="text-center text-muted">${LABELS.EMPTY_TOP_STOCKS}</td></tr>`);
+        return;
+    }
+
+    topStocks.forEach(stock => {
+        const row = $('<tr>');
+        row.append(`<td>${stock.stockName}</td>`);
+        row.append(`<td class="text-end">${formatCurrency(stock.totalDividend)}</td>`);
+        row.append(`<td class="text-end">${stock.paymentCount}${LABELS.PAYMENT_COUNT_SUFFIX}</td>`);
+        tbody.append(row);
+    });
+}
+
+/**
+ * Update the monthly dividend chart with new data
+ * @param {Array} monthlyData - Array of monthly dividend data
+ * @param {number} monthlyData[].year - Year
+ * @param {number} monthlyData[].month - Month (1-12)
+ * @param {number} monthlyData[].amount - Dividend amount
+ */
+function updateMonthlyChart(monthlyData) {
+    if (!monthlyData || monthlyData.length === 0) return;
+
+    // Prepare data for the last 12 months
+    const labels = [];
+    const data = [];
+
+    monthlyData.slice(0, DISPLAY_SETTINGS.MONTHS_TO_SHOW).reverse().forEach(item => {
+        labels.push(`${item.year}.${String(item.month).padStart(2, '0')}`);
+        data.push(item.amount);
+    });
+
+    if (state.monthlyDividendChart) {
+        state.monthlyDividendChart.data.labels = labels;
+        state.monthlyDividendChart.data.datasets[0].data = data;
+        state.monthlyDividendChart.update();
+    }
+}
+
+/**
+ * Display dividend records in the table
+ * @param {Array} dividendList - Array of dividend records to display
+ */
 function displayDividends(dividendList) {
     const tbody = $('#dividend-list');
     tbody.empty();
-    
+
     if (!dividendList || dividendList.length === 0) {
-        tbody.append('<tr><td colspan="10" class="text-center text-muted">배당금 내역이 없습니다</td></tr>');
+        tbody.append(`<tr><td colspan="${DISPLAY_SETTINGS.TABLE_COLUMNS.DIVIDEND_LIST}" class="text-center text-muted">${LABELS.EMPTY_DIVIDEND_LIST}</td></tr>`);
         return;
     }
-    
+
     dividendList.forEach(dividend => {
         const row = $('<tr>');
         row.append(`<td>${formatDate(dividend.paymentDate)}</td>`);
@@ -146,12 +266,21 @@ function displayDividends(dividendList) {
     });
 }
 
+// ============================================================================
+// CRUD OPERATIONS
+// ============================================================================
+
+/**
+ * Add a new dividend record from form data
+ */
 function addDividend() {
     const stockId = $('#stock-select').val();
     const stockOption = $('#stock-select option:selected');
-    const stockSymbol = stockOption.text().match(/\(([^)]+)\)/)[1];
-    const stockName = stockOption.text().replace(/\s*\([^)]*\)/, '');
-    
+    const stockText = stockOption.text();
+    const symbolMatch = stockText.match(/\(([^)]+)\)/);
+    const stockSymbol = symbolMatch ? symbolMatch[1] : '';
+    const stockName = stockText.replace(/\s*\([^)]*\)/, '');
+
     const dividendData = {
         stockId: parseInt(stockId),
         stockSymbol: stockSymbol,
@@ -163,88 +292,108 @@ function addDividend() {
         taxRate: parseFloat($('#tax-rate').val()),
         memo: $('#memo').val()
     };
-    
+
     $.ajax({
         url: `${API_BASE_URL}/dividends`,
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify(dividendData),
-        success: function(dividend) {
+        success: function() {
             $('#dividend-form')[0].reset();
-            $('#tax-rate').val('15.4'); // 기본 세율 복원
+            $('#tax-rate').val(DISPLAY_SETTINGS.DEFAULT_TAX_RATE);
             loadDividends();
             loadDividendSummary();
-            showAlert('배당금이 추가되었습니다.', 'success');
+            ToastNotification.success(LABELS.SUCCESS_ADD);
         },
         error: function(xhr) {
             console.error('Failed to add dividend:', xhr);
-            showAlert('배당금 추가에 실패했습니다.', 'danger');
+            ToastNotification.error(LABELS.ERROR_ADD);
         }
     });
 }
 
+/**
+ * Delete a dividend record by ID
+ * @param {number} id - The dividend record ID to delete
+ */
 function deleteDividend(id) {
-    if (!confirm('정말로 이 배당금 기록을 삭제하시겠습니까?')) {
+    if (!confirm(LABELS.CONFIRM_DELETE)) {
         return;
     }
-    
+
     $.ajax({
         url: `${API_BASE_URL}/dividends/${id}`,
         method: 'DELETE',
         success: function() {
             loadDividends();
             loadDividendSummary();
-            showAlert('배당금 기록이 삭제되었습니다.', 'success');
+            ToastNotification.success(LABELS.SUCCESS_DELETE);
         },
         error: function(xhr) {
             console.error('Failed to delete dividend:', xhr);
-            showAlert('배당금 삭제에 실패했습니다.', 'danger');
+            ToastNotification.error(LABELS.ERROR_DELETE);
         }
     });
 }
 
+// ============================================================================
+// FILTERING
+// ============================================================================
+
+/**
+ * Filter dividends by time period
+ * @param {string} filter - Filter type: 'all', 'year', 'quarter', or 'month'
+ */
 function filterDividends(filter) {
     const now = new Date();
-    let filteredDividends = [...dividends];
-    
-    switch(filter) {
+    let filteredDividends = [...state.dividends];
+
+    switch (filter) {
         case 'year':
-            filteredDividends = dividends.filter(d => {
+            filteredDividends = state.dividends.filter(d => {
                 const paymentDate = new Date(d.paymentDate);
                 return paymentDate.getFullYear() === now.getFullYear();
             });
             break;
         case 'quarter':
             const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-            filteredDividends = dividends.filter(d => {
+            filteredDividends = state.dividends.filter(d => {
                 const paymentDate = new Date(d.paymentDate);
                 return paymentDate >= quarterStart;
             });
             break;
         case 'month':
-            filteredDividends = dividends.filter(d => {
+            filteredDividends = state.dividends.filter(d => {
                 const paymentDate = new Date(d.paymentDate);
-                return paymentDate.getFullYear() === now.getFullYear() && 
+                return paymentDate.getFullYear() === now.getFullYear() &&
                        paymentDate.getMonth() === now.getMonth();
             });
             break;
+        // 'all' case: use the full list (already set)
     }
-    
+
     displayDividends(filteredDividends);
 }
 
+// ============================================================================
+// CHART INITIALIZATION
+// ============================================================================
+
+/**
+ * Initialize the monthly dividend bar chart
+ */
 function initializeChart() {
     const ctx = document.getElementById('monthlyDividendChart').getContext('2d');
-    monthlyDividendChart = new Chart(ctx, {
+    state.monthlyDividendChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: [],
             datasets: [{
-                label: '월별 배당금',
+                label: LABELS.CHART_TITLE,
                 data: [],
-                backgroundColor: 'rgba(75, 192, 192, 0.8)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1
+                backgroundColor: CHART_COLORS.BACKGROUND,
+                borderColor: CHART_COLORS.BORDER,
+                borderWidth: CHART_COLORS.BORDER_WIDTH
             }]
         },
         options: {
@@ -257,7 +406,7 @@ function initializeChart() {
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            return '배당금: ' + formatCurrency(context.parsed.y);
+                            return LABELS.CHART_TOOLTIP_PREFIX + formatCurrency(context.parsed.y);
                         }
                     }
                 }
@@ -274,29 +423,4 @@ function initializeChart() {
             }
         }
     });
-}
-
-// 유틸리티 함수들
-function formatCurrency(value) {
-    return '₩' + Math.round(value).toLocaleString();
-}
-
-function formatNumber(value) {
-    return value.toLocaleString();
-}
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ko-KR');
-}
-
-function showAlert(message, type) {
-    const alertDiv = $(`
-        <div class="alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index: 1050;">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `);
-    $('body').append(alertDiv);
-    setTimeout(() => alertDiv.alert('close'), 3000);
 }

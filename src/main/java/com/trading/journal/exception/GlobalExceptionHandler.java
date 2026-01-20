@@ -20,10 +20,202 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    // ==================== Not Found Exceptions (404) ====================
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(ResourceNotFoundException ex, WebRequest request) {
+        log.warn("Resource not found: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error("Not Found")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler(TransactionNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTransactionNotFoundException(TransactionNotFoundException ex, WebRequest request) {
+        log.warn("Transaction not found: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error("Transaction Not Found")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler(StockNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleStockNotFoundException(StockNotFoundException ex, WebRequest request) {
+        log.warn("Stock not found: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error("Stock Not Found")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler(AccountNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAccountNotFoundException(AccountNotFoundException ex, WebRequest request) {
+        log.warn("Account not found: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error("Account Not Found")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    // ==================== Business Logic Exceptions (400/422) ====================
+
+    @ExceptionHandler(InvalidTradeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidTradeException(InvalidTradeException ex, WebRequest request) {
+        log.warn("Invalid trade: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Invalid Trade")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(InsufficientFundsException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientFundsException(InsufficientFundsException ex, WebRequest request) {
+        log.warn("Insufficient funds: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.UNPROCESSABLE_ENTITY.value())
+                .error("Insufficient Funds")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(errorResponse);
+    }
+
+    // ==================== Data Processing Exceptions (500) ====================
+
+    @ExceptionHandler(DataImportException.class)
+    public ResponseEntity<ErrorResponse> handleDataImportException(DataImportException ex, WebRequest request) {
+        log.error("Data import failed: {}", ex.getMessage(), ex);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .error("Data Import Failed")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
+    @ExceptionHandler(ExportException.class)
+    public ResponseEntity<ErrorResponse> handleExportException(ExportException ex, WebRequest request) {
+        log.error("Export failed: {}", ex.getMessage(), ex);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .error("Export Failed")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
+    // ==================== External Service Exceptions (502/503) ====================
+
+    @ExceptionHandler(ExternalApiException.class)
+    public ResponseEntity<ErrorResponse> handleExternalApiException(ExternalApiException ex, WebRequest request) {
+        log.error("External API call failed: {}", ex.getMessage(), ex);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_GATEWAY.value())
+                .error("External API Error")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(errorResponse);
+    }
+
+    @ExceptionHandler(PriceDataException.class)
+    public ResponseEntity<ErrorResponse> handlePriceDataException(PriceDataException ex, WebRequest request) {
+        log.error("Price data retrieval failed: {}", ex.getMessage(), ex);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .error("Price Data Unavailable")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+    }
+
+    // ==================== Analysis & Backtest Exceptions (500) ====================
+
+    @ExceptionHandler(AnalysisException.class)
+    public ResponseEntity<ErrorResponse> handleAnalysisException(AnalysisException ex, WebRequest request) {
+        log.error("Analysis failed: {}", ex.getMessage(), ex);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .error("Analysis Failed")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
+    @ExceptionHandler(BacktestExecutionException.class)
+    public ResponseEntity<ErrorResponse> handleBacktestExecutionException(BacktestExecutionException ex, WebRequest request) {
+        log.error("Backtest execution failed: {}", ex.getMessage(), ex);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .error("Backtest Execution Failed")
+                .message(ex.getMessage())
+                .path(getPath(request))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
+    // ==================== General Exceptions ====================
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex, WebRequest request) {
         log.error("Runtime exception occurred: {}", ex.getMessage(), ex);
-        
+
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
@@ -31,7 +223,7 @@ public class GlobalExceptionHandler {
                 .message(ex.getMessage())
                 .path(getPath(request))
                 .build();
-                
+
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 

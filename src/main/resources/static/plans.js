@@ -1,6 +1,69 @@
 /**
  * 트레이드 플랜 관리 JavaScript
+ *
+ * @fileoverview Trade plan management with status-based card rendering
+ * @requires jQuery, Bootstrap, utils.js (ToastNotification, LoadingOverlay, handleAjaxError, showConfirmDialog)
  */
+
+// ============================================================================
+// Constants & Configuration
+// ============================================================================
+
+/**
+ * Status configuration mapping
+ * Maps status codes to display properties (color, badge class, label, icon)
+ * @type {Object.<string, {color: string, badgeClass: string, label: string, icon: string}>}
+ */
+const STATUS_CONFIG = {
+    PENDING: {
+        color: '#8b5cf6',
+        badgeClass: 'pending',
+        label: '대기 중',
+        icon: 'bi-clock'
+    },
+    EXECUTED: {
+        color: '#059669',
+        badgeClass: 'executed',
+        label: '실행됨',
+        icon: 'bi-check-circle'
+    },
+    CANCELLED: {
+        color: '#6b7280',
+        badgeClass: 'cancelled',
+        label: '취소됨',
+        icon: 'bi-x-circle'
+    },
+    EXPIRED: {
+        color: '#dc2626',
+        badgeClass: 'expired',
+        label: '만료됨',
+        icon: 'bi-calendar-x'
+    }
+};
+
+/** Default status config for unknown statuses */
+const DEFAULT_STATUS_CONFIG = {
+    color: '#667eea',
+    badgeClass: 'secondary',
+    label: '알 수 없음',
+    icon: 'bi-question-circle'
+};
+
+/**
+ * Plan type labels mapping
+ * @type {Object.<string, string>}
+ */
+const PLAN_TYPE_LABELS = {
+    LONG: '롱 포지션',
+    SHORT: '숏 포지션',
+    SWING: '스윙 트레이딩',
+    DAY: '데이 트레이딩',
+    SCALP: '스캘핑'
+};
+
+// ============================================================================
+// State Variables
+// ============================================================================
 
 let allPlans = [];
 let currentFilter = 'all';
@@ -8,15 +71,25 @@ let currentPlanId = null;
 let planTypes = [];
 let strategies = [];
 
-// 페이지 로드 시 초기화
+// ============================================================================
+// Initialization
+// ============================================================================
+
+/**
+ * Initialize the plans page on document ready
+ */
 $(document).ready(function() {
     loadMetadata();
     loadPlans();
     loadStatistics();
 });
 
+// ============================================================================
+// Data Loading Functions
+// ============================================================================
+
 /**
- * 메타데이터 로드 (유형, 전략 등)
+ * Load metadata (plan types, strategies)
  */
 function loadMetadata() {
     // 플랜 유형 로드
@@ -47,7 +120,7 @@ function loadMetadata() {
 }
 
 /**
- * 플랜 유형 옵션 채우기
+ * Populate plan type select options
  */
 function populatePlanTypes() {
     const select = $('#planType');
@@ -59,7 +132,7 @@ function populatePlanTypes() {
 }
 
 /**
- * 전략 옵션 채우기
+ * Populate strategy select options
  */
 function populateStrategies() {
     const select = $('#strategy');
@@ -71,7 +144,7 @@ function populateStrategies() {
 }
 
 /**
- * 전체 플랜 로드
+ * Load all plans from server
  */
 function loadPlans() {
     $.ajax({
@@ -90,7 +163,7 @@ function loadPlans() {
 }
 
 /**
- * 통계 로드
+ * Load statistics from server
  */
 function loadStatistics() {
     $.ajax({
@@ -106,7 +179,8 @@ function loadStatistics() {
 }
 
 /**
- * 통계 업데이트
+ * Update statistics display
+ * @param {Object} stats - Statistics object from server
  */
 function updateStatistics(stats) {
     $('#stat-total').text(stats.totalPlans || 0);
@@ -117,8 +191,14 @@ function updateStatistics(stats) {
     $('#stat-avg-r').text((stats.averageRMultiple || 0).toFixed(2));
 }
 
+// ============================================================================
+// Filtering Functions
+// ============================================================================
+
 /**
- * 상태별 필터링
+ * Filter plans by status
+ * @param {string} status - Status to filter by ('all' for no filter)
+ * @returns {Array} Filtered plans array
  */
 function filterPlansByStatus(status) {
     if (status === 'all') {
@@ -128,7 +208,8 @@ function filterPlansByStatus(status) {
 }
 
 /**
- * 필터 적용
+ * Apply filter and update UI
+ * @param {string} status - Status to filter by
  */
 function filterPlans(status) {
     currentFilter = status;
@@ -145,7 +226,7 @@ function filterPlans(status) {
 }
 
 /**
- * 플랜 새로고침
+ * Refresh plans list
  */
 function refreshPlans() {
     loadPlans();
@@ -153,8 +234,13 @@ function refreshPlans() {
     ToastNotification.success('플랜 목록이 갱신되었습니다.');
 }
 
+// ============================================================================
+// Rendering Functions
+// ============================================================================
+
 /**
- * 플랜 렌더링
+ * Render plans to the container
+ * @param {Array} plans - Array of plan objects to render
  */
 function renderPlans(plans) {
     const container = $('#plans-container');
@@ -176,109 +262,68 @@ function renderPlans(plans) {
 }
 
 /**
- * 플랜 카드 생성
+ * Create a plan card HTML
+ * @param {Object} plan - Plan object
+ * @returns {string} HTML string for the plan card
  */
 function createPlanCard(plan) {
-    const statusInfo = getStatusInfo(plan.status);
+    const statusConfig = getStatusConfig(plan.status);
     const rrRatio = calculateRRRatio(plan);
     const riskReward = `1:${rrRatio.toFixed(2)}`;
 
-    const statusColor = getStatusColor(plan.status);
-
     return `
         <div class="col-md-6 col-xl-4">
-            <div class="card plan-card h-100" style="--status-color: ${statusColor};">
+            <div class="card plan-card h-100" style="--status-color: ${statusConfig.color};">
                 <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div class="plan-symbol">${escapeHtml(plan.symbol)}</div>
-                        <span class="status-badge badge bg-${statusInfo.class}">${statusInfo.label}</span>
-                    </div>
-
-                    <div class="plan-price-box mb-3">
-                        <div class="row g-2 small">
-                            <div class="col-4 text-center">
-                                <div class="text-muted mb-1">진입</div>
-                                <div class="fw-bold">${formatPrice(plan.entryPrice)}</div>
-                            </div>
-                            <div class="col-4 text-center">
-                                <div class="text-muted mb-1">손절</div>
-                                <div class="fw-bold text-danger">${formatPrice(plan.stopLoss)}</div>
-                            </div>
-                            <div class="col-4 text-center">
-                                <div class="text-muted mb-1">목표</div>
-                                <div class="fw-bold text-success">${formatPrice(plan.targetPrice)}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <small class="text-muted d-block">R:R</small>
-                            <span class="rr-ratio">
-                                <i class="bi bi-bullseye"></i>
-                                ${riskReward}
-                            </span>
-                        </div>
-                        <div class="text-end">
-                            <small class="text-muted d-block">수량</small>
-                            <div class="fw-bold">${formatNumber(plan.plannedQuantity || 0)}</div>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <small class="text-muted d-block mb-1">
-                            <i class="bi bi-diagram-3 me-1"></i>전략
-                        </small>
-                        <div class="small">${escapeHtml(plan.strategy || '-')}</div>
-                    </div>
-
-                    ${plan.validUntil ? `
-                    <div class="mb-3">
-                        <small class="text-muted">
-                            <i class="bi bi-calendar-event me-1"></i>유효기한: ${formatDate(plan.validUntil)}
-                        </small>
-                    </div>
-                    ` : ''}
-
-                    ${plan.entryConditions ? `
-                    <div class="mb-3">
-                        <small class="text-muted d-block mb-1">진입 조건</small>
-                        <div class="small text-truncate" title="${escapeHtml(plan.entryConditions)}">
-                            ${escapeHtml(plan.entryConditions)}
-                        </div>
-                    </div>
-                    ` : ''}
-
-                    <div class="d-flex gap-2 mt-3 pt-3 border-top">
-                        ${plan.status === 'PENDING' ? `
-                            <button class="btn btn-sm btn-success action-btn flex-fill" onclick="openExecuteModal(${plan.id})">
-                                <i class="bi bi-play-fill me-1"></i>실행
-                            </button>
-                            <button class="btn btn-sm btn-outline-primary action-btn" onclick="openEditModal(${plan.id})">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger action-btn" onclick="cancelPlan(${plan.id})">
-                                <i class="bi bi-x-lg"></i>
-                            </button>
-                        ` : ''}
-                        ${plan.status === 'EXECUTED' ? `
-                            <button class="btn btn-sm btn-outline-info action-btn flex-fill" onclick="viewPlanDetail(${plan.id})">
-                                <i class="bi bi-eye me-1"></i>상세보기
-                            </button>
-                        ` : ''}
-                        ${plan.status === 'CANCELLED' || plan.status === 'EXPIRED' ? `
-                            <button class="btn btn-sm btn-outline-secondary action-btn flex-fill" onclick="viewPlanDetail(${plan.id})">
-                                <i class="bi bi-eye me-1"></i>상세보기
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger action-btn" onclick="deletePlan(${plan.id})">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        ` : ''}
-                    </div>
+                    ${renderCardHeader(plan, statusConfig)}
+                    ${renderPriceBox(plan)}
+                    ${renderRiskRewardSection(riskReward, plan.plannedQuantity)}
+                    ${renderStrategySection(plan.strategy)}
+                    ${renderValidUntilSection(plan.validUntil)}
+                    ${renderEntryConditionsSection(plan.entryConditions)}
+                    ${renderActionButtons(plan)}
                 </div>
+                ${renderCardFooter(plan.createdAt)}
+            </div>
+        </div>
+    `;
+}
 
-                <div class="card-footer bg-light small text-muted">
-                    <i class="bi bi-clock me-1"></i>생성: ${formatDateTime(plan.createdAt)}
+/**
+ * Render card header with symbol and status badge
+ * @param {Object} plan - Plan object
+ * @param {Object} statusConfig - Status configuration
+ * @returns {string} HTML string
+ */
+function renderCardHeader(plan, statusConfig) {
+    return `
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="plan-symbol">${escapeHtml(plan.symbol)}</div>
+            <span class="status-badge badge bg-${statusConfig.badgeClass}">${statusConfig.label}</span>
+        </div>
+    `;
+}
+
+/**
+ * Render price box with entry, stop loss, and target prices
+ * @param {Object} plan - Plan object
+ * @returns {string} HTML string
+ */
+function renderPriceBox(plan) {
+    return `
+        <div class="plan-price-box mb-3">
+            <div class="row g-2 small">
+                <div class="col-4 text-center">
+                    <div class="text-muted mb-1">진입</div>
+                    <div class="fw-bold">${formatPrice(plan.entryPrice)}</div>
+                </div>
+                <div class="col-4 text-center">
+                    <div class="text-muted mb-1">손절</div>
+                    <div class="fw-bold text-danger">${formatPrice(plan.stopLoss)}</div>
+                </div>
+                <div class="col-4 text-center">
+                    <div class="text-muted mb-1">목표</div>
+                    <div class="fw-bold text-success">${formatPrice(plan.targetPrice)}</div>
                 </div>
             </div>
         </div>
@@ -286,7 +331,160 @@ function createPlanCard(plan) {
 }
 
 /**
- * R:R 비율 계산
+ * Render risk/reward ratio and quantity section
+ * @param {string} riskReward - Formatted R:R ratio string
+ * @param {number} plannedQuantity - Planned quantity
+ * @returns {string} HTML string
+ */
+function renderRiskRewardSection(riskReward, plannedQuantity) {
+    return `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <small class="text-muted d-block">R:R</small>
+                <span class="rr-ratio">
+                    <i class="bi bi-bullseye"></i>
+                    ${riskReward}
+                </span>
+            </div>
+            <div class="text-end">
+                <small class="text-muted d-block">수량</small>
+                <div class="fw-bold">${formatNumber(plannedQuantity || 0)}</div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render strategy section
+ * @param {string} strategy - Strategy name
+ * @returns {string} HTML string
+ */
+function renderStrategySection(strategy) {
+    return `
+        <div class="mb-3">
+            <small class="text-muted d-block mb-1">
+                <i class="bi bi-diagram-3 me-1"></i>전략
+            </small>
+            <div class="small">${escapeHtml(strategy || '-')}</div>
+        </div>
+    `;
+}
+
+/**
+ * Render valid until section (conditional)
+ * @param {string} validUntil - Valid until date string
+ * @returns {string} HTML string (empty if no date)
+ */
+function renderValidUntilSection(validUntil) {
+    if (!validUntil) return '';
+
+    return `
+        <div class="mb-3">
+            <small class="text-muted">
+                <i class="bi bi-calendar-event me-1"></i>유효기한: ${formatDate(validUntil)}
+            </small>
+        </div>
+    `;
+}
+
+/**
+ * Render entry conditions section (conditional)
+ * @param {string} entryConditions - Entry conditions text
+ * @returns {string} HTML string (empty if no conditions)
+ */
+function renderEntryConditionsSection(entryConditions) {
+    if (!entryConditions) return '';
+
+    return `
+        <div class="mb-3">
+            <small class="text-muted d-block mb-1">진입 조건</small>
+            <div class="small text-truncate" title="${escapeHtml(entryConditions)}">
+                ${escapeHtml(entryConditions)}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render action buttons based on plan status
+ * @param {Object} plan - Plan object
+ * @returns {string} HTML string
+ */
+function renderActionButtons(plan) {
+    const buttons = getActionButtonsForStatus(plan.status, plan.id);
+
+    return `
+        <div class="d-flex gap-2 mt-3 pt-3 border-top">
+            ${buttons}
+        </div>
+    `;
+}
+
+/**
+ * Get action buttons HTML based on status
+ * @param {string} status - Plan status
+ * @param {number} id - Plan ID
+ * @returns {string} HTML string for buttons
+ */
+function getActionButtonsForStatus(status, id) {
+    switch (status) {
+        case 'PENDING':
+            return `
+                <button class="btn btn-sm btn-success action-btn flex-fill" onclick="openExecuteModal(${id})">
+                    <i class="bi bi-play-fill me-1"></i>실행
+                </button>
+                <button class="btn btn-sm btn-outline-primary action-btn" onclick="openEditModal(${id})">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger action-btn" onclick="cancelPlan(${id})">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            `;
+
+        case 'EXECUTED':
+            return `
+                <button class="btn btn-sm btn-outline-info action-btn flex-fill" onclick="viewPlanDetail(${id})">
+                    <i class="bi bi-eye me-1"></i>상세보기
+                </button>
+            `;
+
+        case 'CANCELLED':
+        case 'EXPIRED':
+            return `
+                <button class="btn btn-sm btn-outline-secondary action-btn flex-fill" onclick="viewPlanDetail(${id})">
+                    <i class="bi bi-eye me-1"></i>상세보기
+                </button>
+                <button class="btn btn-sm btn-outline-danger action-btn" onclick="deletePlan(${id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            `;
+
+        default:
+            return '';
+    }
+}
+
+/**
+ * Render card footer with creation timestamp
+ * @param {string} createdAt - Creation timestamp
+ * @returns {string} HTML string
+ */
+function renderCardFooter(createdAt) {
+    return `
+        <div class="card-footer bg-light small text-muted">
+            <i class="bi bi-clock me-1"></i>생성: ${formatDateTime(createdAt)}
+        </div>
+    `;
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Calculate Risk/Reward ratio
+ * @param {Object} plan - Plan object with entryPrice, stopLoss, targetPrice
+ * @returns {number} R:R ratio
  */
 function calculateRRRatio(plan) {
     const risk = Math.abs(plan.entryPrice - plan.stopLoss);
@@ -297,47 +495,50 @@ function calculateRRRatio(plan) {
 }
 
 /**
- * 상태 정보
+ * Get status configuration object
+ * @param {string} status - Status code
+ * @returns {Object} Status configuration with color, badgeClass, label, icon
+ */
+function getStatusConfig(status) {
+    return STATUS_CONFIG[status] || DEFAULT_STATUS_CONFIG;
+}
+
+/**
+ * Get status info (legacy compatibility)
+ * @param {string} status - Status code
+ * @returns {Object} Status info with label and class
+ * @deprecated Use getStatusConfig instead
  */
 function getStatusInfo(status) {
-    const statusMap = {
-        'PENDING': { label: '대기 중', class: 'pending' },
-        'EXECUTED': { label: '실행됨', class: 'executed' },
-        'CANCELLED': { label: '취소됨', class: 'cancelled' },
-        'EXPIRED': { label: '만료됨', class: 'expired' }
-    };
-    return statusMap[status] || { label: status, class: 'secondary' };
+    const config = getStatusConfig(status);
+    return { label: config.label, class: config.badgeClass };
 }
 
 /**
- * 상태 색상
+ * Get status color (legacy compatibility)
+ * @param {string} status - Status code
+ * @returns {string} Color hex code
+ * @deprecated Use getStatusConfig instead
  */
 function getStatusColor(status) {
-    const colorMap = {
-        'PENDING': '#8b5cf6',
-        'EXECUTED': '#059669',
-        'CANCELLED': '#6b7280',
-        'EXPIRED': '#dc2626'
-    };
-    return colorMap[status] || '#667eea';
+    return getStatusConfig(status).color;
 }
 
 /**
- * 플랜 유형 라벨
+ * Get plan type label
+ * @param {string} type - Plan type code
+ * @returns {string} Localized label
  */
 function getPlanTypeLabel(type) {
-    const labels = {
-        'LONG': '롱 포지션',
-        'SHORT': '숏 포지션',
-        'SWING': '스윙 트레이딩',
-        'DAY': '데이 트레이딩',
-        'SCALP': '스캘핑'
-    };
-    return labels[type] || type;
+    return PLAN_TYPE_LABELS[type] || type;
 }
 
+// ============================================================================
+// Modal Functions
+// ============================================================================
+
 /**
- * 생성 모달 열기
+ * Open create plan modal
  */
 function openCreateModal() {
     currentPlanId = null;
@@ -349,7 +550,8 @@ function openCreateModal() {
 }
 
 /**
- * 수정 모달 열기
+ * Open edit plan modal
+ * @param {number} id - Plan ID to edit
  */
 function openEditModal(id) {
     $.ajax({
@@ -384,7 +586,35 @@ function openEditModal(id) {
 }
 
 /**
- * 포지션 사이징 계산
+ * Open execute plan modal
+ * @param {number} id - Plan ID to execute
+ */
+function openExecuteModal(id) {
+    currentPlanId = id;
+
+    // 플랜 정보 가져와서 기본값 설정
+    $.ajax({
+        url: `/api/plans/${id}`,
+        method: 'GET',
+        success: function(plan) {
+            $('#actualEntryPrice').val(plan.entryPrice);
+            $('#actualQuantity').val(plan.plannedQuantity || '');
+            $('#executionNotes').val('');
+            $('#executeModal').modal('show');
+        },
+        error: function(xhr) {
+            console.error('플랜 조회 실패:', xhr);
+            ToastNotification.error('플랜 정보를 불러올 수 없습니다.');
+        }
+    });
+}
+
+// ============================================================================
+// Position Sizing Functions
+// ============================================================================
+
+/**
+ * Calculate position size based on risk parameters
  */
 function calculatePosition() {
     const entryPrice = parseFloat($('#entryPrice').val());
@@ -415,7 +645,8 @@ function calculatePosition() {
 }
 
 /**
- * 포지션 계산 결과 표시
+ * Display position calculation result
+ * @param {Object} result - Position calculation result
  */
 function displayPositionResult(result) {
     const resultHtml = `
@@ -453,15 +684,20 @@ function displayPositionResult(result) {
 }
 
 /**
- * 계산된 수량 적용
+ * Apply calculated quantity to the form
+ * @param {number} quantity - Quantity to apply
  */
 function applyCalculatedQuantity(quantity) {
     $('#plannedQuantity').val(quantity);
     ToastNotification.success('수량이 적용되었습니다.');
 }
 
+// ============================================================================
+// CRUD Operations
+// ============================================================================
+
 /**
- * 플랜 저장
+ * Save plan (create or update)
  */
 function savePlan() {
     const planData = {
@@ -527,30 +763,7 @@ function savePlan() {
 }
 
 /**
- * 실행 모달 열기
- */
-function openExecuteModal(id) {
-    currentPlanId = id;
-
-    // 플랜 정보 가져와서 기본값 설정
-    $.ajax({
-        url: `/api/plans/${id}`,
-        method: 'GET',
-        success: function(plan) {
-            $('#actualEntryPrice').val(plan.entryPrice);
-            $('#actualQuantity').val(plan.plannedQuantity || '');
-            $('#executionNotes').val('');
-            $('#executeModal').modal('show');
-        },
-        error: function(xhr) {
-            console.error('플랜 조회 실패:', xhr);
-            ToastNotification.error('플랜 정보를 불러올 수 없습니다.');
-        }
-    });
-}
-
-/**
- * 플랜 실행 확인
+ * Execute plan and create trade
  */
 function confirmExecutePlan() {
     const actualEntryPrice = parseFloat($('#actualEntryPrice').val());
@@ -591,7 +804,8 @@ function confirmExecutePlan() {
 }
 
 /**
- * 플랜 취소
+ * Cancel a pending plan
+ * @param {number} id - Plan ID to cancel
  */
 function cancelPlan(id) {
     showConfirmDialog(
@@ -616,7 +830,8 @@ function cancelPlan(id) {
 }
 
 /**
- * 플랜 삭제
+ * Delete a plan permanently
+ * @param {number} id - Plan ID to delete
  */
 function deletePlan(id) {
     showConfirmDialog(
@@ -640,8 +855,13 @@ function deletePlan(id) {
     );
 }
 
+// ============================================================================
+// Plan Detail View
+// ============================================================================
+
 /**
- * 플랜 상세 보기
+ * View plan details
+ * @param {number} id - Plan ID to view
  */
 function viewPlanDetail(id) {
     $.ajax({
@@ -658,10 +878,11 @@ function viewPlanDetail(id) {
 }
 
 /**
- * 플랜 상세 모달 표시
+ * Show plan detail modal
+ * @param {Object} plan - Plan object to display
  */
 function showPlanDetailModal(plan) {
-    const statusInfo = getStatusInfo(plan.status);
+    const statusConfig = getStatusConfig(plan.status);
     const rrRatio = calculateRRRatio(plan);
 
     const modalHtml = `
@@ -675,77 +896,14 @@ function showPlanDetailModal(plan) {
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label class="text-muted small">상태</label>
-                                <div><span class="status-badge badge bg-${statusInfo.class}">${statusInfo.label}</span></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="text-muted small">전략</label>
-                                <div class="fw-bold">${escapeHtml(plan.strategy || '-')}</div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-md-4">
-                                <label class="text-muted small">진입가</label>
-                                <div class="h5">${formatPrice(plan.entryPrice)}</div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="text-muted small">손절가</label>
-                                <div class="h5 text-danger">${formatPrice(plan.stopLoss)}</div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="text-muted small">목표가</label>
-                                <div class="h5 text-success">${formatPrice(plan.targetPrice)}</div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label class="text-muted small">계획 수량</label>
-                                <div class="fw-bold">${formatNumber(plan.plannedQuantity || 0)}</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="text-muted small">R:R 비율</label>
-                                <div class="fw-bold">1:${rrRatio.toFixed(2)}</div>
-                            </div>
-                        </div>
-
-                        ${plan.entryConditions ? `
-                        <div class="mb-3">
-                            <label class="text-muted small">진입 조건</label>
-                            <div class="p-3 bg-light rounded">${escapeHtml(plan.entryConditions)}</div>
-                        </div>
-                        ` : ''}
-
-                        ${plan.exitConditions ? `
-                        <div class="mb-3">
-                            <label class="text-muted small">청산 조건</label>
-                            <div class="p-3 bg-light rounded">${escapeHtml(plan.exitConditions)}</div>
-                        </div>
-                        ` : ''}
-
-                        ${plan.marketAnalysis ? `
-                        <div class="mb-3">
-                            <label class="text-muted small">시장 분석</label>
-                            <div class="p-3 bg-light rounded">${escapeHtml(plan.marketAnalysis)}</div>
-                        </div>
-                        ` : ''}
-
-                        ${plan.notes ? `
-                        <div class="mb-3">
-                            <label class="text-muted small">메모</label>
-                            <div class="p-3 bg-light rounded">${escapeHtml(plan.notes)}</div>
-                        </div>
-                        ` : ''}
-
-                        <div class="mt-4 pt-3 border-top">
-                            <small class="text-muted">
-                                <i class="bi bi-clock me-1"></i>생성: ${formatDateTime(plan.createdAt)}
-                                ${plan.updatedAt ? ` | 수정: ${formatDateTime(plan.updatedAt)}` : ''}
-                            </small>
-                        </div>
+                        ${renderDetailStatusRow(statusConfig, plan.strategy)}
+                        ${renderDetailPriceRow(plan)}
+                        ${renderDetailQuantityRow(plan.plannedQuantity, rrRatio)}
+                        ${renderDetailTextSection('진입 조건', plan.entryConditions)}
+                        ${renderDetailTextSection('청산 조건', plan.exitConditions)}
+                        ${renderDetailTextSection('시장 분석', plan.marketAnalysis)}
+                        ${renderDetailTextSection('메모', plan.notes)}
+                        ${renderDetailTimestamps(plan.createdAt, plan.updatedAt)}
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
@@ -769,7 +927,113 @@ function showPlanDetailModal(plan) {
 }
 
 /**
- * 가격 포맷
+ * Render detail modal status row
+ * @param {Object} statusConfig - Status configuration
+ * @param {string} strategy - Strategy name
+ * @returns {string} HTML string
+ */
+function renderDetailStatusRow(statusConfig, strategy) {
+    return `
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <label class="text-muted small">상태</label>
+                <div><span class="status-badge badge bg-${statusConfig.badgeClass}">${statusConfig.label}</span></div>
+            </div>
+            <div class="col-md-6">
+                <label class="text-muted small">전략</label>
+                <div class="fw-bold">${escapeHtml(strategy || '-')}</div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render detail modal price row
+ * @param {Object} plan - Plan object
+ * @returns {string} HTML string
+ */
+function renderDetailPriceRow(plan) {
+    return `
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <label class="text-muted small">진입가</label>
+                <div class="h5">${formatPrice(plan.entryPrice)}</div>
+            </div>
+            <div class="col-md-4">
+                <label class="text-muted small">손절가</label>
+                <div class="h5 text-danger">${formatPrice(plan.stopLoss)}</div>
+            </div>
+            <div class="col-md-4">
+                <label class="text-muted small">목표가</label>
+                <div class="h5 text-success">${formatPrice(plan.targetPrice)}</div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render detail modal quantity and R:R row
+ * @param {number} plannedQuantity - Planned quantity
+ * @param {number} rrRatio - Risk/Reward ratio
+ * @returns {string} HTML string
+ */
+function renderDetailQuantityRow(plannedQuantity, rrRatio) {
+    return `
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <label class="text-muted small">계획 수량</label>
+                <div class="fw-bold">${formatNumber(plannedQuantity || 0)}</div>
+            </div>
+            <div class="col-md-6">
+                <label class="text-muted small">R:R 비율</label>
+                <div class="fw-bold">1:${rrRatio.toFixed(2)}</div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render detail modal text section (conditional)
+ * @param {string} label - Section label
+ * @param {string} content - Section content
+ * @returns {string} HTML string (empty if no content)
+ */
+function renderDetailTextSection(label, content) {
+    if (!content) return '';
+
+    return `
+        <div class="mb-3">
+            <label class="text-muted small">${label}</label>
+            <div class="p-3 bg-light rounded">${escapeHtml(content)}</div>
+        </div>
+    `;
+}
+
+/**
+ * Render detail modal timestamps
+ * @param {string} createdAt - Creation timestamp
+ * @param {string} updatedAt - Update timestamp
+ * @returns {string} HTML string
+ */
+function renderDetailTimestamps(createdAt, updatedAt) {
+    return `
+        <div class="mt-4 pt-3 border-top">
+            <small class="text-muted">
+                <i class="bi bi-clock me-1"></i>생성: ${formatDateTime(createdAt)}
+                ${updatedAt ? ` | 수정: ${formatDateTime(updatedAt)}` : ''}
+            </small>
+        </div>
+    `;
+}
+
+// ============================================================================
+// Formatting Functions (local overrides, can use utils.js versions if available)
+// ============================================================================
+
+/**
+ * Format price with currency symbol
+ * @param {number} price - Price value
+ * @returns {string} Formatted price string
  */
 function formatPrice(price) {
     if (price === null || price === undefined) return '-';
@@ -780,7 +1044,9 @@ function formatPrice(price) {
 }
 
 /**
- * 숫자 포맷
+ * Format number with locale formatting
+ * @param {number} num - Number to format
+ * @returns {string} Formatted number string
  */
 function formatNumber(num) {
     if (num === null || num === undefined) return '0';
@@ -788,7 +1054,9 @@ function formatNumber(num) {
 }
 
 /**
- * 날짜 포맷
+ * Format date string
+ * @param {string} dateStr - Date string
+ * @returns {string} Formatted date string
  */
 function formatDate(dateStr) {
     if (!dateStr) return '-';
@@ -797,7 +1065,9 @@ function formatDate(dateStr) {
 }
 
 /**
- * 날짜시간 포맷
+ * Format datetime string
+ * @param {string} dateTimeStr - DateTime string
+ * @returns {string} Formatted datetime string
  */
 function formatDateTime(dateTimeStr) {
     if (!dateTimeStr) return '-';
@@ -812,7 +1082,10 @@ function formatDateTime(dateTimeStr) {
 }
 
 /**
- * HTML 이스케이프
+ * Escape HTML special characters to prevent XSS
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped HTML string
+ * @note Consider moving to utils.js for project-wide use
  */
 function escapeHtml(text) {
     if (!text) return '';

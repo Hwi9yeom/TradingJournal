@@ -1,4 +1,118 @@
 const API_BASE_URL = '/api';
+
+// ==================== 상수 정의 ====================
+const CSS_CLASSES = {
+    SUCCESS: 'text-success',
+    DANGER: 'text-danger',
+    WARNING: 'text-warning',
+    MUTED: 'text-muted'
+};
+
+const PERIOD_MONTHS = {
+    '1M': 1,
+    '3M': 3,
+    '6M': 6,
+    '1Y': 12,
+    'ALL': null  // ALL은 2020년부터
+};
+
+const ALL_PERIOD_START_YEAR = 2020;
+
+// ==================== 유틸리티 함수 ====================
+
+/**
+ * 기간 문자열을 기반으로 시작일과 종료일을 반환합니다.
+ * @param {string} period - 기간 문자열 ('1M', '3M', '6M', '1Y', 'ALL')
+ * @returns {{startDate: Date, endDate: Date}} 시작일과 종료일 객체
+ */
+function getPeriodDates(period) {
+    const endDate = new Date();
+    const startDate = new Date();
+
+    const months = PERIOD_MONTHS[period];
+    if (months !== null && months !== undefined) {
+        startDate.setMonth(endDate.getMonth() - months);
+    } else {
+        // 'ALL' 기간
+        startDate.setFullYear(ALL_PERIOD_START_YEAR, 0, 1);
+    }
+
+    return { startDate, endDate };
+}
+
+/**
+ * 날짜를 API 호출용 YYYY-MM-DD 형식으로 변환합니다.
+ * @param {Date} date - 변환할 날짜 객체
+ * @returns {string} YYYY-MM-DD 형식의 문자열
+ */
+function formatDateForApi(date) {
+    return date.toISOString().split('T')[0];
+}
+
+/**
+ * 기간에 따른 API용 날짜 범위를 반환합니다.
+ * @param {string} period - 기간 문자열
+ * @returns {{startDate: string, endDate: string}} API용 날짜 문자열 객체
+ */
+function getDateRangeForApi(period) {
+    const { startDate, endDate } = getPeriodDates(period);
+    return {
+        startDate: formatDateForApi(startDate),
+        endDate: formatDateForApi(endDate)
+    };
+}
+
+/**
+ * 값에 따라 jQuery 요소에 성공/실패 CSS 클래스를 적용합니다.
+ * @param {jQuery} $element - 대상 jQuery 요소
+ * @param {number} value - 판단 기준 값
+ * @param {Object} options - 추가 옵션
+ * @param {boolean} options.includeWarning - 경고 클래스 포함 여부
+ * @param {number} options.warningThreshold - 경고 임계값
+ */
+function applyValueClass($element, value, options = {}) {
+    const { includeWarning = false, warningThreshold = 0 } = options;
+
+    $element.removeClass(`${CSS_CLASSES.SUCCESS} ${CSS_CLASSES.DANGER} ${CSS_CLASSES.WARNING} ${CSS_CLASSES.MUTED}`);
+
+    if (includeWarning && value < 0 && value >= warningThreshold) {
+        $element.addClass(CSS_CLASSES.WARNING);
+    } else if (value >= 0) {
+        $element.addClass(CSS_CLASSES.SUCCESS);
+    } else {
+        $element.addClass(CSS_CLASSES.DANGER);
+    }
+}
+
+/**
+ * 버튼 그룹에서 활성 버튼을 변경합니다.
+ * @param {Event} event - 클릭 이벤트
+ */
+function updateButtonGroupActive(event) {
+    $(event.target).closest('.btn-group').find('button').removeClass('active');
+    event.target.classList.add('active');
+}
+
+/**
+ * 임계값 기반으로 jQuery 요소에 CSS 클래스를 적용합니다.
+ * @param {jQuery} $element - 대상 jQuery 요소
+ * @param {number} value - 판단 기준 값
+ * @param {number} successThreshold - 성공 클래스 임계값
+ * @param {number} warningThreshold - 경고 클래스 임계값
+ */
+function applyThresholdClass($element, value, successThreshold, warningThreshold) {
+    $element.removeClass(`${CSS_CLASSES.SUCCESS} ${CSS_CLASSES.DANGER} ${CSS_CLASSES.WARNING}`);
+
+    if (value >= successThreshold) {
+        $element.addClass(CSS_CLASSES.SUCCESS);
+    } else if (value >= warningThreshold) {
+        $element.addClass(CSS_CLASSES.WARNING);
+    } else {
+        $element.addClass(CSS_CLASSES.DANGER);
+    }
+}
+
+// ==================== 차트 인스턴스 ====================
 let assetValueChart, portfolioCompositionChart, monthlyReturnChart;
 let equityCurveChart, drawdownChart;
 
@@ -50,35 +164,28 @@ function loadDashboardData() {
 function updateSummaryCards(summary) {
     $('#total-investment').text(formatCurrency(summary.totalInvestment));
     $('#total-value').text(formatCurrency(summary.totalCurrentValue));
-    
+
     const totalReturn = summary.totalProfitLossPercent;
     const totalProfit = summary.totalProfitLoss;
-    
-    $('#total-return').text((totalReturn >= 0 ? '+' : '') + totalReturn.toFixed(2) + '%');
+
+    $('#total-return').text(formatPercent(totalReturn));
     $('#total-profit-amount').text(formatCurrency(totalProfit));
-    
+
     // 색상 업데이트
-    if (totalReturn >= 0) {
-        $('#total-return').removeClass('text-danger').addClass('text-success');
-        $('#total-return-icon').removeClass('text-danger').addClass('text-success');
-        $('#total-return').parent().parent().removeClass('border-danger').addClass('border-success');
-    } else {
-        $('#total-return').removeClass('text-success').addClass('text-danger');
-        $('#total-return-icon').removeClass('text-success').addClass('text-danger');
-        $('#total-return').parent().parent().removeClass('border-success').addClass('border-danger');
-    }
-    
+    applyValueClass($('#total-return'), totalReturn);
+    applyValueClass($('#total-return-icon'), totalReturn);
+
+    // 테두리 색상 업데이트
+    const $returnCard = $('#total-return').parent().parent();
+    $returnCard.removeClass('border-success border-danger');
+    $returnCard.addClass(totalReturn >= 0 ? 'border-success' : 'border-danger');
+
     // 실현 손익 (FIFO 기반 매도 거래의 손익 합계)
     const realizedPnL = summary.totalRealizedPnl || 0;
     $('#realized-pnl').text(formatCurrency(realizedPnL));
-    
-    if (realizedPnL >= 0) {
-        $('#realized-pnl').removeClass('text-danger').addClass('text-success');
-        $('#realized-pnl-icon').removeClass('text-danger').addClass('text-success');
-    } else {
-        $('#realized-pnl').removeClass('text-success').addClass('text-danger');
-        $('#realized-pnl-icon').removeClass('text-success').addClass('text-danger');
-    }
+
+    applyValueClass($('#realized-pnl'), realizedPnL);
+    applyValueClass($('#realized-pnl-icon'), realizedPnL);
 }
 
 function updatePortfolioComposition(holdings) {
@@ -140,24 +247,14 @@ function loadTradeStatistics() {
 }
 
 function loadAssetValueHistory(period) {
-    // 기간에 따른 시작일 계산
-    const endDate = new Date();
-    const startDate = new Date();
-    
-    switch(period) {
-        case '1M': startDate.setMonth(endDate.getMonth() - 1); break;
-        case '3M': startDate.setMonth(endDate.getMonth() - 3); break;
-        case '6M': startDate.setMonth(endDate.getMonth() - 6); break;
-        case '1Y': startDate.setFullYear(endDate.getFullYear() - 1); break;
-        case 'ALL': startDate.setFullYear(2020); break;
-    }
-    
+    const range = getDateRangeForApi(period);
+
     $.ajax({
         url: `${API_BASE_URL}/analysis/asset-history`,
         method: 'GET',
         data: {
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0]
+            startDate: range.startDate,
+            endDate: range.endDate
         },
         success: function(data) {
             updateAssetValueChart(data);
@@ -356,11 +453,7 @@ function initializeCharts() {
 }
 
 function updateAssetChart(period) {
-    // 버튼 활성화 상태 변경
-    $('.btn-group button').removeClass('active');
-    event.target.classList.add('active');
-    
-    // 차트 데이터 업데이트
+    updateButtonGroupActive(event);
     loadAssetValueHistory(period);
 }
 
@@ -519,22 +612,12 @@ function initializeAdvancedCharts() {
     });
 }
 
+/**
+ * @deprecated getDateRangeForApi를 사용하세요.
+ * 이전 버전과의 호환성을 위해 유지됩니다.
+ */
 function getDateRange(period) {
-    const endDate = new Date();
-    const startDate = new Date();
-
-    switch(period) {
-        case '3M': startDate.setMonth(endDate.getMonth() - 3); break;
-        case '6M': startDate.setMonth(endDate.getMonth() - 6); break;
-        case '1Y': startDate.setFullYear(endDate.getFullYear() - 1); break;
-        case 'ALL': startDate.setFullYear(2020); break;
-        default: startDate.setFullYear(endDate.getFullYear() - 1);
-    }
-
-    return {
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0]
-    };
+    return getDateRangeForApi(period || '1Y');
 }
 
 function loadEquityCurve(period) {
@@ -569,13 +652,12 @@ function updateEquityCurveChart(data) {
     });
 
     // 요약 정보 업데이트
-    const totalReturn = data.totalReturn || 0;
-    $('#equity-total-return')
-        .text((totalReturn >= 0 ? '+' : '') + parseFloat(totalReturn).toFixed(2) + '%')
-        .removeClass('text-success text-danger')
-        .addClass(totalReturn >= 0 ? 'text-success' : 'text-danger');
+    const totalReturn = parseFloat(data.totalReturn || 0);
+    const $totalReturnEl = $('#equity-total-return');
+    $totalReturnEl.text(formatPercent(totalReturn));
+    applyValueClass($totalReturnEl, totalReturn);
 
-    $('#equity-cagr').text((data.cagr >= 0 ? '+' : '') + parseFloat(data.cagr || 0).toFixed(2) + '%');
+    $('#equity-cagr').text(formatPercent(parseFloat(data.cagr || 0)));
     $('#equity-final-value').text(formatCurrency(data.finalValue || 0));
 
     // 차트 업데이트
@@ -587,10 +669,7 @@ function updateEquityCurveChart(data) {
 }
 
 function updateEquityCurve(period) {
-    // 버튼 활성화 상태 변경
-    $(event.target).closest('.btn-group').find('button').removeClass('active');
-    event.target.classList.add('active');
-
+    updateButtonGroupActive(event);
     loadEquityCurve(period);
 }
 
@@ -630,10 +709,9 @@ function updateDrawdownChart(data) {
     const currentDrawdown = parseFloat(data.currentDrawdown || 0);
 
     $('#max-drawdown').text(maxDrawdown.toFixed(2) + '%');
-    $('#current-drawdown')
-        .text(currentDrawdown.toFixed(2) + '%')
-        .removeClass('text-success text-danger text-warning')
-        .addClass(currentDrawdown < -5 ? 'text-danger' : (currentDrawdown < 0 ? 'text-warning' : 'text-success'));
+    const $currentDrawdown = $('#current-drawdown');
+    $currentDrawdown.text(currentDrawdown.toFixed(2) + '%');
+    applyValueClass($currentDrawdown, currentDrawdown, { includeWarning: true, warningThreshold: -5 });
 
     if (data.recoveryDays !== null) {
         $('#recovery-days').text(data.recoveryDays + '일');
@@ -655,10 +733,7 @@ function updateDrawdownChart(data) {
 }
 
 function updateDrawdown(period) {
-    // 버튼 활성화 상태 변경
-    $(event.target).closest('.btn-group').find('button').removeClass('active');
-    event.target.classList.add('active');
-
+    updateButtonGroupActive(event);
     loadDrawdown(period);
 }
 
@@ -704,25 +779,24 @@ function updateCorrelationMatrix(data) {
 
     // 요약 정보 업데이트
     const avgCorr = parseFloat(data.averageCorrelation || 0);
-    $('#avg-correlation')
-        .text(avgCorr.toFixed(2))
-        .removeClass('text-success text-warning text-danger')
-        .addClass(avgCorr < 0.3 ? 'text-success' : (avgCorr < 0.6 ? 'text-warning' : 'text-danger'));
+    const $avgCorrelation = $('#avg-correlation').text(avgCorr.toFixed(2));
+    // 상관관계는 낮을수록 좋음 (0.3 미만: 성공, 0.3-0.6: 경고, 0.6 이상: 위험)
+    $avgCorrelation.removeClass(`${CSS_CLASSES.SUCCESS} ${CSS_CLASSES.WARNING} ${CSS_CLASSES.DANGER}`);
+    $avgCorrelation.addClass(avgCorr < 0.3 ? CSS_CLASSES.SUCCESS : (avgCorr < 0.6 ? CSS_CLASSES.WARNING : CSS_CLASSES.DANGER));
 
     const divScore = parseFloat(data.diversificationScore || 50);
     let divText = '보통';
-    let divClass = 'text-warning';
+    let divClass = CSS_CLASSES.WARNING;
     if (divScore < 40) {
         divText = '우수';
-        divClass = 'text-success';
+        divClass = CSS_CLASSES.SUCCESS;
     } else if (divScore > 70) {
         divText = '미흡';
-        divClass = 'text-danger';
+        divClass = CSS_CLASSES.DANGER;
     }
-    $('#diversification-score')
-        .text(divText)
-        .removeClass('text-success text-warning text-danger')
-        .addClass(divClass);
+    const $diversificationScore = $('#diversification-score').text(divText);
+    $diversificationScore.removeClass(`${CSS_CLASSES.SUCCESS} ${CSS_CLASSES.WARNING} ${CSS_CLASSES.DANGER}`);
+    $diversificationScore.addClass(divClass);
 
     $('#correlation-stocks').text(data.symbols.length);
 
@@ -780,10 +854,7 @@ function getCorrelationColor(value) {
 }
 
 function updateCorrelation(period) {
-    // 버튼 활성화 상태 변경
-    $(event.target).closest('.btn-group').find('button').removeClass('active');
-    event.target.classList.add('active');
-
+    updateButtonGroupActive(event);
     loadCorrelation(period);
 }
 
@@ -838,28 +909,20 @@ function updateRiskMetricsDisplay(data) {
 
     // 주요 비율 지표
     const sharpe = parseFloat(data.sharpeRatio || 0);
-    $('#sharpe-ratio')
-        .text(sharpe.toFixed(2))
-        .removeClass('text-success text-warning text-danger')
-        .addClass(sharpe >= 1 ? 'text-success' : (sharpe >= 0.5 ? 'text-warning' : 'text-danger'));
+    const $sharpeRatio = $('#sharpe-ratio').text(sharpe.toFixed(2));
+    applyThresholdClass($sharpeRatio, sharpe, 1, 0.5);
 
     const sortino = parseFloat(data.sortinoRatio || 0);
-    $('#sortino-ratio')
-        .text(sortino.toFixed(2))
-        .removeClass('text-success text-warning text-danger')
-        .addClass(sortino >= 1.5 ? 'text-success' : (sortino >= 0.5 ? 'text-warning' : 'text-danger'));
+    const $sortinoRatio = $('#sortino-ratio').text(sortino.toFixed(2));
+    applyThresholdClass($sortinoRatio, sortino, 1.5, 0.5);
 
     const calmar = parseFloat(data.calmarRatio || 0);
-    $('#calmar-ratio')
-        .text(calmar.toFixed(2))
-        .removeClass('text-success text-warning text-danger')
-        .addClass(calmar >= 1 ? 'text-success' : (calmar >= 0.5 ? 'text-warning' : 'text-danger'));
+    const $calmarRatio = $('#calmar-ratio').text(calmar.toFixed(2));
+    applyThresholdClass($calmarRatio, calmar, 1, 0.5);
 
     const profitFactor = parseFloat(data.profitFactor || 0);
-    $('#profit-factor')
-        .text(profitFactor.toFixed(2))
-        .removeClass('text-success text-warning text-danger')
-        .addClass(profitFactor >= 1.5 ? 'text-success' : (profitFactor >= 1 ? 'text-warning' : 'text-danger'));
+    const $profitFactor = $('#profit-factor').text(profitFactor.toFixed(2));
+    applyThresholdClass($profitFactor, profitFactor, 1.5, 1);
 
     // VaR 지표
     if (data.var95) {
@@ -886,16 +949,12 @@ function updateRiskMetricsDisplay(data) {
     $('#risk-mdd').text(mdd.toFixed(2) + '%');
 
     const cagr = parseFloat(data.cagr || 0);
-    $('#risk-cagr')
-        .text((cagr >= 0 ? '+' : '') + cagr.toFixed(2) + '%')
-        .removeClass('text-success text-danger')
-        .addClass(cagr >= 0 ? 'text-success' : 'text-danger');
+    const $riskCagr = $('#risk-cagr').text(formatPercent(cagr));
+    applyValueClass($riskCagr, cagr);
 
     const winRate = parseFloat(data.winRate || 0);
-    $('#risk-winrate')
-        .text(winRate.toFixed(1) + '%')
-        .removeClass('text-success text-warning text-danger')
-        .addClass(winRate >= 50 ? 'text-success' : 'text-danger');
+    const $riskWinrate = $('#risk-winrate').text(winRate.toFixed(1) + '%');
+    applyThresholdClass($riskWinrate, winRate, 50, 50);
 
     $('#trading-days').text(data.tradingDays || 0);
 }
@@ -912,10 +971,7 @@ function resetRiskMetricsDisplay() {
 }
 
 function updateRiskMetrics(period) {
-    // 버튼 활성화 상태 변경
-    $(event.target).closest('.btn-group').find('button').removeClass('active');
-    event.target.classList.add('active');
-
+    updateButtonGroupActive(event);
     loadRiskMetrics(period);
 }
 
@@ -1064,20 +1120,14 @@ function updateBenchmarkDisplay(data) {
     const benchmarkReturn = parseFloat(data.benchmarkTotalReturn || 0);
     const excessReturn = parseFloat(data.excessReturn || 0);
 
-    $('#benchmark-portfolio-return')
-        .text((portfolioReturn >= 0 ? '+' : '') + portfolioReturn.toFixed(2) + '%')
-        .removeClass('text-success text-danger')
-        .addClass(portfolioReturn >= 0 ? 'text-success' : 'text-danger');
+    const $portfolioReturn = $('#benchmark-portfolio-return').text(formatPercent(portfolioReturn));
+    applyValueClass($portfolioReturn, portfolioReturn);
 
-    $('#benchmark-index-return')
-        .text((benchmarkReturn >= 0 ? '+' : '') + benchmarkReturn.toFixed(2) + '%')
-        .removeClass('text-success text-danger')
-        .addClass(benchmarkReturn >= 0 ? 'text-success' : 'text-danger');
+    const $benchmarkIndexReturn = $('#benchmark-index-return').text(formatPercent(benchmarkReturn));
+    applyValueClass($benchmarkIndexReturn, benchmarkReturn);
 
-    $('#benchmark-excess-return')
-        .text((excessReturn >= 0 ? '+' : '') + excessReturn.toFixed(2) + '%')
-        .removeClass('text-success text-danger')
-        .addClass(excessReturn >= 0 ? 'text-success' : 'text-danger');
+    const $benchmarkExcessReturn = $('#benchmark-excess-return').text(formatPercent(excessReturn));
+    applyValueClass($benchmarkExcessReturn, excessReturn);
 
     // 초과수익 카드 배경색
     const $excessCard = $('#excess-return-card');
@@ -1092,16 +1142,14 @@ function updateBenchmarkDisplay(data) {
 
     // 알파, 베타, 상관계수
     const alpha = parseFloat(data.alpha || 0);
-    $('#benchmark-alpha')
-        .text((alpha >= 0 ? '+' : '') + alpha.toFixed(4))
-        .removeClass('text-success text-danger')
-        .addClass(alpha >= 0 ? 'text-success' : 'text-danger');
+    const $benchmarkAlpha = $('#benchmark-alpha').text((alpha >= 0 ? '+' : '') + alpha.toFixed(4));
+    applyValueClass($benchmarkAlpha, alpha);
 
     const beta = parseFloat(data.beta || 1);
-    $('#benchmark-beta')
-        .text(beta.toFixed(4))
-        .removeClass('text-success text-warning text-danger')
-        .addClass(beta < 0.8 ? 'text-success' : (beta > 1.2 ? 'text-danger' : 'text-warning'));
+    const $benchmarkBeta = $('#benchmark-beta').text(beta.toFixed(4));
+    // 베타는 낮을수록 좋음 (0.8 미만: 성공, 0.8-1.2: 경고, 1.2 초과: 위험)
+    $benchmarkBeta.removeClass(`${CSS_CLASSES.SUCCESS} ${CSS_CLASSES.WARNING} ${CSS_CLASSES.DANGER}`);
+    $benchmarkBeta.addClass(beta < 0.8 ? CSS_CLASSES.SUCCESS : (beta > 1.2 ? CSS_CLASSES.DANGER : CSS_CLASSES.WARNING));
 
     const correlation = parseFloat(data.correlation || 0);
     $('#benchmark-correlation').text(correlation.toFixed(4));
@@ -1147,10 +1195,7 @@ function showBenchmarkEmpty() {
 }
 
 function updateBenchmark(period) {
-    // 버튼 활성화 상태 변경
-    $(event.target).closest('.btn-group').find('button').removeClass('active');
-    event.target.classList.add('active');
-
+    updateButtonGroupActive(event);
     loadBenchmarkComparison(period);
 }
 
@@ -1364,10 +1409,9 @@ function updateTreemapSummary(data) {
     $('#treemap-total-investment').text(formatCurrency(data.totalInvestment || 0));
 
     const avgPerf = parseFloat(data.totalPerformance || 0);
-    $('#treemap-avg-performance')
-        .text((avgPerf >= 0 ? '+' : '') + avgPerf.toFixed(2) + '%')
-        .removeClass('text-success text-danger text-muted')
-        .addClass(avgPerf > 0 ? 'text-success' : (avgPerf < 0 ? 'text-danger' : 'text-muted'));
+    const $avgPerformance = $('#treemap-avg-performance').text(formatPercent(avgPerf));
+    $avgPerformance.removeClass(`${CSS_CLASSES.SUCCESS} ${CSS_CLASSES.DANGER} ${CSS_CLASSES.MUTED}`);
+    $avgPerformance.addClass(avgPerf > 0 ? CSS_CLASSES.SUCCESS : (avgPerf < 0 ? CSS_CLASSES.DANGER : CSS_CLASSES.MUTED));
 }
 
 function renderTreemap(data) {

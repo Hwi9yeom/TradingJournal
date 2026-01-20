@@ -1,12 +1,120 @@
 /**
  * 목표 관리 JavaScript
+ * Trading Goals Management Module
  */
+
+// =============================================================================
+// CONFIGURATION CONSTANTS
+// =============================================================================
+
+/**
+ * Goal type configuration mapping.
+ * Each goal type has its formatter function, unit suffix, placeholder example, and label.
+ * @type {Object.<string, {format: function(number): string, unit: string, placeholder: string, label: string}>}
+ */
+const GOAL_TYPE_CONFIG = {
+    RETURN_RATE: {
+        format: (val) => val.toFixed(2) + '%',
+        unit: '%',
+        placeholder: '예: 20',
+        label: '수익률'
+    },
+    WIN_RATE: {
+        format: (val) => val.toFixed(2) + '%',
+        unit: '%',
+        placeholder: '예: 60',
+        label: '승률'
+    },
+    MAX_DRAWDOWN_LIMIT: {
+        format: (val) => val.toFixed(2) + '%',
+        unit: '%',
+        placeholder: '예: 10',
+        label: '최대 손실'
+    },
+    TARGET_AMOUNT: {
+        format: (val) => formatCurrency(val),
+        unit: '원',
+        placeholder: '예: 10000000',
+        label: '목표 금액'
+    },
+    SAVINGS_AMOUNT: {
+        format: (val) => formatCurrency(val),
+        unit: '원',
+        placeholder: '예: 10000000',
+        label: '저축 금액'
+    },
+    DIVIDEND_INCOME: {
+        format: (val) => formatCurrency(val),
+        unit: '원',
+        placeholder: '예: 10000000',
+        label: '배당 수익'
+    },
+    TRADE_COUNT: {
+        format: (val) => val.toFixed(0) + '회',
+        unit: '회',
+        placeholder: '예: 100',
+        label: '거래 횟수'
+    },
+    SHARPE_RATIO: {
+        format: (val) => val.toFixed(2),
+        unit: '',
+        placeholder: '예: 1.5',
+        label: '샤프 비율'
+    }
+};
+
+/** Default formatter for unknown goal types */
+const DEFAULT_GOAL_FORMAT = {
+    format: (val) => val.toFixed(2),
+    unit: '',
+    placeholder: '목표 수치 입력',
+    label: '기타'
+};
+
+/**
+ * Status configuration for badge rendering.
+ * Maps status codes to Bootstrap color classes and Korean labels.
+ * @type {Object.<string, {color: string, label: string}>}
+ */
+const STATUS_CONFIG = {
+    ACTIVE: { color: 'info', label: '진행 중' },
+    COMPLETED: { color: 'success', label: '달성' },
+    FAILED: { color: 'danger', label: '미달성' },
+    PAUSED: { color: 'secondary', label: '일시중지' },
+    CANCELLED: { color: 'dark', label: '취소' }
+};
+
+/** Status values that indicate a goal is finalized (no further actions allowed) */
+const FINALIZED_STATUSES = ['COMPLETED', 'FAILED', 'CANCELLED'];
+
+/**
+ * Progress thresholds for color coding.
+ * Sorted in descending order for easy evaluation.
+ * @type {Array<{threshold: number, color: string}>}
+ */
+const PROGRESS_THRESHOLDS = [
+    { threshold: 75, color: 'success' },
+    { threshold: 50, color: 'info' },
+    { threshold: 25, color: 'warning' },
+    { threshold: 0, color: 'danger' }
+];
+
+// =============================================================================
+// STATE VARIABLES
+// =============================================================================
 
 let allGoals = [];
 let currentFilter = 'all';
 let currentGoalId = null;
 
-// 페이지 로드 시 초기화
+// =============================================================================
+// INITIALIZATION
+// =============================================================================
+
+/**
+ * Initialize the goals page on document ready.
+ * Loads goals, summary, and sets default start date.
+ */
 $(document).ready(function() {
     loadGoals();
     loadGoalSummary();
@@ -15,8 +123,13 @@ $(document).ready(function() {
     $('#startDate').val(new Date().toISOString().split('T')[0]);
 });
 
+// =============================================================================
+// DATA LOADING
+// =============================================================================
+
 /**
- * 전체 목표 로드
+ * Load all goals from the server.
+ * Updates the allGoals array and renders filtered goals.
  */
 function loadGoals() {
     $.ajax({
@@ -34,7 +147,8 @@ function loadGoals() {
 }
 
 /**
- * 목표 요약 로드
+ * Load goal summary statistics from the server.
+ * Updates the summary cards in the UI.
  */
 function loadGoalSummary() {
     $.ajax({
@@ -50,7 +164,14 @@ function loadGoalSummary() {
 }
 
 /**
- * 요약 카드 업데이트
+ * Update summary cards with statistics.
+ * @param {Object} summary - Summary statistics object
+ * @param {number} summary.totalGoals - Total number of goals
+ * @param {number} summary.activeGoals - Number of active goals
+ * @param {number} summary.completedGoals - Number of completed goals
+ * @param {number} summary.failedGoals - Number of failed goals
+ * @param {number} summary.upcomingDeadlines - Number of upcoming deadlines
+ * @param {number} summary.averageProgress - Average progress percentage
  */
 function updateSummaryCards(summary) {
     $('#total-goals').text(summary.totalGoals || 0);
@@ -61,8 +182,14 @@ function updateSummaryCards(summary) {
     $('#avg-progress').text((summary.averageProgress || 0).toFixed(1) + '%');
 }
 
+// =============================================================================
+// FILTERING
+// =============================================================================
+
 /**
- * 상태별 필터링
+ * Filter goals by status.
+ * @param {string} status - Status to filter by, or 'all' for no filtering
+ * @returns {Array} Filtered array of goals
  */
 function filterGoalsByStatus(status) {
     if (status === 'all') {
@@ -72,7 +199,9 @@ function filterGoalsByStatus(status) {
 }
 
 /**
- * 필터 적용
+ * Apply filter and update the UI.
+ * Updates button states and renders filtered goals.
+ * @param {string} [status] - Status to filter by
  */
 function filterGoals(status) {
     if (status) {
@@ -99,10 +228,9 @@ function filterGoals(status) {
 }
 
 /**
- * 목표 새로고침
+ * Refresh all goals by triggering server-side progress recalculation.
  */
 function refreshGoals() {
-    // 진행률 갱신 API 호출
     $.ajax({
         url: '/api/goals/refresh',
         method: 'POST',
@@ -118,8 +246,14 @@ function refreshGoals() {
     });
 }
 
+// =============================================================================
+// RENDERING
+// =============================================================================
+
 /**
- * 목표 카드 렌더링
+ * Render goals to the container.
+ * Shows empty state if no goals exist.
+ * @param {Array} goals - Array of goal objects to render
  */
 function renderGoals(goals) {
     const container = $('#goals-container');
@@ -141,7 +275,9 @@ function renderGoals(goals) {
 }
 
 /**
- * 목표 카드 생성
+ * Create HTML for a goal card.
+ * @param {Object} goal - Goal object
+ * @returns {string} HTML string for the goal card
  */
 function createGoalCard(goal) {
     const progressColor = getProgressColor(goal.progressPercent, goal.status);
@@ -200,36 +336,55 @@ function createGoalCard(goal) {
     `;
 }
 
+// =============================================================================
+// FORMATTING UTILITIES
+// =============================================================================
+
 /**
- * 진행률에 따른 색상
+ * Get progress bar color based on percentage and status.
+ * Status takes precedence over progress percentage.
+ * @param {number} progress - Progress percentage (0-100)
+ * @param {string} status - Goal status
+ * @returns {string} Bootstrap color class name
  */
 function getProgressColor(progress, status) {
-    if (status === 'COMPLETED') return 'success';
-    if (status === 'FAILED') return 'danger';
-    if (status === 'PAUSED') return 'secondary';
+    // Status-based colors take precedence
+    const statusColors = {
+        COMPLETED: 'success',
+        FAILED: 'danger',
+        PAUSED: 'secondary'
+    };
 
-    if (progress >= 75) return 'success';
-    if (progress >= 50) return 'info';
-    if (progress >= 25) return 'warning';
+    if (statusColors[status]) {
+        return statusColors[status];
+    }
+
+    // Find the appropriate threshold-based color
+    for (const { threshold, color } of PROGRESS_THRESHOLDS) {
+        if (progress >= threshold) {
+            return color;
+        }
+    }
+
     return 'danger';
 }
 
 /**
- * 상태 배지
+ * Generate status badge HTML.
+ * @param {string} status - Goal status code
+ * @returns {string} HTML string for the status badge
  */
 function getStatusBadge(status) {
-    const badges = {
-        'ACTIVE': '<span class="badge bg-info status-badge">진행 중</span>',
-        'COMPLETED': '<span class="badge bg-success status-badge">달성</span>',
-        'FAILED': '<span class="badge bg-danger status-badge">미달성</span>',
-        'PAUSED': '<span class="badge bg-secondary status-badge">일시중지</span>',
-        'CANCELLED': '<span class="badge bg-dark status-badge">취소</span>'
-    };
-    return badges[status] || '';
+    const config = STATUS_CONFIG[status];
+    if (!config) return '';
+
+    return `<span class="badge bg-${config.color} status-badge">${config.label}</span>`;
 }
 
 /**
- * 마감일 텍스트
+ * Get deadline text with appropriate styling.
+ * @param {Object} goal - Goal object with deadline info
+ * @returns {string|null} HTML string for deadline display, or null if no deadline
  */
 function getDeadlineText(goal) {
     if (!goal.deadline) return null;
@@ -246,7 +401,9 @@ function getDeadlineText(goal) {
 }
 
 /**
- * 우선순위 색상
+ * Get priority indicator color based on goal state.
+ * @param {Object} goal - Goal object
+ * @returns {string} Bootstrap color class name
  */
 function getPriorityColor(goal) {
     if (goal.status !== 'ACTIVE') return 'secondary';
@@ -257,33 +414,25 @@ function getPriorityColor(goal) {
 }
 
 /**
- * 값 포맷팅
+ * Format a value based on goal type.
+ * Uses GOAL_TYPE_CONFIG for type-specific formatting.
+ * @param {number|null|undefined} value - The value to format
+ * @param {string} goalType - The goal type code
+ * @returns {string} Formatted value string
  */
 function formatValue(value, goalType) {
     if (value === null || value === undefined) return '-';
 
     const val = parseFloat(value);
+    const config = GOAL_TYPE_CONFIG[goalType] || DEFAULT_GOAL_FORMAT;
 
-    switch(goalType) {
-        case 'RETURN_RATE':
-        case 'WIN_RATE':
-        case 'MAX_DRAWDOWN_LIMIT':
-            return val.toFixed(2) + '%';
-        case 'TARGET_AMOUNT':
-        case 'SAVINGS_AMOUNT':
-        case 'DIVIDEND_INCOME':
-            return formatCurrency(val);
-        case 'TRADE_COUNT':
-            return val.toFixed(0) + '회';
-        case 'SHARPE_RATIO':
-            return val.toFixed(2);
-        default:
-            return val.toFixed(2);
-    }
+    return config.format(val);
 }
 
 /**
- * 통화 포맷
+ * Format currency value with Korean units (억, 만).
+ * @param {number} value - The currency value
+ * @returns {string} Formatted currency string
  */
 function formatCurrency(value) {
     if (value >= 100000000) {
@@ -296,7 +445,22 @@ function formatCurrency(value) {
 }
 
 /**
- * 생성 모달 열기
+ * Format datetime string to Korean locale format.
+ * @param {string} dateTimeStr - ISO datetime string
+ * @returns {string} Formatted date and time string
+ */
+function formatDateTime(dateTimeStr) {
+    if (!dateTimeStr) return '-';
+    const date = new Date(dateTimeStr);
+    return date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// =============================================================================
+// MODAL HANDLING - CREATE/EDIT
+// =============================================================================
+
+/**
+ * Open the create goal modal with default values.
  */
 function openCreateModal() {
     currentGoalId = null;
@@ -308,46 +472,21 @@ function openCreateModal() {
 }
 
 /**
- * 목표 유형에 따른 단위 업데이트
+ * Update target value placeholder and unit based on selected goal type.
+ * Uses GOAL_TYPE_CONFIG for type-specific configuration.
  */
 function updateTargetPlaceholder() {
     const goalType = $('#goalType').val();
-    let unit = '';
-    let placeholder = '목표 수치 입력';
+    const config = GOAL_TYPE_CONFIG[goalType] || DEFAULT_GOAL_FORMAT;
 
-    switch(goalType) {
-        case 'RETURN_RATE':
-        case 'WIN_RATE':
-        case 'MAX_DRAWDOWN_LIMIT':
-            unit = '%';
-            placeholder = goalType === 'RETURN_RATE' ? '예: 20' :
-                         goalType === 'WIN_RATE' ? '예: 60' : '예: 10';
-            break;
-        case 'TARGET_AMOUNT':
-        case 'SAVINGS_AMOUNT':
-        case 'DIVIDEND_INCOME':
-            unit = '원';
-            placeholder = '예: 10000000';
-            break;
-        case 'TRADE_COUNT':
-            unit = '회';
-            placeholder = '예: 100';
-            break;
-        case 'SHARPE_RATIO':
-            unit = '';
-            placeholder = '예: 1.5';
-            break;
-        default:
-            unit = '';
-    }
-
-    $('#targetUnit').text(unit);
-    $('#startUnit').text(unit);
-    $('#targetValue').attr('placeholder', placeholder);
+    $('#targetUnit').text(config.unit);
+    $('#startUnit').text(config.unit);
+    $('#targetValue').attr('placeholder', config.placeholder);
 }
 
 /**
- * 목표 저장
+ * Save a new or existing goal.
+ * Validates required fields and sends data to the server.
  */
 function saveGoal() {
     const goalData = {
@@ -392,7 +531,36 @@ function saveGoal() {
 }
 
 /**
- * 목표 상세 보기
+ * Open the edit modal with existing goal data.
+ * @param {Object} goal - Goal object to edit
+ */
+function openEditModal(goal) {
+    currentGoalId = goal.id;
+    $('#goalModalLabel').html('<i class="bi bi-pencil me-2"></i>목표 수정');
+
+    $('#goalId').val(goal.id);
+    $('#goalName').val(goal.name);
+    $('#goalType').val(goal.goalType);
+    updateTargetPlaceholder();
+    $('#targetValue').val(goal.targetValue);
+    $('#startValue').val(goal.startValue);
+    $('#startDate').val(goal.startDate);
+    $('#deadline').val(goal.deadline || '');
+    $('#goalDescription').val(goal.description || '');
+    $('#milestoneInterval').val(goal.milestoneInterval || 25);
+    $('#notificationEnabled').prop('checked', goal.notificationEnabled !== false);
+    $('#goalNotes').val(goal.notes || '');
+
+    $('#goalModal').modal('show');
+}
+
+// =============================================================================
+// MODAL HANDLING - DETAIL VIEW
+// =============================================================================
+
+/**
+ * Show goal detail modal.
+ * @param {number} id - Goal ID to display
  */
 function showGoalDetail(id) {
     $.ajax({
@@ -411,7 +579,8 @@ function showGoalDetail(id) {
 }
 
 /**
- * 상세 모달 렌더링
+ * Render goal detail content in the modal.
+ * @param {Object} goal - Goal object to render
  */
 function renderGoalDetail(goal) {
     $('#goalDetailTitle').text(goal.name);
@@ -508,7 +677,9 @@ function renderGoalDetail(goal) {
 }
 
 /**
- * 상세 모달 버튼 설정
+ * Setup event handlers for detail modal buttons.
+ * Configures delete, pause/resume, and edit buttons based on goal state.
+ * @param {Object} goal - Goal object
  */
 function setupDetailButtons(goal) {
     $('#btnDeleteGoal').off('click').on('click', function() {
@@ -522,19 +693,13 @@ function setupDetailButtons(goal) {
         updateGoalStatus(goal.id, newStatus);
     });
 
-    // 일시중지 버튼 텍스트 업데이트
-    if (goal.status === 'PAUSED') {
-        $('#btnPauseGoal').html('<i class="bi bi-play me-1"></i>재개');
-    } else {
-        $('#btnPauseGoal').html('<i class="bi bi-pause me-1"></i>일시중지');
-    }
+    // 일시중지 버튼 텍스트 및 가시성 업데이트
+    const isPaused = goal.status === 'PAUSED';
+    const isFinalized = FINALIZED_STATUSES.includes(goal.status);
 
-    // 완료/실패 상태면 일시중지 버튼 숨김
-    if (goal.status === 'COMPLETED' || goal.status === 'FAILED' || goal.status === 'CANCELLED') {
-        $('#btnPauseGoal').hide();
-    } else {
-        $('#btnPauseGoal').show();
-    }
+    $('#btnPauseGoal')
+        .html(isPaused ? '<i class="bi bi-play me-1"></i>재개' : '<i class="bi bi-pause me-1"></i>일시중지')
+        .toggle(!isFinalized);
 
     $('#btnEditGoal').off('click').on('click', function() {
         $('#goalDetailModal').modal('hide');
@@ -542,31 +707,13 @@ function setupDetailButtons(goal) {
     });
 }
 
-/**
- * 수정 모달 열기
- */
-function openEditModal(goal) {
-    currentGoalId = goal.id;
-    $('#goalModalLabel').html('<i class="bi bi-pencil me-2"></i>목표 수정');
-
-    $('#goalId').val(goal.id);
-    $('#goalName').val(goal.name);
-    $('#goalType').val(goal.goalType);
-    updateTargetPlaceholder();
-    $('#targetValue').val(goal.targetValue);
-    $('#startValue').val(goal.startValue);
-    $('#startDate').val(goal.startDate);
-    $('#deadline').val(goal.deadline || '');
-    $('#goalDescription').val(goal.description || '');
-    $('#milestoneInterval').val(goal.milestoneInterval || 25);
-    $('#notificationEnabled').prop('checked', goal.notificationEnabled !== false);
-    $('#goalNotes').val(goal.notes || '');
-
-    $('#goalModal').modal('show');
-}
+// =============================================================================
+// GOAL OPERATIONS (DELETE, STATUS UPDATE)
+// =============================================================================
 
 /**
- * 목표 삭제
+ * Delete a goal by ID.
+ * @param {number} id - Goal ID to delete
  */
 function deleteGoal(id) {
     $.ajax({
@@ -586,7 +733,9 @@ function deleteGoal(id) {
 }
 
 /**
- * 목표 상태 변경
+ * Update goal status.
+ * @param {number} id - Goal ID
+ * @param {string} status - New status value
  */
 function updateGoalStatus(id, status) {
     $.ajax({
@@ -605,17 +754,16 @@ function updateGoalStatus(id, status) {
     });
 }
 
-/**
- * 날짜 시간 포맷
- */
-function formatDateTime(dateTimeStr) {
-    if (!dateTimeStr) return '-';
-    const date = new Date(dateTimeStr);
-    return date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-}
+// =============================================================================
+// UTILITY FUNCTIONS
+// =============================================================================
 
 /**
- * HTML 이스케이프
+ * Escape HTML special characters to prevent XSS.
+ * NOTE: This function is duplicated in plans.js and alerts.js.
+ * TODO: Consider moving to a shared utils.js module.
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped HTML string
  */
 function escapeHtml(text) {
     if (!text) return '';
@@ -625,10 +773,11 @@ function escapeHtml(text) {
 }
 
 /**
- * 토스트 메시지
+ * Show a Bootstrap toast notification.
+ * @param {string} message - Message to display
+ * @param {string} type - Bootstrap color type (success, danger, warning, info)
  */
 function showToast(message, type) {
-    // Bootstrap 토스트 또는 간단한 알림
     const toastHtml = `
         <div class="toast align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3" role="alert">
             <div class="d-flex">

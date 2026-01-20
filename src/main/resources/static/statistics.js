@@ -1,75 +1,109 @@
 /**
- * 거래 통계 분석 JavaScript
+ * Trading Statistics Analysis Module
+ * Displays trading performance statistics including weekday analysis,
+ * time-of-day patterns, symbol rankings, and improvement suggestions.
+ *
+ * @fileoverview Handles loading and rendering of trading statistics data
+ * @requires utils.js - For getDateRangeForApi, formatCurrency, formatPercent, applyThresholdClass
+ * @requires auth.js - For fetchWithAuth
  */
 
-const API_BASE_URL = '/api/statistics';
-let weekdayChart = null;
-let timeChart = null;
-let currentPeriod = '3M';
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
-// 페이지 로드 시 초기화
+/** @constant {string} Base URL for statistics API endpoints */
+const API_BASE_URL = '/api/statistics';
+
+/**
+ * Chart color palette for consistent styling across charts
+ * @constant {Object}
+ */
+const CHART_COLORS = {
+    // Win rate colors
+    WIN_RATE_POSITIVE: 'rgba(40, 167, 69, 0.7)',
+    WIN_RATE_NEGATIVE: 'rgba(220, 53, 69, 0.7)',
+    // Time chart colors
+    TIME_WIN_POSITIVE: 'rgba(17, 153, 142, 0.7)',
+    TIME_WIN_NEGATIVE: 'rgba(245, 87, 108, 0.7)',
+    // Line colors
+    PROFIT_LINE: '#667eea',
+    PROFIT_FILL: 'rgba(102, 126, 234, 0.1)',
+    TRADE_COUNT_LINE: '#f5576c'
+};
+
+/**
+ * Threshold values for styling statistics
+ * @constant {Object}
+ */
+const THRESHOLDS = {
+    WIN_RATE_POSITIVE: 50,
+    CONSISTENCY_HIGH: 70,
+    CONSISTENCY_MEDIUM: 50
+};
+
+/**
+ * CSS class names for statistics styling
+ * @constant {Object}
+ */
+const STAT_CLASSES = {
+    POSITIVE: 'stat-positive',
+    NEGATIVE: 'stat-negative',
+    NEUTRAL: 'stat-neutral'
+};
+
+// ============================================================================
+// STATE MANAGEMENT
+// ============================================================================
+
+/**
+ * Application state for managing chart instances and current period
+ * @type {Object}
+ */
+const state = {
+    /** @type {Chart|null} Chart.js instance for weekday analysis */
+    weekdayChart: null,
+    /** @type {Chart|null} Chart.js instance for time-of-day analysis */
+    timeChart: null,
+    /** @type {string} Currently selected period filter */
+    currentPeriod: '3M'
+};
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
 document.addEventListener('DOMContentLoaded', function() {
     initPeriodButtons();
     loadStatistics();
 });
 
 /**
- * 기간 버튼 초기화
+ * Initialize period filter buttons with click handlers.
+ * Updates active state and reloads statistics when period changes.
  */
 function initPeriodButtons() {
     document.querySelectorAll('.period-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
-            currentPeriod = this.dataset.period;
+            state.currentPeriod = this.dataset.period;
             loadStatistics();
         });
     });
 }
 
-/**
- * 기간에 따른 날짜 계산
- */
-function getDateRange(period) {
-    const end = new Date();
-    let start = new Date();
-
-    switch(period) {
-        case '1M':
-            start.setMonth(start.getMonth() - 1);
-            break;
-        case '3M':
-            start.setMonth(start.getMonth() - 3);
-            break;
-        case '6M':
-            start.setMonth(start.getMonth() - 6);
-            break;
-        case '1Y':
-            start.setFullYear(start.getFullYear() - 1);
-            break;
-        case 'ALL':
-            start = new Date('2020-01-01');
-            break;
-    }
-
-    return {
-        startDate: formatDate(start),
-        endDate: formatDate(end)
-    };
-}
+// ============================================================================
+// DATA LOADING
+// ============================================================================
 
 /**
- * 날짜 포맷팅
- */
-function formatDate(date) {
-    return date.toISOString().split('T')[0];
-}
-
-/**
- * 통계 데이터 로드
+ * Load statistics data from API for the current period.
+ * Renders all statistics sections on success, shows empty state on failure.
+ * @async
  */
 async function loadStatistics() {
-    const { startDate, endDate } = getDateRange(currentPeriod);
+    const { startDate, endDate } = getDateRangeForApi(state.currentPeriod);
 
     try {
         const response = await fetchWithAuth(`${API_BASE_URL}?startDate=${startDate}&endDate=${endDate}`);
@@ -83,60 +117,80 @@ async function loadStatistics() {
             renderMistakePatterns(data.mistakePatterns);
             renderSuggestions(data.suggestions);
         } else {
-            console.error('통계 데이터 로드 실패');
-            showEmptyState();
+            console.error('Failed to load statistics data');
+            showEmptyStatisticsState();
         }
     } catch (error) {
-        console.error('API 호출 오류:', error);
-        showEmptyState();
+        console.error('API call error:', error);
+        showEmptyStatisticsState();
     }
 }
 
+// ============================================================================
+// RENDERING FUNCTIONS
+// ============================================================================
+
 /**
- * 요약 카드 렌더링
+ * Render summary statistics cards.
+ * Displays total trades, win rate, profit, best day/time, and consistency score.
+ * @param {Object|null} summary - Summary statistics data
+ * @param {number} [summary.totalTrades] - Total number of trades
+ * @param {number} [summary.overallWinRate] - Overall win rate percentage
+ * @param {number} [summary.totalProfit] - Total profit/loss amount
+ * @param {string} [summary.bestDay] - Best performing day of week
+ * @param {string} [summary.bestTimeSlot] - Best performing time slot
+ * @param {number} [summary.consistencyScore] - Consistency score (0-100)
  */
 function renderSummary(summary) {
     if (!summary) {
-        showEmptyState();
+        showEmptyStatisticsState();
         return;
     }
 
     document.getElementById('total-trades').textContent = summary.totalTrades || 0;
 
+    // Win rate with conditional styling
     const winRate = summary.overallWinRate || 0;
     const winRateEl = document.getElementById('win-rate');
     winRateEl.textContent = winRate.toFixed(1) + '%';
-    winRateEl.className = 'stat-value ' + (winRate >= 50 ? 'stat-positive' : 'stat-negative');
+    winRateEl.className = 'stat-value ' + getValueClass(winRate, THRESHOLDS.WIN_RATE_POSITIVE);
 
+    // Total profit with conditional styling
     const profit = summary.totalProfit || 0;
     const profitEl = document.getElementById('total-profit');
-    profitEl.textContent = formatCurrency(profit);
-    profitEl.className = 'stat-value ' + (profit >= 0 ? 'stat-positive' : 'stat-negative');
+    profitEl.textContent = formatStatCurrency(profit);
+    profitEl.className = 'stat-value ' + getValueClass(profit, 0);
 
     document.getElementById('best-day').textContent = summary.bestDay || '-';
     document.getElementById('best-time').textContent = summary.bestTimeSlot || '-';
 
+    // Consistency score with three-tier styling
     const consistency = summary.consistencyScore || 0;
     const consistencyEl = document.getElementById('consistency-score');
     consistencyEl.textContent = consistency.toFixed(0) + '점';
-    consistencyEl.className = 'stat-value ' + (consistency >= 70 ? 'stat-positive' : consistency >= 50 ? 'stat-neutral' : 'stat-negative');
+    consistencyEl.className = 'stat-value ' + getConsistencyClass(consistency);
 }
 
 /**
- * 요일별 차트 렌더링
+ * Render weekday performance chart.
+ * Bar chart showing win rate by day with profit line overlay.
+ * @param {Array<Object>} weekdayStats - Array of weekday statistics
+ * @param {string} weekdayStats[].dayName - Name of the day
+ * @param {number} weekdayStats[].winRate - Win rate for the day
+ * @param {number} weekdayStats[].totalProfit - Total profit for the day
  */
 function renderWeekdayChart(weekdayStats) {
     const ctx = document.getElementById('weekday-chart').getContext('2d');
 
-    if (weekdayChart) {
-        weekdayChart.destroy();
+    if (state.weekdayChart) {
+        state.weekdayChart.destroy();
     }
 
     const labels = weekdayStats.map(s => s.dayName);
     const winRates = weekdayStats.map(s => s.winRate || 0);
     const profits = weekdayStats.map(s => s.totalProfit || 0);
 
-    weekdayChart = new Chart(ctx, {
+    state.weekdayChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
@@ -144,7 +198,11 @@ function renderWeekdayChart(weekdayStats) {
                 {
                     label: '승률 (%)',
                     data: winRates,
-                    backgroundColor: winRates.map(r => r >= 50 ? 'rgba(40, 167, 69, 0.7)' : 'rgba(220, 53, 69, 0.7)'),
+                    backgroundColor: winRates.map(r =>
+                        r >= THRESHOLDS.WIN_RATE_POSITIVE
+                            ? CHART_COLORS.WIN_RATE_POSITIVE
+                            : CHART_COLORS.WIN_RATE_NEGATIVE
+                    ),
                     borderRadius: 4,
                     yAxisID: 'y'
                 },
@@ -152,79 +210,38 @@ function renderWeekdayChart(weekdayStats) {
                     label: '손익',
                     data: profits,
                     type: 'line',
-                    borderColor: '#667eea',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    borderColor: CHART_COLORS.PROFIT_LINE,
+                    backgroundColor: CHART_COLORS.PROFIT_FILL,
                     fill: true,
                     tension: 0.4,
                     yAxisID: 'y1'
                 }
             ]
         },
-        options: {
-            responsive: true,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            if (context.dataset.label === '승률 (%)') {
-                                return `승률: ${context.raw.toFixed(1)}%`;
-                            }
-                            return `손익: ${formatCurrency(context.raw)}`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    type: 'linear',
-                    position: 'left',
-                    min: 0,
-                    max: 100,
-                    title: {
-                        display: true,
-                        text: '승률 (%)'
-                    }
-                },
-                y1: {
-                    type: 'linear',
-                    position: 'right',
-                    grid: {
-                        drawOnChartArea: false
-                    },
-                    title: {
-                        display: true,
-                        text: '손익'
-                    },
-                    ticks: {
-                        callback: function(value) {
-                            return formatCurrencyShort(value);
-                        }
-                    }
-                }
-            }
-        }
+        options: createDualAxisChartOptions('승률 (%)', '손익', formatStatCurrencyShort)
     });
 }
 
 /**
- * 시간대별 차트 렌더링
+ * Render time-of-day performance chart.
+ * Bar chart showing win rate by time period with trade count line overlay.
+ * @param {Array<Object>} timeStats - Array of time period statistics
+ * @param {string} timeStats[].timePeriod - Time period label
+ * @param {number} timeStats[].winRate - Win rate for the period
+ * @param {number} timeStats[].totalTrades - Number of trades in the period
  */
 function renderTimeChart(timeStats) {
     const ctx = document.getElementById('time-chart').getContext('2d');
 
-    if (timeChart) {
-        timeChart.destroy();
+    if (state.timeChart) {
+        state.timeChart.destroy();
     }
 
     const labels = timeStats.map(s => s.timePeriod);
     const winRates = timeStats.map(s => s.winRate || 0);
     const trades = timeStats.map(s => s.totalTrades || 0);
 
-    timeChart = new Chart(ctx, {
+    state.timeChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
@@ -232,7 +249,11 @@ function renderTimeChart(timeStats) {
                 {
                     label: '승률 (%)',
                     data: winRates,
-                    backgroundColor: winRates.map(r => r >= 50 ? 'rgba(17, 153, 142, 0.7)' : 'rgba(245, 87, 108, 0.7)'),
+                    backgroundColor: winRates.map(r =>
+                        r >= THRESHOLDS.WIN_RATE_POSITIVE
+                            ? CHART_COLORS.TIME_WIN_POSITIVE
+                            : CHART_COLORS.TIME_WIN_NEGATIVE
+                    ),
                     borderRadius: 4,
                     yAxisID: 'y'
                 },
@@ -240,60 +261,26 @@ function renderTimeChart(timeStats) {
                     label: '거래 수',
                     data: trades,
                     type: 'line',
-                    borderColor: '#f5576c',
-                    pointBackgroundColor: '#f5576c',
+                    borderColor: CHART_COLORS.TRADE_COUNT_LINE,
+                    pointBackgroundColor: CHART_COLORS.TRADE_COUNT_LINE,
                     tension: 0.4,
                     yAxisID: 'y1'
                 }
             ]
         },
-        options: {
-            responsive: true,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            if (context.dataset.label === '승률 (%)') {
-                                return `승률: ${context.raw.toFixed(1)}%`;
-                            }
-                            return `거래 수: ${context.raw}건`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    type: 'linear',
-                    position: 'left',
-                    min: 0,
-                    max: 100,
-                    title: {
-                        display: true,
-                        text: '승률 (%)'
-                    }
-                },
-                y1: {
-                    type: 'linear',
-                    position: 'right',
-                    grid: {
-                        drawOnChartArea: false
-                    },
-                    title: {
-                        display: true,
-                        text: '거래 수'
-                    }
-                }
-            }
-        }
+        options: createTimeChartOptions()
     });
 }
 
 /**
- * 종목별 순위 렌더링
+ * Render symbol performance ranking list.
+ * Displays top 10 symbols sorted by profitability.
+ * @param {Array<Object>} symbolStats - Array of symbol statistics
+ * @param {string} symbolStats[].symbol - Symbol/ticker
+ * @param {string} [symbolStats[].stockName] - Full stock name
+ * @param {number} symbolStats[].totalProfit - Total profit for symbol
+ * @param {number} symbolStats[].winRate - Win rate for symbol
+ * @param {number} symbolStats[].totalTrades - Number of trades
  */
 function renderSymbolRanking(symbolStats) {
     const container = document.getElementById('symbol-ranking');
@@ -303,13 +290,12 @@ function renderSymbolRanking(symbolStats) {
         return;
     }
 
-    let html = '';
-    symbolStats.slice(0, 10).forEach((stat, index) => {
+    const html = symbolStats.slice(0, 10).map((stat, index) => {
         const rank = index + 1;
-        const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
-        const profitClass = stat.totalProfit >= 0 ? 'stat-positive' : 'stat-negative';
+        const rankClass = getRankClass(rank);
+        const profitClass = stat.totalProfit >= 0 ? STAT_CLASSES.POSITIVE : STAT_CLASSES.NEGATIVE;
 
-        html += `
+        return `
             <div class="symbol-rank">
                 <div class="rank-badge ${rankClass}">${rank}</div>
                 <div class="flex-grow-1">
@@ -317,57 +303,71 @@ function renderSymbolRanking(symbolStats) {
                     <small class="text-muted">${stat.stockName || stat.symbol}</small>
                 </div>
                 <div class="text-end">
-                    <div class="${profitClass} fw-bold">${formatCurrency(stat.totalProfit)}</div>
+                    <div class="${profitClass} fw-bold">${formatStatCurrency(stat.totalProfit)}</div>
                     <small class="text-muted">승률 ${stat.winRate.toFixed(1)}% | ${stat.totalTrades}건</small>
                 </div>
             </div>
         `;
-    });
+    }).join('');
 
     container.innerHTML = html;
 }
 
 /**
- * 실수 패턴 렌더링
+ * Render mistake patterns section.
+ * Displays identified trading mistakes with severity and impact.
+ * @param {Array<Object>} patterns - Array of mistake patterns
+ * @param {string} patterns[].description - Pattern description
+ * @param {string} patterns[].severity - Severity level (HIGH/MEDIUM/LOW)
+ * @param {number} patterns[].totalLoss - Total loss from pattern
+ * @param {number} patterns[].count - Number of occurrences
+ * @param {number} patterns[].avgLoss - Average loss per occurrence
+ * @param {Array<Object>} [patterns[].examples] - Example trades
  */
 function renderMistakePatterns(patterns) {
     const container = document.getElementById('mistake-patterns');
 
     if (!patterns || patterns.length === 0) {
-        container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-check-circle text-success fs-1"></i><p class="mt-2">분석된 실수 패턴이 없습니다!</p></div>';
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-check-circle text-success fs-1"></i>
+                <p class="mt-2">분석된 실수 패턴이 없습니다!</p>
+            </div>
+        `;
         return;
     }
 
-    let html = '';
-    patterns.forEach(pattern => {
-        const severityClass = pattern.severity === 'HIGH' ? '' : pattern.severity === 'MEDIUM' ? 'medium' : 'low';
-        const severityBadge = pattern.severity === 'HIGH' ? 'bg-danger' : pattern.severity === 'MEDIUM' ? 'bg-warning' : 'bg-info';
+    const html = patterns.map(pattern => {
+        const { severityClass, severityBadge } = getSeverityStyles(pattern.severity);
 
-        html += `
+        return `
             <div class="mistake-item ${severityClass}">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
                         <strong>${pattern.description}</strong>
                         <span class="badge ${severityBadge} ms-2">${pattern.severity}</span>
                     </div>
-                    <span class="text-danger fw-bold">${formatCurrency(pattern.totalLoss)}</span>
+                    <span class="text-danger fw-bold">${formatStatCurrency(pattern.totalLoss)}</span>
                 </div>
-                <div class="small text-muted mb-2">${pattern.count}회 발생 | 평균 손실: ${formatCurrency(pattern.avgLoss)}</div>
-                ${pattern.examples && pattern.examples.length > 0 ? `
-                    <div class="small">
-                        <strong>예시:</strong>
-                        ${pattern.examples.slice(0, 2).map(e => `${e.symbol} (${e.date})`).join(', ')}
-                    </div>
-                ` : ''}
+                <div class="small text-muted mb-2">${pattern.count}회 발생 | 평균 손실: ${formatStatCurrency(pattern.avgLoss)}</div>
+                ${renderPatternExamples(pattern.examples)}
             </div>
         `;
-    });
+    }).join('');
 
     container.innerHTML = html;
 }
 
 /**
- * 개선 제안 렌더링
+ * Render improvement suggestions section.
+ * Displays actionable trading improvement recommendations.
+ * @param {Array<Object>} suggestions - Array of suggestions
+ * @param {string} suggestions[].title - Suggestion title
+ * @param {string} suggestions[].message - Detailed message
+ * @param {string} suggestions[].priority - Priority level (HIGH/MEDIUM/LOW)
+ * @param {string} suggestions[].category - Category (TIME/SYMBOL/RISK/BEHAVIOR)
+ * @param {string} suggestions[].actionItem - Specific action to take
+ * @param {number} [suggestions[].potentialImpact] - Expected improvement percentage
  */
 function renderSuggestions(suggestions) {
     const container = document.getElementById('suggestions');
@@ -377,13 +377,11 @@ function renderSuggestions(suggestions) {
         return;
     }
 
-    let html = '<div class="row">';
-    suggestions.forEach((suggestion, index) => {
-        const priorityClass = suggestion.priority === 'HIGH' ? 'high' : suggestion.priority === 'MEDIUM' ? 'medium' : '';
-        const priorityBadge = suggestion.priority === 'HIGH' ? 'bg-danger' : suggestion.priority === 'MEDIUM' ? 'bg-warning text-dark' : 'bg-success';
+    const html = suggestions.map(suggestion => {
+        const { priorityClass, priorityBadge } = getPriorityStyles(suggestion.priority);
         const categoryIcon = getCategoryIcon(suggestion.category);
 
-        html += `
+        return `
             <div class="col-md-6 mb-3">
                 <div class="suggestion-item ${priorityClass}">
                     <div class="d-flex justify-content-between align-items-start mb-2">
@@ -401,29 +399,142 @@ function renderSuggestions(suggestions) {
                 </div>
             </div>
         `;
-    });
-    html += '</div>';
+    }).join('');
 
-    container.innerHTML = html;
+    container.innerHTML = '<div class="row">' + html + '</div>';
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Format currency with sign prefix for statistics display.
+ * @param {number|null|undefined} amount - The amount to format
+ * @returns {string} Formatted currency string with +/- prefix
+ */
+function formatStatCurrency(amount) {
+    if (amount === null || amount === undefined) return '0원';
+    const prefix = amount >= 0 ? '+' : '';
+    return prefix + new Intl.NumberFormat('ko-KR', {
+        style: 'currency',
+        currency: 'KRW',
+        maximumFractionDigits: 0
+    }).format(amount);
 }
 
 /**
- * 카테고리 아이콘 반환
+ * Format currency in short notation (K/M suffixes).
+ * @param {number} amount - The amount to format
+ * @returns {string} Shortened currency string
+ */
+function formatStatCurrencyShort(amount) {
+    if (Math.abs(amount) >= 1000000) {
+        return (amount / 1000000).toFixed(1) + 'M';
+    } else if (Math.abs(amount) >= 1000) {
+        return (amount / 1000).toFixed(0) + 'K';
+    }
+    return amount.toString();
+}
+
+/**
+ * Get CSS class based on value comparison to threshold.
+ * @param {number} value - Value to evaluate
+ * @param {number} threshold - Threshold for positive class
+ * @returns {string} CSS class name
+ */
+function getValueClass(value, threshold) {
+    return value >= threshold ? STAT_CLASSES.POSITIVE : STAT_CLASSES.NEGATIVE;
+}
+
+/**
+ * Get CSS class for consistency score with three-tier styling.
+ * @param {number} consistency - Consistency score (0-100)
+ * @returns {string} CSS class name
+ */
+function getConsistencyClass(consistency) {
+    if (consistency >= THRESHOLDS.CONSISTENCY_HIGH) {
+        return STAT_CLASSES.POSITIVE;
+    } else if (consistency >= THRESHOLDS.CONSISTENCY_MEDIUM) {
+        return STAT_CLASSES.NEUTRAL;
+    }
+    return STAT_CLASSES.NEGATIVE;
+}
+
+/**
+ * Get CSS class for ranking badge.
+ * @param {number} rank - Rank position (1-based)
+ * @returns {string} CSS class name
+ */
+function getRankClass(rank) {
+    if (rank === 1) return 'rank-1';
+    if (rank === 2) return 'rank-2';
+    if (rank === 3) return 'rank-3';
+    return 'rank-other';
+}
+
+/**
+ * Get severity styling classes.
+ * @param {string} severity - Severity level (HIGH/MEDIUM/LOW)
+ * @returns {{severityClass: string, severityBadge: string}} Style classes
+ */
+function getSeverityStyles(severity) {
+    const styles = {
+        HIGH: { severityClass: '', severityBadge: 'bg-danger' },
+        MEDIUM: { severityClass: 'medium', severityBadge: 'bg-warning' },
+        LOW: { severityClass: 'low', severityBadge: 'bg-info' }
+    };
+    return styles[severity] || styles.LOW;
+}
+
+/**
+ * Get priority styling classes.
+ * @param {string} priority - Priority level (HIGH/MEDIUM/LOW)
+ * @returns {{priorityClass: string, priorityBadge: string}} Style classes
+ */
+function getPriorityStyles(priority) {
+    const styles = {
+        HIGH: { priorityClass: 'high', priorityBadge: 'bg-danger' },
+        MEDIUM: { priorityClass: 'medium', priorityBadge: 'bg-warning text-dark' },
+        LOW: { priorityClass: '', priorityBadge: 'bg-success' }
+    };
+    return styles[priority] || styles.LOW;
+}
+
+/**
+ * Get Bootstrap icon class for suggestion category.
+ * @param {string} category - Category identifier
+ * @returns {string} Bootstrap icon class
  */
 function getCategoryIcon(category) {
-    switch(category) {
-        case 'TIME': return 'bi-clock';
-        case 'SYMBOL': return 'bi-graph-up';
-        case 'RISK': return 'bi-shield-exclamation';
-        case 'BEHAVIOR': return 'bi-person-exclamation';
-        default: return 'bi-lightbulb';
-    }
+    const icons = {
+        TIME: 'bi-clock',
+        SYMBOL: 'bi-graph-up',
+        RISK: 'bi-shield-exclamation',
+        BEHAVIOR: 'bi-person-exclamation'
+    };
+    return icons[category] || 'bi-lightbulb';
 }
 
 /**
- * 빈 상태 표시
+ * Render pattern examples HTML.
+ * @param {Array<Object>} [examples] - Array of example trades
+ * @returns {string} HTML string for examples
  */
-function showEmptyState() {
+function renderPatternExamples(examples) {
+    if (!examples || examples.length === 0) return '';
+
+    const exampleText = examples.slice(0, 2)
+        .map(e => `${e.symbol} (${e.date})`)
+        .join(', ');
+
+    return `<div class="small"><strong>예시:</strong> ${exampleText}</div>`;
+}
+
+/**
+ * Display empty state for all statistics sections.
+ */
+function showEmptyStatisticsState() {
     document.getElementById('total-trades').textContent = '0';
     document.getElementById('win-rate').textContent = '-';
     document.getElementById('total-profit').textContent = '-';
@@ -435,27 +546,112 @@ function showEmptyState() {
     document.getElementById('suggestions').innerHTML = '<div class="text-center text-muted py-4">분석할 데이터가 없습니다.</div>';
 }
 
+// ============================================================================
+// CHART CONFIGURATION HELPERS
+// ============================================================================
+
 /**
- * 통화 포맷팅
+ * Create chart options for dual-axis charts (weekday chart).
+ * @param {string} leftAxisTitle - Title for left Y-axis
+ * @param {string} rightAxisTitle - Title for right Y-axis
+ * @param {Function} rightAxisFormatter - Formatter function for right axis ticks
+ * @returns {Object} Chart.js options object
  */
-function formatCurrency(amount) {
-    if (amount === null || amount === undefined) return '0원';
-    const prefix = amount >= 0 ? '+' : '';
-    return prefix + new Intl.NumberFormat('ko-KR', {
-        style: 'currency',
-        currency: 'KRW',
-        maximumFractionDigits: 0
-    }).format(amount);
+function createDualAxisChartOptions(leftAxisTitle, rightAxisTitle, rightAxisFormatter) {
+    return {
+        responsive: true,
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        if (context.dataset.label === '승률 (%)') {
+                            return `승률: ${context.raw.toFixed(1)}%`;
+                        }
+                        return `손익: ${formatStatCurrency(context.raw)}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                type: 'linear',
+                position: 'left',
+                min: 0,
+                max: 100,
+                title: {
+                    display: true,
+                    text: leftAxisTitle
+                }
+            },
+            y1: {
+                type: 'linear',
+                position: 'right',
+                grid: {
+                    drawOnChartArea: false
+                },
+                title: {
+                    display: true,
+                    text: rightAxisTitle
+                },
+                ticks: {
+                    callback: function(value) {
+                        return rightAxisFormatter(value);
+                    }
+                }
+            }
+        }
+    };
 }
 
 /**
- * 짧은 통화 포맷팅
+ * Create chart options for time-of-day chart.
+ * @returns {Object} Chart.js options object
  */
-function formatCurrencyShort(amount) {
-    if (Math.abs(amount) >= 1000000) {
-        return (amount / 1000000).toFixed(1) + 'M';
-    } else if (Math.abs(amount) >= 1000) {
-        return (amount / 1000).toFixed(0) + 'K';
-    }
-    return amount.toString();
+function createTimeChartOptions() {
+    return {
+        responsive: true,
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        if (context.dataset.label === '승률 (%)') {
+                            return `승률: ${context.raw.toFixed(1)}%`;
+                        }
+                        return `거래 수: ${context.raw}건`;
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                type: 'linear',
+                position: 'left',
+                min: 0,
+                max: 100,
+                title: {
+                    display: true,
+                    text: '승률 (%)'
+                }
+            },
+            y1: {
+                type: 'linear',
+                position: 'right',
+                grid: {
+                    drawOnChartArea: false
+                },
+                title: {
+                    display: true,
+                    text: '거래 수'
+                }
+            }
+        }
+    };
 }

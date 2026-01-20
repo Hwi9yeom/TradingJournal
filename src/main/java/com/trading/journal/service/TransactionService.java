@@ -6,6 +6,7 @@ import com.trading.journal.entity.Account;
 import com.trading.journal.entity.Stock;
 import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
+import com.trading.journal.exception.TransactionNotFoundException;
 import com.trading.journal.repository.StockRepository;
 import com.trading.journal.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -141,13 +142,13 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public TransactionDto getTransactionById(Long id) {
         Transaction transaction = transactionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));
+                .orElseThrow(() -> new TransactionNotFoundException(id));
         return convertToDto(transaction);
     }
 
     public TransactionDto updateTransaction(Long id, TransactionDto dto) {
         Transaction transaction = transactionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));
+                .orElseThrow(() -> new TransactionNotFoundException(id));
 
         // Account 변경 시
         if (dto.getAccountId() != null && !dto.getAccountId().equals(
@@ -186,7 +187,7 @@ public class TransactionService {
 
     public void deleteTransaction(Long id) {
         Transaction transaction = transactionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));
+                .orElseThrow(() -> new TransactionNotFoundException(id));
 
         Long stockId = transaction.getStock().getId();
         Long accountId = transaction.getAccount() != null ? transaction.getAccount().getId() : null;

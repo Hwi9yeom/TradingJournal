@@ -1,6 +1,7 @@
 package com.trading.journal.service;
 
 import com.trading.journal.entity.HistoricalPrice;
+import com.trading.journal.exception.PriceDataException;
 import com.trading.journal.repository.HistoricalPriceRepository;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +42,7 @@ public class StockPriceService {
             return stock.getQuote().getPrice();
         } catch (IOException e) {
             log.error("Failed to fetch current price for symbol: {}", symbol, e);
-            throw new RuntimeException("Failed to fetch stock price", e);
+            throw new PriceDataException(symbol, "Yahoo Finance", "현재가 조회 실패", e);
         }
     }
 
@@ -62,7 +63,7 @@ public class StockPriceService {
         }
 
         log.error("No fallback price available for symbol: {}", symbol);
-        throw new RuntimeException("Failed to fetch stock price and no fallback available", t);
+        throw new PriceDataException(symbol, "대체 가격 데이터 없음");
     }
 
     @Cacheable(value = "stockInfo", key = "#symbol")
@@ -111,7 +112,7 @@ public class StockPriceService {
         }
 
         log.error("Failed to fetch stock info after {} attempts for symbol: {}", MAX_RETRIES, symbol);
-        throw new RuntimeException("Failed to fetch stock info after " + MAX_RETRIES + " attempts", lastException);
+        throw new PriceDataException(symbol, "Yahoo Finance", MAX_RETRIES + "회 시도 후 종목 정보 조회 실패", lastException);
     }
 
     /**
@@ -228,7 +229,7 @@ public class StockPriceService {
         }
 
         log.error("Failed to fetch historical quotes after {} attempts for symbol: {}", MAX_RETRIES, symbol);
-        throw new RuntimeException("Failed to fetch historical quotes from Yahoo Finance", lastException);
+        throw new PriceDataException(symbol, "Yahoo Finance", "과거 가격 데이터 조회 실패", lastException);
     }
 
     /**
@@ -306,7 +307,7 @@ public class StockPriceService {
             return stock.getQuote().getPreviousClose();
         } catch (IOException e) {
             log.error("Failed to fetch previous close for symbol: {}", symbol, e);
-            throw new RuntimeException("Failed to fetch previous close", e);
+            throw new PriceDataException(symbol, "Yahoo Finance", "전일 종가 조회 실패", e);
         }
     }
 
@@ -326,7 +327,7 @@ public class StockPriceService {
         }
 
         log.error("No fallback previous close available for symbol: {}", symbol);
-        throw new RuntimeException("Failed to fetch previous close and no fallback available", t);
+        throw new PriceDataException(symbol, "전일 종가 대체 데이터 없음");
     }
 
     /**

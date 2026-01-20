@@ -1,12 +1,79 @@
 /**
  * Trading Journal - Utility Functions
  * Centralized error handling, notifications, and common utilities
+ *
+ * @fileoverview Provides common utilities used across all pages including:
+ * - Toast notifications
+ * - Loading overlays
+ * - Form validation
+ * - Formatting functions (currency, percent, date)
+ * - DOM utilities
+ * - Date utilities
+ * - Debounce/throttle functions
  */
 
-// ===== Toast Notification System =====
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+/**
+ * Common CSS class names for styling elements based on value
+ * @constant {Object}
+ */
+const CSS_CLASSES = {
+    SUCCESS: 'text-success',
+    DANGER: 'text-danger',
+    WARNING: 'text-warning',
+    MUTED: 'text-muted',
+    INFO: 'text-info',
+    PRIMARY: 'text-primary'
+};
+
+/**
+ * Period to months mapping for date range calculations
+ * @constant {Object}
+ */
+const PERIOD_MONTHS = {
+    '1M': 1,
+    '3M': 3,
+    '6M': 6,
+    '1Y': 12,
+    'ALL': null  // ALL uses ALL_PERIOD_START_YEAR
+};
+
+/**
+ * Start year for 'ALL' period calculations
+ * @constant {number}
+ */
+const ALL_PERIOD_START_YEAR = 2020;
+
+/**
+ * Default debounce wait time in milliseconds
+ * @constant {number}
+ */
+const DEFAULT_DEBOUNCE_WAIT = 300;
+
+/**
+ * Default throttle limit time in milliseconds
+ * @constant {number}
+ */
+const DEFAULT_THROTTLE_LIMIT = 300;
+
+// ============================================================================
+// TOAST NOTIFICATION SYSTEM
+// ============================================================================
+
+/**
+ * Toast notification system for displaying user feedback messages.
+ * Supports success, error, warning, and info notification types.
+ * @namespace
+ */
 const ToastNotification = {
     container: null,
 
+    /**
+     * Initialize the toast container if not already present
+     */
     init() {
         if (!this.container) {
             this.container = document.createElement('div');
@@ -17,6 +84,13 @@ const ToastNotification = {
         }
     },
 
+    /**
+     * Display a toast notification
+     * @param {string} message - The message to display
+     * @param {('info'|'success'|'warning'|'error')} [type='info'] - The notification type
+     * @param {number} [duration=5000] - Duration in ms before auto-dismiss (0 for no auto-dismiss)
+     * @returns {HTMLElement} The created toast element
+     */
     show(message, type = 'info', duration = 5000) {
         this.init();
 
@@ -39,7 +113,7 @@ const ToastNotification = {
                 <span style="font-size: 1.25rem; flex-shrink: 0;">${icon}</span>
                 <div style="flex: 1;">
                     <div style="font-weight: 600; margin-bottom: 0.25rem;">${this.getTitle(type)}</div>
-                    <div style="font-size: 0.875rem; color: var(--color-text-secondary);">${message}</div>
+                    <div style="font-size: 0.875rem; color: var(--color-text-secondary);">${escapeHtml(message)}</div>
                 </div>
             </div>
         `;
@@ -55,6 +129,10 @@ const ToastNotification = {
         return toast;
     },
 
+    /**
+     * Remove a toast notification with animation
+     * @param {HTMLElement} toast - The toast element to remove
+     */
     remove(toast) {
         toast.style.animation = 'slideOutRight 0.3s ease-out';
         setTimeout(() => {
@@ -64,6 +142,11 @@ const ToastNotification = {
         }, 300);
     },
 
+    /**
+     * Get the icon for a notification type
+     * @param {string} type - The notification type
+     * @returns {string} The icon character
+     */
     getIcon(type) {
         const icons = {
             success: '✓',
@@ -74,6 +157,11 @@ const ToastNotification = {
         return icons[type] || icons.info;
     },
 
+    /**
+     * Get the title for a notification type
+     * @param {string} type - The notification type
+     * @returns {string} The title text
+     */
     getTitle(type) {
         const titles = {
             success: '성공',
@@ -84,18 +172,42 @@ const ToastNotification = {
         return titles[type] || titles.info;
     },
 
+    /**
+     * Display a success notification
+     * @param {string} message - The message to display
+     * @param {number} [duration] - Duration in ms before auto-dismiss
+     * @returns {HTMLElement} The created toast element
+     */
     success(message, duration) {
         return this.show(message, 'success', duration);
     },
 
+    /**
+     * Display an error notification
+     * @param {string} message - The message to display
+     * @param {number} [duration] - Duration in ms before auto-dismiss
+     * @returns {HTMLElement} The created toast element
+     */
     error(message, duration) {
         return this.show(message, 'error', duration);
     },
 
+    /**
+     * Display a warning notification
+     * @param {string} message - The message to display
+     * @param {number} [duration] - Duration in ms before auto-dismiss
+     * @returns {HTMLElement} The created toast element
+     */
     warning(message, duration) {
         return this.show(message, 'warning', duration);
     },
 
+    /**
+     * Display an info notification
+     * @param {string} message - The message to display
+     * @param {number} [duration] - Duration in ms before auto-dismiss
+     * @returns {HTMLElement} The created toast element
+     */
     info(message, duration) {
         return this.show(message, 'info', duration);
     }
@@ -120,10 +232,22 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// ===== Loading Overlay =====
+// ============================================================================
+// LOADING OVERLAY
+// ============================================================================
+
+/**
+ * Loading overlay for indicating background operations.
+ * Shows a spinner with customizable message.
+ * @namespace
+ */
 const LoadingOverlay = {
     overlay: null,
 
+    /**
+     * Show the loading overlay
+     * @param {string} [message='로딩 중...'] - The message to display
+     */
     show(message = '로딩 중...') {
         if (!this.overlay) {
             this.overlay = document.createElement('div');
@@ -134,7 +258,7 @@ const LoadingOverlay = {
             this.overlay.innerHTML = `
                 <div style="text-align: center; color: white;">
                     <div class="loading-spinner"></div>
-                    <div style="margin-top: 1rem; font-size: 1.125rem;">${message}</div>
+                    <div style="margin-top: 1rem; font-size: 1.125rem;">${escapeHtml(message)}</div>
                 </div>
             `;
             document.body.appendChild(this.overlay);
@@ -142,6 +266,9 @@ const LoadingOverlay = {
         }
     },
 
+    /**
+     * Hide the loading overlay
+     */
     hide() {
         if (this.overlay) {
             document.body.removeChild(this.overlay);
@@ -151,7 +278,17 @@ const LoadingOverlay = {
     }
 };
 
-// ===== Confirmation Dialog =====
+// ============================================================================
+// DIALOG UTILITIES
+// ============================================================================
+
+/**
+ * Show a confirmation dialog using Bootstrap Modal or native confirm.
+ * @param {string} title - The dialog title
+ * @param {string} message - The dialog message
+ * @param {Function} [onConfirm] - Callback when user confirms
+ * @param {Function} [onCancel] - Callback when user cancels
+ */
 function showConfirmDialog(title, message, onConfirm, onCancel) {
     // Check if Bootstrap modal is available
     if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
@@ -162,11 +299,11 @@ function showConfirmDialog(title, message, onConfirm, onCancel) {
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="${modalId}Label">${title}</h5>
+                            <h5 class="modal-title" id="${modalId}Label">${escapeHtml(title)}</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
                         </div>
                         <div class="modal-body">
-                            ${message}
+                            ${escapeHtml(message)}
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
@@ -205,7 +342,16 @@ function showConfirmDialog(title, message, onConfirm, onCancel) {
     }
 }
 
-// ===== AJAX Error Handler =====
+// ============================================================================
+// AJAX ERROR HANDLING
+// ============================================================================
+
+/**
+ * Handle AJAX errors and display appropriate user feedback.
+ * Extracts error message from response and shows toast notification.
+ * @param {XMLHttpRequest} xhr - The XMLHttpRequest object
+ * @param {string} [defaultMessage='요청 처리 중 오류가 발생했습니다.'] - Default error message
+ */
 function handleAjaxError(xhr, defaultMessage = '요청 처리 중 오류가 발생했습니다.') {
     let errorMessage = defaultMessage;
 
@@ -233,7 +379,16 @@ function handleAjaxError(xhr, defaultMessage = '요청 처리 중 오류가 발�
     }
 }
 
-// ===== Form Validation =====
+// ============================================================================
+// FORM VALIDATION
+// ============================================================================
+
+/**
+ * Validate a form element by checking all required fields.
+ * Adds Bootstrap validation classes and feedback messages.
+ * @param {HTMLFormElement} formElement - The form element to validate
+ * @returns {boolean} True if form is valid, false otherwise
+ */
 function validateForm(formElement) {
     let isValid = true;
     const inputs = formElement.querySelectorAll('input[required], select[required], textarea[required]');
@@ -257,6 +412,11 @@ function validateForm(formElement) {
     return isValid;
 }
 
+/**
+ * Clear all validation states from a form.
+ * Removes is-invalid and is-valid classes from all inputs.
+ * @param {HTMLFormElement} formElement - The form element to clear
+ */
 function clearFormValidation(formElement) {
     const inputs = formElement.querySelectorAll('.is-invalid, .is-valid');
     inputs.forEach(input => {
@@ -264,17 +424,65 @@ function clearFormValidation(formElement) {
     });
 }
 
-// ===== Format Utilities =====
+// ============================================================================
+// HTML/STRING UTILITIES
+// ============================================================================
+
+/**
+ * Escape HTML special characters to prevent XSS attacks.
+ * Converts characters like <, >, &, ", ' to their HTML entity equivalents.
+ * @param {string} text - The text to escape
+ * @returns {string} The escaped text
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    if (typeof text !== 'string') text = String(text);
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Truncate a string to a specified length with ellipsis.
+ * @param {string} str - The string to truncate
+ * @param {number} len - Maximum length before truncation
+ * @returns {string} The truncated string
+ */
+function truncateText(str, len) {
+    if (!str) return '';
+    return str.length > len ? str.substring(0, len) + '...' : str;
+}
+
+// ============================================================================
+// FORMAT UTILITIES
+// ============================================================================
+
+/**
+ * Format a number as Korean Won currency.
+ * @param {number|null|undefined} value - The value to format
+ * @returns {string} Formatted currency string (e.g., '₩1,234,567')
+ */
 function formatCurrency(value) {
     if (value === null || value === undefined) return '₩0';
     return '₩' + Math.round(value).toLocaleString('ko-KR');
 }
 
+/**
+ * Format a number as a percentage with sign.
+ * @param {number|null|undefined} value - The value to format
+ * @returns {string} Formatted percentage string (e.g., '+12.34%' or '-5.67%')
+ */
 function formatPercent(value) {
     if (value === null || value === undefined) return '0%';
     return (value >= 0 ? '+' : '') + value.toFixed(2) + '%';
 }
 
+/**
+ * Format a number with locale-specific formatting.
+ * @param {number|null|undefined} value - The value to format
+ * @param {number} [decimals=0] - Number of decimal places
+ * @returns {string} Formatted number string
+ */
 function formatNumber(value, decimals = 0) {
     if (value === null || value === undefined) return '0';
     return Number(value).toLocaleString('ko-KR', {
@@ -283,6 +491,11 @@ function formatNumber(value, decimals = 0) {
     });
 }
 
+/**
+ * Format a date string for display.
+ * @param {string|Date|null|undefined} dateString - The date to format
+ * @returns {string} Formatted date string (e.g., '2024.01.15')
+ */
 function formatDate(dateString) {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -293,6 +506,11 @@ function formatDate(dateString) {
     });
 }
 
+/**
+ * Format a date/time string for display.
+ * @param {string|Date|null|undefined} dateString - The date/time to format
+ * @returns {string} Formatted date/time string (e.g., '2024.01.15 14:30')
+ */
 function formatDateTime(dateString) {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -305,7 +523,144 @@ function formatDateTime(dateString) {
     });
 }
 
-// ===== Empty State Helper =====
+/**
+ * Format a Date object to YYYY-MM-DD string for API calls.
+ * @param {Date} date - The date to format
+ * @returns {string} Date string in YYYY-MM-DD format
+ */
+function formatDateForApi(date) {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+        return '';
+    }
+    return date.toISOString().split('T')[0];
+}
+
+// ============================================================================
+// DATE UTILITIES
+// ============================================================================
+
+/**
+ * Get start and end dates based on a period string.
+ * @param {('1M'|'3M'|'6M'|'1Y'|'ALL')} period - The period identifier
+ * @returns {{startDate: Date, endDate: Date}} Object containing start and end dates
+ */
+function getPeriodDates(period) {
+    const endDate = new Date();
+    const startDate = new Date();
+
+    const months = PERIOD_MONTHS[period];
+    if (months !== null && months !== undefined) {
+        startDate.setMonth(endDate.getMonth() - months);
+    } else {
+        // 'ALL' period
+        startDate.setFullYear(ALL_PERIOD_START_YEAR, 0, 1);
+    }
+
+    return { startDate, endDate };
+}
+
+/**
+ * Get date range for API calls based on a period string.
+ * @param {('1M'|'3M'|'6M'|'1Y'|'ALL')} period - The period identifier
+ * @returns {{startDate: string, endDate: string}} Object containing formatted date strings
+ */
+function getDateRangeForApi(period) {
+    const { startDate, endDate } = getPeriodDates(period);
+    return {
+        startDate: formatDateForApi(startDate),
+        endDate: formatDateForApi(endDate)
+    };
+}
+
+// ============================================================================
+// DOM UTILITIES
+// ============================================================================
+
+/**
+ * Apply CSS class to an element based on whether a value is positive or negative.
+ * @param {jQuery|HTMLElement} $element - The element (jQuery or native) to apply class to
+ * @param {number} value - The value to check
+ * @param {string} [positiveClass=CSS_CLASSES.SUCCESS] - Class for positive values
+ * @param {string} [negativeClass=CSS_CLASSES.DANGER] - Class for negative/zero values
+ */
+function applyValueClass($element, value, positiveClass = CSS_CLASSES.SUCCESS, negativeClass = CSS_CLASSES.DANGER) {
+    // Handle both jQuery and native elements
+    const removeClass = (el, cls) => {
+        if (el.removeClass) el.removeClass(cls);
+        else el.classList.remove(...cls.split(' '));
+    };
+    const addClass = (el, cls) => {
+        if (el.addClass) el.addClass(cls);
+        else el.classList.add(cls);
+    };
+
+    const allClasses = `${CSS_CLASSES.SUCCESS} ${CSS_CLASSES.DANGER} ${CSS_CLASSES.WARNING} ${CSS_CLASSES.MUTED}`;
+    removeClass($element, allClasses);
+
+    if (value >= 0) {
+        addClass($element, positiveClass);
+    } else {
+        addClass($element, negativeClass);
+    }
+}
+
+/**
+ * Apply CSS class based on value thresholds.
+ * @param {jQuery|HTMLElement} $element - The element to apply class to
+ * @param {number} value - The value to check
+ * @param {number} successThreshold - Value >= this gets success class
+ * @param {number} warningThreshold - Value >= this (but < successThreshold) gets warning class
+ */
+function applyThresholdClass($element, value, successThreshold, warningThreshold) {
+    // Handle both jQuery and native elements
+    const removeClass = (el, cls) => {
+        if (el.removeClass) el.removeClass(cls);
+        else el.classList.remove(...cls.split(' '));
+    };
+    const addClass = (el, cls) => {
+        if (el.addClass) el.addClass(cls);
+        else el.classList.add(cls);
+    };
+
+    const allClasses = `${CSS_CLASSES.SUCCESS} ${CSS_CLASSES.DANGER} ${CSS_CLASSES.WARNING}`;
+    removeClass($element, allClasses);
+
+    if (value >= successThreshold) {
+        addClass($element, CSS_CLASSES.SUCCESS);
+    } else if (value >= warningThreshold) {
+        addClass($element, CSS_CLASSES.WARNING);
+    } else {
+        addClass($element, CSS_CLASSES.DANGER);
+    }
+}
+
+/**
+ * Update button group active state.
+ * Removes 'active' class from siblings and adds to clicked button.
+ * @param {Event} event - The click event
+ */
+function updateButtonGroupActive(event) {
+    if (typeof $ !== 'undefined') {
+        $(event.target).closest('.btn-group').find('button').removeClass('active');
+    } else {
+        const btnGroup = event.target.closest('.btn-group');
+        if (btnGroup) {
+            btnGroup.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+        }
+    }
+    event.target.classList.add('active');
+}
+
+// ============================================================================
+// EMPTY STATE & SKELETON HELPERS
+// ============================================================================
+
+/**
+ * Display an empty state message in a container.
+ * @param {string|HTMLElement|jQuery} container - The container element or selector
+ * @param {string} [message='데이터가 없습니다.'] - The message to display
+ * @param {string} [iconClass='bi-inbox'] - Bootstrap icon class
+ */
 function showEmptyState(container, message = '데이터가 없습니다.', iconClass = 'bi-inbox') {
     const emptyStateHtml = `
         <div class="empty-state">
@@ -313,7 +668,7 @@ function showEmptyState(container, message = '데이터가 없습니다.', iconC
                 <i class="bi ${iconClass}"></i>
             </div>
             <div class="empty-state-title">데이터 없음</div>
-            <div class="empty-state-description">${message}</div>
+            <div class="empty-state-description">${escapeHtml(message)}</div>
         </div>
     `;
 
@@ -327,17 +682,20 @@ function showEmptyState(container, message = '데이터가 없습니다.', iconC
     }
 }
 
-// ===== Skeleton Loading Helper =====
-function showSkeleton(container, rows = 5) {
+/**
+ * Display skeleton loading placeholders in a table container.
+ * @param {string|HTMLElement|jQuery} container - The container element or selector
+ * @param {number} [rows=5] - Number of skeleton rows to display
+ * @param {number} [cols=3] - Number of columns per row
+ */
+function showSkeleton(container, rows = 5, cols = 3) {
     let skeletonHtml = '';
     for (let i = 0; i < rows; i++) {
-        skeletonHtml += `
-            <tr>
-                <td><div class="skeleton" style="height: 20px; width: 100%;"></div></td>
-                <td><div class="skeleton" style="height: 20px; width: 100%;"></div></td>
-                <td><div class="skeleton" style="height: 20px; width: 100%;"></div></td>
-            </tr>
-        `;
+        skeletonHtml += '<tr>';
+        for (let j = 0; j < cols; j++) {
+            skeletonHtml += '<td><div class="skeleton" style="height: 20px; width: 100%;"></div></td>';
+        }
+        skeletonHtml += '</tr>';
     }
 
     if (typeof container === 'string') {
@@ -350,21 +708,48 @@ function showSkeleton(container, rows = 5) {
     }
 }
 
-// ===== Debounce Utility =====
-function debounce(func, wait = 300) {
+// ============================================================================
+// DEBOUNCE & THROTTLE
+// ============================================================================
+
+/**
+ * Create a debounced version of a function.
+ * The function will only be called after the specified wait time has passed
+ * since the last invocation.
+ * @param {Function} func - The function to debounce
+ * @param {number} [wait=300] - The debounce delay in milliseconds
+ * @returns {Function} The debounced function
+ * @example
+ * const debouncedSearch = debounce((query) => {
+ *   fetchSearchResults(query);
+ * }, 300);
+ * searchInput.addEventListener('input', (e) => debouncedSearch(e.target.value));
+ */
+function debounce(func, wait = DEFAULT_DEBOUNCE_WAIT) {
     let timeout;
     return function executedFunction(...args) {
         const later = () => {
             clearTimeout(timeout);
-            func(...args);
+            func.apply(this, args);
         };
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
 }
 
-// ===== Throttle Utility =====
-function throttle(func, limit = 300) {
+/**
+ * Create a throttled version of a function.
+ * The function will be called at most once per specified time period.
+ * @param {Function} func - The function to throttle
+ * @param {number} [limit=300] - The throttle limit in milliseconds
+ * @returns {Function} The throttled function
+ * @example
+ * const throttledScroll = throttle(() => {
+ *   updateScrollPosition();
+ * }, 100);
+ * window.addEventListener('scroll', throttledScroll);
+ */
+function throttle(func, limit = DEFAULT_THROTTLE_LIMIT) {
     let inThrottle;
     return function(...args) {
         if (!inThrottle) {
@@ -375,7 +760,16 @@ function throttle(func, limit = 300) {
     };
 }
 
-// ===== Copy to Clipboard =====
+// ============================================================================
+// CLIPBOARD
+// ============================================================================
+
+/**
+ * Copy text to clipboard asynchronously.
+ * Shows success/error notification to user.
+ * @param {string} text - The text to copy
+ * @returns {Promise<boolean>} True if copy succeeded, false otherwise
+ */
 async function copyToClipboard(text) {
     try {
         await navigator.clipboard.writeText(text);
@@ -388,22 +782,122 @@ async function copyToClipboard(text) {
     }
 }
 
-// ===== Export Functions =====
+// ============================================================================
+// COLOR GENERATION
+// ============================================================================
+
+/**
+ * Generate an array of colors for charts.
+ * @param {number} count - Number of colors needed
+ * @returns {string[]} Array of color hex codes
+ */
+function generateColors(count) {
+    const colors = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+        '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#36A2EB',
+        '#E7E9ED', '#71B37C', '#3E7CB1', '#F67E4B', '#A569BD'
+    ];
+
+    // If we need more colors than predefined, cycle through
+    const result = [];
+    for (let i = 0; i < count; i++) {
+        result.push(colors[i % colors.length]);
+    }
+    return result;
+}
+
+// ============================================================================
+// LOCAL STORAGE UTILITIES
+// ============================================================================
+
+/**
+ * Safely get a value from localStorage with JSON parsing.
+ * @param {string} key - The localStorage key
+ * @param {*} [defaultValue=null] - Default value if key not found or parse fails
+ * @returns {*} The parsed value or default
+ */
+function getFromStorage(key, defaultValue = null) {
+    try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultValue;
+    } catch (e) {
+        console.warn(`Error reading from localStorage key "${key}":`, e);
+        return defaultValue;
+    }
+}
+
+/**
+ * Safely set a value in localStorage with JSON stringification.
+ * @param {string} key - The localStorage key
+ * @param {*} value - The value to store
+ * @returns {boolean} True if successful, false otherwise
+ */
+function setToStorage(key, value) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+    } catch (e) {
+        console.warn(`Error writing to localStorage key "${key}":`, e);
+        return false;
+    }
+}
+
+// ============================================================================
+// EXPORT FUNCTIONS TO GLOBAL SCOPE
+// ============================================================================
+
 if (typeof window !== 'undefined') {
+    // Constants
+    window.CSS_CLASSES = CSS_CLASSES;
+    window.PERIOD_MONTHS = PERIOD_MONTHS;
+    window.ALL_PERIOD_START_YEAR = ALL_PERIOD_START_YEAR;
+
+    // Toast and Loading
     window.ToastNotification = ToastNotification;
     window.LoadingOverlay = LoadingOverlay;
+
+    // Dialogs and Error Handling
     window.showConfirmDialog = showConfirmDialog;
     window.handleAjaxError = handleAjaxError;
+
+    // Form Validation
     window.validateForm = validateForm;
     window.clearFormValidation = clearFormValidation;
+
+    // HTML/String Utilities
+    window.escapeHtml = escapeHtml;
+    window.truncateText = truncateText;
+
+    // Format Utilities
     window.formatCurrency = formatCurrency;
     window.formatPercent = formatPercent;
     window.formatNumber = formatNumber;
     window.formatDate = formatDate;
     window.formatDateTime = formatDateTime;
+    window.formatDateForApi = formatDateForApi;
+
+    // Date Utilities
+    window.getPeriodDates = getPeriodDates;
+    window.getDateRangeForApi = getDateRangeForApi;
+
+    // DOM Utilities
+    window.applyValueClass = applyValueClass;
+    window.applyThresholdClass = applyThresholdClass;
+    window.updateButtonGroupActive = updateButtonGroupActive;
     window.showEmptyState = showEmptyState;
     window.showSkeleton = showSkeleton;
+
+    // Debounce/Throttle
     window.debounce = debounce;
     window.throttle = throttle;
+
+    // Clipboard
     window.copyToClipboard = copyToClipboard;
+
+    // Color Generation
+    window.generateColors = generateColors;
+
+    // Local Storage
+    window.getFromStorage = getFromStorage;
+    window.setToStorage = setToStorage;
 }

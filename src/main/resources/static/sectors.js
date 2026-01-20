@@ -1,41 +1,147 @@
+/**
+ * Trading Journal - Sector Analysis Module
+ * Provides sector allocation, performance, and rotation analysis
+ *
+ * @fileoverview Handles sector analysis functionality including:
+ * - Sector allocation pie chart
+ * - Sector performance bar chart
+ * - Sector rotation stacked bar chart
+ * - Sector details table
+ * - Stock grid by sector
+ *
+ * @requires utils.js - For formatCurrency, formatPercent, getDateRangeForApi
+ * @requires Chart.js - For chart rendering
+ * @requires jQuery - For DOM manipulation and AJAX
+ */
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+/**
+ * Base URL for API endpoints
+ * @constant {string}
+ */
 const API_BASE_URL = '/api';
-let sectorAllocationChart, sectorPerformanceChart, sectorRotationChart;
-let currentPeriod = '1Y';
-let allSectors = [];
 
-$(document).ready(function() {
-    if (!checkAuth()) {
-        return;
-    }
+/**
+ * Default chart colors for sector visualization
+ * @constant {string[]}
+ */
+const SECTOR_CHART_COLORS = [
+    '#3b82f6', // blue
+    '#22c55e', // green
+    '#f59e0b', // amber
+    '#ef4444', // red
+    '#8b5cf6', // violet
+    '#ec4899', // pink
+    '#14b8a6', // teal
+    '#f97316', // orange
+    '#6366f1', // indigo
+    '#84cc16', // lime
+    '#06b6d4', // cyan
+    '#a855f7'  // purple
+];
 
-    loadSectorsList();
-    initializeCharts();
-    loadSectorAnalysis(currentPeriod);
+/**
+ * Mapping of sector codes to display colors
+ * @constant {Object<string, string>}
+ */
+const SECTOR_COLOR_MAP = {
+    'TECH': '#3b82f6',
+    'HEALTH': '#22c55e',
+    'FINANCE': '#f59e0b',
+    'CONSUMER_DISC': '#ef4444',
+    'CONSUMER_STAP': '#8b5cf6',
+    'INDUSTRIAL': '#ec4899',
+    'ENERGY': '#14b8a6',
+    'MATERIALS': '#f97316',
+    'UTILITIES': '#6366f1',
+    'REAL_ESTATE': '#84cc16',
+    'COMMUNICATION': '#06b6d4',
+    'OTHER': '#9ca3af'
+};
 
-    // 종목 검색 필터
-    $('#stock-search').on('input', function() {
-        const query = $(this).val().toLowerCase();
-        $('#stock-sector-list tr').each(function() {
-            const text = $(this).text().toLowerCase();
-            $(this).toggle(text.includes(query));
-        });
-    });
-});
+/**
+ * Mapping of sector codes to Korean labels
+ * @constant {Object<string, string>}
+ */
+const SECTOR_LABEL_MAP = {
+    'TECH': '정보기술',
+    'HEALTH': '헬스케어',
+    'FINANCE': '금융',
+    'CONSUMER_DISC': '경기소비재',
+    'CONSUMER_STAP': '필수소비재',
+    'INDUSTRIAL': '산업재',
+    'ENERGY': '에너지',
+    'MATERIALS': '소재',
+    'UTILITIES': '유틸리티',
+    'REAL_ESTATE': '부동산',
+    'COMMUNICATION': '통신',
+    'OTHER': '기타'
+};
 
-function loadSectorsList() {
-    $.ajax({
-        url: `${API_BASE_URL}/analysis/sectors/list`,
-        method: 'GET',
-        success: function(data) {
-            allSectors = data;
-        }
-    });
-}
+/**
+ * CSS colors for positive/negative performance indicators
+ * @constant {Object}
+ */
+const PERFORMANCE_COLORS = {
+    POSITIVE: 'rgba(34, 197, 94, 0.8)',
+    NEGATIVE: 'rgba(239, 68, 68, 0.8)'
+};
 
-function initializeCharts() {
-    // 섹터 배분 파이 차트
-    const allocationCtx = document.getElementById('sectorAllocationChart').getContext('2d');
-    sectorAllocationChart = new Chart(allocationCtx, {
+/**
+ * Default fallback color for unknown sectors
+ * @constant {string}
+ */
+const DEFAULT_SECTOR_COLOR = '#9ca3af';
+
+/**
+ * Empty state chart color
+ * @constant {string}
+ */
+const EMPTY_STATE_COLOR = '#e5e7eb';
+
+// ============================================================================
+// STATE MANAGEMENT
+// ============================================================================
+
+/**
+ * Application state object containing chart instances and data
+ * @type {Object}
+ */
+const sectorState = {
+    /** @type {Chart|null} Sector allocation doughnut chart instance */
+    allocationChart: null,
+    /** @type {Chart|null} Sector performance bar chart instance */
+    performanceChart: null,
+    /** @type {Chart|null} Sector rotation stacked bar chart instance */
+    rotationChart: null,
+    /** @type {string} Current selected period for analysis */
+    currentPeriod: '1Y',
+    /** @type {Array} List of all available sectors */
+    allSectors: []
+};
+
+// ============================================================================
+// CHART CONFIGURATION
+// ============================================================================
+
+/**
+ * Common chart options for responsive behavior
+ * @constant {Object}
+ */
+const COMMON_CHART_OPTIONS = {
+    responsive: true,
+    maintainAspectRatio: false
+};
+
+/**
+ * Get configuration for the sector allocation doughnut chart
+ * @returns {Object} Chart.js configuration object
+ */
+function getAllocationChartConfig() {
+    return {
         type: 'doughnut',
         data: {
             labels: [],
@@ -47,8 +153,7 @@ function initializeCharts() {
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            ...COMMON_CHART_OPTIONS,
             plugins: {
                 legend: {
                     position: 'right',
@@ -66,11 +171,15 @@ function initializeCharts() {
                 }
             }
         }
-    });
+    };
+}
 
-    // 섹터 성과 바 차트
-    const performanceCtx = document.getElementById('sectorPerformanceChart').getContext('2d');
-    sectorPerformanceChart = new Chart(performanceCtx, {
+/**
+ * Get configuration for the sector performance bar chart
+ * @returns {Object} Chart.js configuration object
+ */
+function getPerformanceChartConfig() {
+    return {
         type: 'bar',
         data: {
             labels: [],
@@ -82,8 +191,7 @@ function initializeCharts() {
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            ...COMMON_CHART_OPTIONS,
             indexAxis: 'y',
             plugins: {
                 legend: {
@@ -107,19 +215,22 @@ function initializeCharts() {
                 }
             }
         }
-    });
+    };
+}
 
-    // 섹터 로테이션 스택 바 차트
-    const rotationCtx = document.getElementById('sectorRotationChart').getContext('2d');
-    sectorRotationChart = new Chart(rotationCtx, {
+/**
+ * Get configuration for the sector rotation stacked bar chart
+ * @returns {Object} Chart.js configuration object
+ */
+function getRotationChartConfig() {
+    return {
         type: 'bar',
         data: {
             labels: [],
             datasets: []
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            ...COMMON_CHART_OPTIONS,
             plugins: {
                 legend: {
                     position: 'bottom',
@@ -150,30 +261,73 @@ function initializeCharts() {
                 }
             }
         }
-    });
-}
-
-function getDateRange(period) {
-    const endDate = new Date();
-    const startDate = new Date();
-
-    switch(period) {
-        case '3M': startDate.setMonth(endDate.getMonth() - 3); break;
-        case '6M': startDate.setMonth(endDate.getMonth() - 6); break;
-        case '1Y': startDate.setFullYear(endDate.getFullYear() - 1); break;
-        case 'ALL': startDate.setFullYear(2020); break;
-        default: startDate.setFullYear(endDate.getFullYear() - 1);
-    }
-
-    return {
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0]
     };
 }
 
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+$(document).ready(function() {
+    if (!checkAuth()) {
+        return;
+    }
+
+    loadSectorsList();
+    initializeCharts();
+    loadSectorAnalysis(sectorState.currentPeriod);
+
+    // 종목 검색 필터
+    $('#stock-search').on('input', function() {
+        const query = $(this).val().toLowerCase();
+        $('#stock-sector-list tr').each(function() {
+            const text = $(this).text().toLowerCase();
+            $(this).toggle(text.includes(query));
+        });
+    });
+});
+
+/**
+ * Load the list of available sectors from the API
+ */
+function loadSectorsList() {
+    $.ajax({
+        url: `${API_BASE_URL}/analysis/sectors/list`,
+        method: 'GET',
+        success: function(data) {
+            sectorState.allSectors = data;
+        }
+    });
+}
+
+/**
+ * Initialize all chart instances with their configurations
+ */
+function initializeCharts() {
+    // 섹터 배분 파이 차트
+    const allocationCtx = document.getElementById('sectorAllocationChart').getContext('2d');
+    sectorState.allocationChart = new Chart(allocationCtx, getAllocationChartConfig());
+
+    // 섹터 성과 바 차트
+    const performanceCtx = document.getElementById('sectorPerformanceChart').getContext('2d');
+    sectorState.performanceChart = new Chart(performanceCtx, getPerformanceChartConfig());
+
+    // 섹터 로테이션 스택 바 차트
+    const rotationCtx = document.getElementById('sectorRotationChart').getContext('2d');
+    sectorState.rotationChart = new Chart(rotationCtx, getRotationChartConfig());
+}
+
+// ============================================================================
+// DATA LOADING
+// ============================================================================
+
+/**
+ * Load sector analysis data for the specified period
+ * @param {string} period - The period identifier ('3M', '6M', '1Y', 'ALL')
+ */
 function loadSectorAnalysis(period) {
-    currentPeriod = period;
-    const range = getDateRange(period);
+    sectorState.currentPeriod = period;
+    const range = getDateRangeForApi(period);
 
     $.ajax({
         url: `${API_BASE_URL}/analysis/sectors`,
@@ -187,11 +341,19 @@ function loadSectorAnalysis(period) {
         },
         error: function(xhr) {
             console.error('Failed to load sector analysis:', xhr);
-            showEmptyState();
+            showEmptySectorState();
         }
     });
 }
 
+// ============================================================================
+// DISPLAY UPDATES
+// ============================================================================
+
+/**
+ * Update all sector display components with new data
+ * @param {Object} data - The sector analysis data from API
+ */
 function updateSectorDisplay(data) {
     // 요약 지표 업데이트
     $('#diversification-rating')
@@ -233,37 +395,55 @@ function updateSectorDisplay(data) {
     updateStocksGrid(data.currentAllocation || []);
 }
 
+/**
+ * Update the sector allocation doughnut chart
+ * @param {Array} allocations - Array of allocation data objects
+ */
 function updateAllocationChart(allocations) {
+    const chart = sectorState.allocationChart;
+
     if (!allocations || allocations.length === 0) {
-        sectorAllocationChart.data.labels = ['데이터 없음'];
-        sectorAllocationChart.data.datasets[0].data = [100];
-        sectorAllocationChart.data.datasets[0].backgroundColor = ['#e5e7eb'];
+        chart.data.labels = ['데이터 없음'];
+        chart.data.datasets[0].data = [100];
+        chart.data.datasets[0].backgroundColor = [EMPTY_STATE_COLOR];
     } else {
-        sectorAllocationChart.data.labels = allocations.map(a => a.sectorLabel);
-        sectorAllocationChart.data.datasets[0].data = allocations.map(a => parseFloat(a.weight));
-        sectorAllocationChart.data.datasets[0].backgroundColor = getSectorColors(allocations.length);
+        chart.data.labels = allocations.map(a => a.sectorLabel);
+        chart.data.datasets[0].data = allocations.map(a => parseFloat(a.weight));
+        chart.data.datasets[0].backgroundColor = getSectorColors(allocations.length);
     }
-    sectorAllocationChart.update();
+    chart.update();
 }
 
+/**
+ * Update the sector performance bar chart
+ * @param {Array} performances - Array of performance data objects
+ */
 function updatePerformanceChart(performances) {
+    const chart = sectorState.performanceChart;
+
     if (!performances || performances.length === 0) {
-        sectorPerformanceChart.data.labels = [];
-        sectorPerformanceChart.data.datasets[0].data = [];
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
     } else {
-        sectorPerformanceChart.data.labels = performances.map(p => p.sectorLabel);
-        sectorPerformanceChart.data.datasets[0].data = performances.map(p => parseFloat(p.totalReturn));
-        sectorPerformanceChart.data.datasets[0].backgroundColor = performances.map(p =>
-            parseFloat(p.totalReturn) >= 0 ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)');
+        chart.data.labels = performances.map(p => p.sectorLabel);
+        chart.data.datasets[0].data = performances.map(p => parseFloat(p.totalReturn));
+        chart.data.datasets[0].backgroundColor = performances.map(p =>
+            parseFloat(p.totalReturn) >= 0 ? PERFORMANCE_COLORS.POSITIVE : PERFORMANCE_COLORS.NEGATIVE);
     }
-    sectorPerformanceChart.update();
+    chart.update();
 }
 
+/**
+ * Update the sector rotation stacked bar chart
+ * @param {Array} rotations - Array of rotation history data objects
+ */
 function updateRotationChart(rotations) {
+    const chart = sectorState.rotationChart;
+
     if (!rotations || rotations.length === 0) {
-        sectorRotationChart.data.labels = [];
-        sectorRotationChart.data.datasets = [];
-        sectorRotationChart.update();
+        chart.data.labels = [];
+        chart.data.datasets = [];
+        chart.update();
         return;
     }
 
@@ -286,11 +466,16 @@ function updateRotationChart(rotations) {
         borderWidth: 0
     }));
 
-    sectorRotationChart.data.labels = rotations.map(r => r.period);
-    sectorRotationChart.data.datasets = datasets;
-    sectorRotationChart.update();
+    chart.data.labels = rotations.map(r => r.period);
+    chart.data.datasets = datasets;
+    chart.update();
 }
 
+/**
+ * Update the sector details table with performance and allocation data
+ * @param {Array} performances - Array of performance data objects
+ * @param {Array} allocations - Array of allocation data objects
+ */
 function updateDetailsTable(performances, allocations) {
     const $tbody = $('#sector-details-table');
 
@@ -338,6 +523,10 @@ function updateDetailsTable(performances, allocations) {
     $tbody.html(html);
 }
 
+/**
+ * Update the stocks grid organized by sector
+ * @param {Array} allocations - Array of allocation data objects with stocks
+ */
 function updateStocksGrid(allocations) {
     const $grid = $('#sector-stocks-grid');
 
@@ -388,6 +577,14 @@ function updateStocksGrid(allocations) {
     $grid.html(html || '<div class="col-12 text-center text-muted py-4">보유 종목이 없습니다.</div>');
 }
 
+// ============================================================================
+// EVENT HANDLERS
+// ============================================================================
+
+/**
+ * Handle period button click to update sector analysis
+ * @param {string} period - The period identifier ('3M', '6M', '1Y', 'ALL')
+ */
 function updateSectorAnalysis(period) {
     // 버튼 활성화 상태 변경
     $(event.target).closest('.btn-group').find('button').removeClass('active');
@@ -396,7 +593,10 @@ function updateSectorAnalysis(period) {
     loadSectorAnalysis(period);
 }
 
-function showEmptyState() {
+/**
+ * Display empty state for all sector components
+ */
+function showEmptySectorState() {
     $('#diversification-rating, #hhi-value, #top-sector, #worst-sector').text('-');
     $('#top-sector-return, #worst-sector-return').text('-');
     $('#sector-details-table').html(`
@@ -408,62 +608,42 @@ function showEmptyState() {
     `);
 }
 
-// === Helper Functions ===
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
+/**
+ * Get an array of sector colors for chart visualization
+ * @param {number} count - Number of colors needed
+ * @returns {string[]} Array of color hex codes
+ */
 function getSectorColors(count) {
-    const colors = [
-        '#3b82f6', // blue
-        '#22c55e', // green
-        '#f59e0b', // amber
-        '#ef4444', // red
-        '#8b5cf6', // violet
-        '#ec4899', // pink
-        '#14b8a6', // teal
-        '#f97316', // orange
-        '#6366f1', // indigo
-        '#84cc16', // lime
-        '#06b6d4', // cyan
-        '#a855f7'  // purple
-    ];
-    return colors.slice(0, count);
+    return SECTOR_CHART_COLORS.slice(0, count);
 }
 
+/**
+ * Get the color for a specific sector
+ * @param {string} sector - The sector code
+ * @returns {string} Color hex code for the sector
+ */
 function getSectorColor(sector) {
-    const colorMap = {
-        'TECH': '#3b82f6',
-        'HEALTH': '#22c55e',
-        'FINANCE': '#f59e0b',
-        'CONSUMER_DISC': '#ef4444',
-        'CONSUMER_STAP': '#8b5cf6',
-        'INDUSTRIAL': '#ec4899',
-        'ENERGY': '#14b8a6',
-        'MATERIALS': '#f97316',
-        'UTILITIES': '#6366f1',
-        'REAL_ESTATE': '#84cc16',
-        'COMMUNICATION': '#06b6d4',
-        'OTHER': '#9ca3af'
-    };
-    return colorMap[sector] || '#9ca3af';
+    return SECTOR_COLOR_MAP[sector] || DEFAULT_SECTOR_COLOR;
 }
 
+/**
+ * Get the Korean label for a sector code
+ * @param {string} sector - The sector code
+ * @returns {string} Korean label for the sector
+ */
 function getSectorLabel(sector) {
-    const labelMap = {
-        'TECH': '정보기술',
-        'HEALTH': '헬스케어',
-        'FINANCE': '금융',
-        'CONSUMER_DISC': '경기소비재',
-        'CONSUMER_STAP': '필수소비재',
-        'INDUSTRIAL': '산업재',
-        'ENERGY': '에너지',
-        'MATERIALS': '소재',
-        'UTILITIES': '유틸리티',
-        'REAL_ESTATE': '부동산',
-        'COMMUNICATION': '통신',
-        'OTHER': '기타'
-    };
-    return labelMap[sector] || sector;
+    return SECTOR_LABEL_MAP[sector] || sector;
 }
 
+/**
+ * Get the CSS class for diversification rating display
+ * @param {string|null} rating - The diversification rating text
+ * @returns {string} CSS class name for styling
+ */
 function getDiversificationClass(rating) {
     if (!rating) return '';
     if (rating.includes('우수')) return 'text-success';
@@ -471,12 +651,11 @@ function getDiversificationClass(rating) {
     return 'text-danger';
 }
 
-function formatCurrency(value) {
-    if (value === null || value === undefined) return '-';
-    const num = parseFloat(value);
-    return '₩' + Math.round(num).toLocaleString();
-}
-
+/**
+ * Format a currency value in short Korean notation (억, 만)
+ * @param {number} value - The value to format
+ * @returns {string} Formatted currency string
+ */
 function formatCurrencyShort(value) {
     const num = parseFloat(value);
     if (Math.abs(num) >= 100000000) {
@@ -485,10 +664,4 @@ function formatCurrencyShort(value) {
         return (num / 10000).toFixed(0) + '만';
     }
     return num.toLocaleString();
-}
-
-function formatPercent(value) {
-    if (value === null || value === undefined) return '-';
-    const num = parseFloat(value);
-    return (num >= 0 ? '+' : '') + num.toFixed(2) + '%';
 }

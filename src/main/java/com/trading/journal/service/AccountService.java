@@ -3,6 +3,7 @@ package com.trading.journal.service;
 import com.trading.journal.dto.AccountDto;
 import com.trading.journal.entity.Account;
 import com.trading.journal.entity.AccountType;
+import com.trading.journal.exception.AccountNotFoundException;
 import com.trading.journal.repository.AccountRepository;
 import com.trading.journal.repository.PortfolioRepository;
 import lombok.RequiredArgsConstructor;
@@ -49,7 +50,7 @@ public class AccountService {
     @Transactional(readOnly = true)
     public AccountDto getAccount(Long id) {
         Account account = accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("계좌를 찾을 수 없습니다: " + id));
+                .orElseThrow(() -> new AccountNotFoundException(id));
         return convertToDto(account);
     }
 
@@ -57,24 +58,24 @@ public class AccountService {
     public Long getDefaultAccountId() {
         return accountRepository.findByIsDefaultTrue()
                 .map(Account::getId)
-                .orElseThrow(() -> new RuntimeException("기본 계좌가 설정되지 않았습니다"));
+                .orElseThrow(() -> new AccountNotFoundException("기본 계좌가 설정되지 않았습니다"));
     }
 
     @Transactional(readOnly = true)
     public Account getDefaultAccount() {
         return accountRepository.findByIsDefaultTrue()
-                .orElseThrow(() -> new RuntimeException("기본 계좌가 설정되지 않았습니다"));
+                .orElseThrow(() -> new AccountNotFoundException("기본 계좌가 설정되지 않았습니다"));
     }
 
     @Transactional(readOnly = true)
     public Account getAccountEntity(Long id) {
         return accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("계좌를 찾을 수 없습니다: " + id));
+                .orElseThrow(() -> new AccountNotFoundException(id));
     }
 
     public AccountDto updateAccount(Long id, AccountDto dto) {
         Account account = accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("계좌를 찾을 수 없습니다: " + id));
+                .orElseThrow(() -> new AccountNotFoundException(id));
 
         // 이름 중복 체크 (자신 제외)
         if (!account.getName().equals(dto.getName()) && accountRepository.existsByName(dto.getName())) {
@@ -92,7 +93,7 @@ public class AccountService {
 
     public void deleteAccount(Long id) {
         Account account = accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("계좌를 찾을 수 없습니다: " + id));
+                .orElseThrow(() -> new AccountNotFoundException(id));
 
         if (account.getIsDefault()) {
             throw new IllegalArgumentException("기본 계좌는 삭제할 수 없습니다");
@@ -116,7 +117,7 @@ public class AccountService {
 
         // 새 기본 계좌 설정
         Account account = accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("계좌를 찾을 수 없습니다: " + id));
+                .orElseThrow(() -> new AccountNotFoundException(id));
         account.setIsDefault(true);
         Account saved = accountRepository.save(account);
 
