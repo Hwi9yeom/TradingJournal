@@ -30,4 +30,12 @@ public class WebClientConfig {
                 .defaultHeader("Accept", "application/json")
                 .build();
     }
+
+    @Bean
+    public WebClient finnhubWebClient() {
+        return WebClient.builder()
+                .baseUrl("https://finnhub.io/api/v1")
+                .defaultHeader("Accept", "application/json")
+                .build();
+    }
 }
