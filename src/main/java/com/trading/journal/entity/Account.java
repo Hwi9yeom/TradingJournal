@@ -1,7 +1,6 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
 import lombok.*;
 
 @Entity
@@ -17,7 +16,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Account {
+public class Account extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,19 +34,4 @@ public class Account {
     @Column(nullable = false)
     @Builder.Default
     private Boolean isDefault = false;
-
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

@@ -1,7 +1,6 @@
 package com.trading.journal.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
 import lombok.*;
 
 @Entity
@@ -17,7 +16,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Stock {
+public class Stock extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -38,19 +37,4 @@ public class Stock {
     /** 세부 산업 */
     @Column(length = 100)
     private String industry;
-
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

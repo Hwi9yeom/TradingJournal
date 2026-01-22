@@ -28,6 +28,13 @@ public class OllamaClient {
         this.config = config;
     }
 
+    /** 기본 옵션 맵 생성 */
+    private Map<String, Object> buildDefaultOptions() {
+        return Map.of(
+                "temperature", config.getTemperature(),
+                "num_predict", config.getMaxTokens());
+    }
+
     /** Generate API - 단일 프롬프트 처리 (동기) */
     public Mono<OllamaResponseDto> generate(String prompt) {
         return generate(prompt, null);
@@ -37,10 +44,7 @@ public class OllamaClient {
     public Mono<OllamaResponseDto> generate(String prompt, String systemPrompt) {
         OllamaRequestDto request = OllamaRequestDto.forGenerate(config.getModel(), prompt, false);
         request.setSystem(systemPrompt);
-        request.setOptions(
-                Map.of(
-                        "temperature", config.getTemperature(),
-                        "num_predict", config.getMaxTokens()));
+        request.setOptions(buildDefaultOptions());
 
         log.debug(
                 "Ollama generate request: model={}, prompt length={}",
@@ -62,10 +66,7 @@ public class OllamaClient {
     public Flux<OllamaResponseDto> generateStream(String prompt, String systemPrompt) {
         OllamaRequestDto request = OllamaRequestDto.forGenerate(config.getModel(), prompt, true);
         request.setSystem(systemPrompt);
-        request.setOptions(
-                Map.of(
-                        "temperature", config.getTemperature(),
-                        "num_predict", config.getMaxTokens()));
+        request.setOptions(buildDefaultOptions());
 
         log.debug("Ollama generate stream request: model={}", config.getModel());
 
@@ -83,10 +84,7 @@ public class OllamaClient {
     /** Chat API - 대화 기록 기반 (동기) */
     public Mono<OllamaResponseDto> chat(List<ChatMessageDto> messages) {
         OllamaRequestDto request = OllamaRequestDto.forChat(config.getModel(), messages, false);
-        request.setOptions(
-                Map.of(
-                        "temperature", config.getTemperature(),
-                        "num_predict", config.getMaxTokens()));
+        request.setOptions(buildDefaultOptions());
 
         log.debug(
                 "Ollama chat request: model={}, messages count={}",
@@ -107,10 +105,7 @@ public class OllamaClient {
     /** Chat API - 스트리밍 응답 */
     public Flux<OllamaResponseDto> chatStream(List<ChatMessageDto> messages) {
         OllamaRequestDto request = OllamaRequestDto.forChat(config.getModel(), messages, true);
-        request.setOptions(
-                Map.of(
-                        "temperature", config.getTemperature(),
-                        "num_predict", config.getMaxTokens()));
+        request.setOptions(buildDefaultOptions());
 
         log.debug(
                 "Ollama chat stream request: model={}, messages count={}",

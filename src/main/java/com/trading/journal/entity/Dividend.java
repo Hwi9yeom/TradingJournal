@@ -3,11 +3,7 @@ package com.trading.journal.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(
@@ -19,13 +15,16 @@ import lombok.NoArgsConstructor;
             @Index(name = "idx_dividend_account_id", columnList = "account_id"),
             @Index(name = "idx_dividend_account_stock", columnList = "account_id, stock_id")
         })
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Dividend {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
+public class Dividend extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -59,21 +58,4 @@ public class Dividend {
 
     @Column(length = 500)
     private String memo; // 메모
-
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

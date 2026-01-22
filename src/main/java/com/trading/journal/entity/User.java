@@ -13,7 +13,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class User extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,7 +26,7 @@ public class User {
 
     @Column(nullable = false)
     @Builder.Default
-    private String role = "ROLE_ADMIN";
+    private String role = "ROLE_USER";
 
     @Column(nullable = false)
     @Builder.Default
@@ -37,19 +37,4 @@ public class User {
     private Boolean passwordChangeRequired = false;
 
     private LocalDateTime lastLoginAt;
-
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

@@ -31,6 +31,23 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Slf4j
 public class RedisConfig {
 
+    // 캐시 이름 상수
+    private static final String CACHE_PORTFOLIO = "portfolio";
+    private static final String CACHE_STOCK_PRICE = "stockPrice";
+    private static final String CACHE_STOCK_INFO = "stockInfo";
+    private static final String CACHE_PORTFOLIO_ANALYSIS = "portfolioAnalysis";
+    private static final String CACHE_ANALYSIS = "analysis";
+    private static final String CACHE_DIVIDEND = "dividend";
+    private static final String CACHE_DISCLOSURE = "disclosure";
+    private static final String CACHE_HISTORICAL_QUOTES = "historicalQuotes";
+
+    // TTL 상수
+    private static final Duration TTL_REALTIME = Duration.ofMinutes(1);
+    private static final Duration TTL_SHORT = Duration.ofMinutes(5);
+    private static final Duration TTL_DEFAULT = Duration.ofMinutes(10);
+    private static final Duration TTL_ANALYSIS = Duration.ofMinutes(30);
+    private static final Duration TTL_HISTORICAL = Duration.ofHours(24);
+
     @Value("${spring.data.redis.host:localhost}")
     private String redisHost;
 
@@ -90,14 +107,14 @@ public class RedisConfig {
         SimpleCacheManager cacheManager = new SimpleCacheManager();
         cacheManager.setCaches(
                 Arrays.asList(
-                        new ConcurrentMapCache("portfolio"),
-                        new ConcurrentMapCache("stockPrice"),
-                        new ConcurrentMapCache("stockInfo"),
-                        new ConcurrentMapCache("portfolioAnalysis"),
-                        new ConcurrentMapCache("analysis"),
-                        new ConcurrentMapCache("dividend"),
-                        new ConcurrentMapCache("disclosure"),
-                        new ConcurrentMapCache("historicalQuotes")));
+                        new ConcurrentMapCache(CACHE_PORTFOLIO),
+                        new ConcurrentMapCache(CACHE_STOCK_PRICE),
+                        new ConcurrentMapCache(CACHE_STOCK_INFO),
+                        new ConcurrentMapCache(CACHE_PORTFOLIO_ANALYSIS),
+                        new ConcurrentMapCache(CACHE_ANALYSIS),
+                        new ConcurrentMapCache(CACHE_DIVIDEND),
+                        new ConcurrentMapCache(CACHE_DISCLOSURE),
+                        new ConcurrentMapCache(CACHE_HISTORICAL_QUOTES)));
         return cacheManager;
     }
 
@@ -110,7 +127,7 @@ public class RedisConfig {
         // 기본 캐시 설정
         RedisCacheConfiguration defaultConfig =
                 RedisCacheConfiguration.defaultCacheConfig()
-                        .entryTtl(Duration.ofMinutes(10)) // 기본 TTL 10분
+                        .entryTtl(TTL_DEFAULT)
                         .serializeKeysWith(
                                 org.springframework.data.redis.serializer.RedisSerializationContext
                                         .SerializationPair.fromSerializer(
@@ -124,24 +141,24 @@ public class RedisConfig {
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
 
         // 포트폴리오 데이터 - 5분 캐시
-        cacheConfigurations.put("portfolio", defaultConfig.entryTtl(Duration.ofMinutes(5)));
-        cacheConfigurations.put("portfolioAnalysis", defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        cacheConfigurations.put(CACHE_PORTFOLIO, defaultConfig.entryTtl(TTL_SHORT));
+        cacheConfigurations.put(CACHE_PORTFOLIO_ANALYSIS, defaultConfig.entryTtl(TTL_SHORT));
 
         // 주식 가격 데이터 - 1분 캐시 (실시간성이 중요)
-        cacheConfigurations.put("stockPrice", defaultConfig.entryTtl(Duration.ofMinutes(1)));
-        cacheConfigurations.put("stockInfo", defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        cacheConfigurations.put(CACHE_STOCK_PRICE, defaultConfig.entryTtl(TTL_REALTIME));
+        cacheConfigurations.put(CACHE_STOCK_INFO, defaultConfig.entryTtl(TTL_DEFAULT));
 
         // 거래 분석 데이터 - 30분 캐시
-        cacheConfigurations.put("analysis", defaultConfig.entryTtl(Duration.ofMinutes(30)));
+        cacheConfigurations.put(CACHE_ANALYSIS, defaultConfig.entryTtl(TTL_ANALYSIS));
 
         // 배당금 데이터 - 10분 캐시
-        cacheConfigurations.put("dividend", defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        cacheConfigurations.put(CACHE_DIVIDEND, defaultConfig.entryTtl(TTL_DEFAULT));
 
         // 공시 정보 - 30분 캐시
-        cacheConfigurations.put("disclosure", defaultConfig.entryTtl(Duration.ofMinutes(30)));
+        cacheConfigurations.put(CACHE_DISCLOSURE, defaultConfig.entryTtl(TTL_ANALYSIS));
 
         // 과거 가격 데이터 - 24시간 캐시 (과거 데이터는 변경되지 않음)
-        cacheConfigurations.put("historicalQuotes", defaultConfig.entryTtl(Duration.ofHours(24)));
+        cacheConfigurations.put(CACHE_HISTORICAL_QUOTES, defaultConfig.entryTtl(TTL_HISTORICAL));
 
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(defaultConfig)

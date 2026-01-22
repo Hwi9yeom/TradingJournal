@@ -26,7 +26,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Transaction {
+public class Transaction extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -89,21 +89,6 @@ public class Transaction {
     /** R-multiple: 실현손익 / 초기리스크 */
     @Column(precision = 10, scale = 4)
     private BigDecimal rMultiple;
-
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 
     public BigDecimal getTotalAmount() {
         BigDecimal amount = price.multiply(quantity);
