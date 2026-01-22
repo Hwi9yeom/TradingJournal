@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대시보드 - 투자 기록 서비스</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">투자 기록 서비스</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="dashboard.html">대시보드</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="patterns.html">패턴분석</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="reviews.html">거래복기</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="risk.html">리스크관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="sectors.html">섹터분석</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="correlation.html">상관관계분석</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="backtest.html">백테스팅</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="ai-assistant.html">AI어시스턴트</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">거래관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="dividend.html">배당금관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="accounts.html">계좌관리</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="logout()">로그아웃</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 헤더 및 리포트 다운로드 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-speedometer2 text-primary"></i> 대시보드</h2>
+            <div class="dropdown">
+                <button class="btn btn-outline-primary dropdown-toggle" type="button" id="reportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>PDF 리포트
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="reportDropdown">
+                    <li><a class="dropdown-item" href="#" onclick="downloadReport('ytd')"><i class="bi bi-calendar-check me-2"></i>YTD 리포트</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="downloadReport('monthly')"><i class="bi bi-calendar-month me-2"></i>이번 달 리포트</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="downloadReport('yearly')"><i class="bi bi-calendar-range me-2"></i>올해 리포트</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#customReportModal"><i class="bi bi-calendar2-range me-2"></i>기간 선택...</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 주요 지표 카드 -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card text-center h-100 border-primary">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="card-subtitle text-muted mb-0">총 투자금액</h6>
+                            <i class="bi bi-cash-stack text-primary fs-4"></i>
+                        </div>
+                        <h3 class="card-title mb-0" id="total-investment">₩0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center h-100 border-info">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="card-subtitle text-muted mb-0">현재 평가액</h6>
+                            <i class="bi bi-graph-up text-info fs-4"></i>
+                        </div>
+                        <h3 class="card-title mb-0" id="total-value">₩0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="card-subtitle text-muted mb-0">총 수익률</h6>
+                            <i class="bi bi-percent fs-4" id="total-return-icon"></i>
+                        </div>
+                        <h3 class="card-title mb-0" id="total-return">0%</h3>
+                        <small class="text-muted" id="total-profit-amount">₩0</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="card-subtitle text-muted mb-0">실현 손익</h6>
+                            <i class="bi bi-coin fs-4" id="realized-pnl-icon"></i>
+                        </div>
+                        <h3 class="card-title mb-0" id="realized-pnl">₩0</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 차트 섹션 -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">자산 가치 추이</h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary active" onclick="updateAssetChart('1M')">1개월</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateAssetChart('3M')">3개월</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateAssetChart('6M')">6개월</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateAssetChart('1Y')">1년</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateAssetChart('ALL')">전체</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="assetValueChart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">포트폴리오 구성</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="portfolioCompositionChart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 포트폴리오 성과 히트맵 (Finviz 스타일) -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-grid-3x3-gap text-primary"></i> 포트폴리오 성과 히트맵</h5>
+                        <div class="btn-group btn-group-sm" role="group" id="treemap-period-selector">
+                            <button type="button" class="btn btn-outline-secondary active" data-period="1D">1D</button>
+                            <button type="button" class="btn btn-outline-secondary" data-period="1W">1W</button>
+                            <button type="button" class="btn btn-outline-secondary" data-period="1M">1M</button>
+                            <button type="button" class="btn btn-outline-secondary" data-period="MTD">MTD</button>
+                            <button type="button" class="btn btn-outline-secondary" data-period="3M">3M</button>
+                            <button type="button" class="btn btn-outline-secondary" data-period="6M">6M</button>
+                            <button type="button" class="btn btn-outline-secondary" data-period="1Y">1Y</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- 요약 통계 -->
+                        <div class="row mb-3">
+                            <div class="col-4 text-center">
+                                <small class="text-muted">총 투자금액</small>
+                                <h5 id="treemap-total-investment" class="mb-0">₩0</h5>
+                            </div>
+                            <div class="col-4 text-center">
+                                <small class="text-muted">평균 수익률</small>
+                                <h5 id="treemap-avg-performance" class="mb-0">0%</h5>
+                            </div>
+                            <div class="col-4 text-center">
+                                <small class="text-muted">선택 기간</small>
+                                <h5 id="treemap-period-label" class="mb-0">1일</h5>
+                            </div>
+                        </div>
+                        <!-- 트리맵 컨테이너 -->
+                        <div id="portfolio-treemap" style="width: 100%; height: 400px;"></div>
+                        <!-- 범례 -->
+                        <div class="d-flex justify-content-center mt-3">
+                            <div class="d-flex align-items-center flex-wrap justify-content-center">
+                                <span class="badge me-1" style="background: #dc3545; width: 30px;">&nbsp;</span>
+                                <small class="text-muted me-3">-10%+</small>
+                                <span class="badge me-1" style="background: #e77681; width: 30px;">&nbsp;</span>
+                                <small class="text-muted me-3">-5%</small>
+                                <span class="badge me-1" style="background: #6c757d; width: 30px;">&nbsp;</span>
+                                <small class="text-muted me-3">0%</small>
+                                <span class="badge me-1" style="background: #5cb085; width: 30px;">&nbsp;</span>
+                                <small class="text-muted me-3">+5%</small>
+                                <span class="badge me-1" style="background: #198754; width: 30px;">&nbsp;</span>
+                                <small class="text-muted">+10%+</small>
+                            </div>
+                        </div>
+                        <!-- 데이터 없음 표시 -->
+                        <div id="treemap-empty" class="text-center text-muted py-4" style="display: none;">
+                            <i class="bi bi-info-circle fs-3 d-block mb-2"></i>
+                            포트폴리오에 보유 종목이 없습니다.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 보유 종목 TOP 5 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-arrow-up-circle"></i> 수익률 TOP 5</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>종목</th>
+                                    <th class="text-end">수익률</th>
+                                    <th class="text-end">수익금</th>
+                                </tr>
+                            </thead>
+                            <tbody id="top-gainers">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="bi bi-arrow-down-circle"></i> 손실률 TOP 5</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>종목</th>
+                                    <th class="text-end">손실률</th>
+                                    <th class="text-end">손실금</th>
+                                </tr>
+                            </thead>
+                            <tbody id="top-losers">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 거래 통계 -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">거래 통계</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-2">
+                                <h6 class="text-muted">총 거래 횟수</h6>
+                                <h4 id="total-trades">0</h4>
+                            </div>
+                            <div class="col-md-2">
+                                <h6 class="text-muted">거래 종목 수</h6>
+                                <h4 id="unique-stocks">0</h4>
+                            </div>
+                            <div class="col-md-2">
+                                <h6 class="text-muted">평균 보유 기간</h6>
+                                <h4 id="avg-holding-period">0일</h4>
+                            </div>
+                            <div class="col-md-2">
+                                <h6 class="text-muted">승률</h6>
+                                <h4 id="win-rate">0%</h4>
+                            </div>
+                            <div class="col-md-2">
+                                <h6 class="text-muted">평균 수익률</h6>
+                                <h4 id="avg-return">0%</h4>
+                            </div>
+                            <div class="col-md-2">
+                                <h6 class="text-muted">최대 수익률</h6>
+                                <h4 id="max-return">0%</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 월별 수익률 히트맵 -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">월별 수익률</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="monthlyReturnChart" height="150"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 고급 분석 차트 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-graph-up-arrow text-success"></i> Equity Curve (누적 수익)</h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateEquityCurve('3M')">3개월</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateEquityCurve('6M')">6개월</button>
+                            <button type="button" class="btn btn-outline-secondary active" onclick="updateEquityCurve('1Y')">1년</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateEquityCurve('ALL')">전체</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-4 text-center">
+                                <small class="text-muted">총 수익률</small>
+                                <h5 id="equity-total-return" class="mb-0">0%</h5>
+                            </div>
+                            <div class="col-4 text-center">
+                                <small class="text-muted">CAGR</small>
+                                <h5 id="equity-cagr" class="mb-0">0%</h5>
+                            </div>
+                            <div class="col-4 text-center">
+                                <small class="text-muted">최종 가치</small>
+                                <h5 id="equity-final-value" class="mb-0">₩0</h5>
+                            </div>
+                        </div>
+                        <canvas id="equityCurveChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-graph-down-arrow text-danger"></i> Drawdown (최대 낙폭)</h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateDrawdown('3M')">3개월</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateDrawdown('6M')">6개월</button>
+                            <button type="button" class="btn btn-outline-secondary active" onclick="updateDrawdown('1Y')">1년</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateDrawdown('ALL')">전체</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-4 text-center">
+                                <small class="text-muted">최대 낙폭</small>
+                                <h5 id="max-drawdown" class="mb-0 text-danger">0%</h5>
+                            </div>
+                            <div class="col-4 text-center">
+                                <small class="text-muted">현재 낙폭</small>
+                                <h5 id="current-drawdown" class="mb-0">0%</h5>
+                            </div>
+                            <div class="col-4 text-center">
+                                <small class="text-muted">회복 기간</small>
+                                <h5 id="recovery-days" class="mb-0">-</h5>
+                            </div>
+                        </div>
+                        <canvas id="drawdownChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 종목 상관관계 히트맵 -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-grid-3x3 text-primary"></i> 종목 상관관계 (분산투자 분석)</h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateCorrelation('3M')">3개월</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateCorrelation('6M')">6개월</button>
+                            <button type="button" class="btn btn-outline-secondary active" onclick="updateCorrelation('1Y')">1년</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateCorrelation('ALL')">전체</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-4 text-center">
+                                <small class="text-muted">평균 상관계수</small>
+                                <h5 id="avg-correlation" class="mb-0">0.00</h5>
+                            </div>
+                            <div class="col-4 text-center">
+                                <small class="text-muted">분산투자 효과</small>
+                                <h5 id="diversification-score" class="mb-0">-</h5>
+                            </div>
+                            <div class="col-4 text-center">
+                                <small class="text-muted">분석 종목 수</small>
+                                <h5 id="correlation-stocks" class="mb-0">0</h5>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered text-center" id="correlation-matrix">
+                                <thead id="correlation-header"></thead>
+                                <tbody id="correlation-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex justify-content-center mt-2">
+                            <div class="d-flex align-items-center">
+                                <span class="badge me-1" style="background: #22c55e; width: 20px;">&nbsp;</span>
+                                <small class="text-muted me-3">-1.0 (역상관)</small>
+                                <span class="badge me-1" style="background: #fbbf24; width: 20px;">&nbsp;</span>
+                                <small class="text-muted me-3">0 (무관)</small>
+                                <span class="badge me-1" style="background: #ef4444; width: 20px;">&nbsp;</span>
+                                <small class="text-muted">+1.0 (정상관)</small>
+                            </div>
+                        </div>
+                        <div id="correlation-empty" class="text-center text-muted py-4" style="display: none;">
+                            <i class="bi bi-info-circle fs-3 d-block mb-2"></i>
+                            최소 2개 이상의 종목 거래 데이터가 필요합니다.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 리스크 지표 섹션 -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-shield-check text-warning"></i> 리스크 분석</h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateRiskMetrics('3M')">3개월</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateRiskMetrics('6M')">6개월</button>
+                            <button type="button" class="btn btn-outline-secondary active" onclick="updateRiskMetrics('1Y')">1년</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateRiskMetrics('ALL')">전체</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- 리스크 등급 배지 -->
+                        <div class="text-center mb-4">
+                            <span class="badge fs-6 px-4 py-2" id="risk-level-badge">
+                                <i class="bi bi-shield-fill me-1"></i>
+                                <span id="risk-level-text">분석 중...</span>
+                            </span>
+                        </div>
+
+                        <!-- 주요 리스크 지표 카드 -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h6 class="text-muted mb-1">샤프 비율</h6>
+                                        <h3 class="mb-1" id="sharpe-ratio">-</h3>
+                                        <small class="text-muted">위험 조정 수익률</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h6 class="text-muted mb-1">소르티노 비율</h6>
+                                        <h3 class="mb-1" id="sortino-ratio">-</h3>
+                                        <small class="text-muted">하락 위험 조정 수익률</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h6 class="text-muted mb-1">칼마 비율</h6>
+                                        <h3 class="mb-1" id="calmar-ratio">-</h3>
+                                        <small class="text-muted">CAGR / MDD</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h6 class="text-muted mb-1">손익비</h6>
+                                        <h3 class="mb-1" id="profit-factor">-</h3>
+                                        <small class="text-muted">총이익 / 총손실</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VaR 및 추가 지표 -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card border-danger">
+                                    <div class="card-header bg-danger text-white">
+                                        <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> VaR (Value at Risk)</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row text-center">
+                                            <div class="col-6">
+                                                <small class="text-muted d-block">95% 신뢰수준</small>
+                                                <div class="mt-2">
+                                                    <span class="badge bg-warning text-dark me-1">일간</span>
+                                                    <strong id="var95-daily">-</strong>
+                                                </div>
+                                                <div class="mt-1">
+                                                    <span class="badge bg-secondary me-1">주간</span>
+                                                    <strong id="var95-weekly">-</strong>
+                                                </div>
+                                                <div class="mt-1">
+                                                    <span class="badge bg-secondary me-1">월간</span>
+                                                    <strong id="var95-monthly">-</strong>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <small class="text-muted d-block">99% 신뢰수준</small>
+                                                <div class="mt-2">
+                                                    <span class="badge bg-danger me-1">일간</span>
+                                                    <strong id="var99-daily">-</strong>
+                                                </div>
+                                                <div class="mt-1">
+                                                    <span class="badge bg-secondary me-1">주간</span>
+                                                    <strong id="var99-weekly">-</strong>
+                                                </div>
+                                                <div class="mt-1">
+                                                    <span class="badge bg-secondary me-1">월간</span>
+                                                    <strong id="var99-monthly">-</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="text-center">
+                                            <small class="text-muted">95% 일간 VaR 금액</small>
+                                            <h5 class="text-danger mb-0" id="var-amount">-</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-info">
+                                    <div class="card-header bg-info text-white">
+                                        <h6 class="mb-0"><i class="bi bi-graph-up"></i> 추가 지표</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <table class="table table-sm mb-0">
+                                            <tbody>
+                                                <tr>
+                                                    <td class="text-muted">연환산 변동성</td>
+                                                    <td class="text-end fw-bold" id="volatility">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">하락 변동성</td>
+                                                    <td class="text-end fw-bold" id="downside-deviation">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">최대 낙폭 (MDD)</td>
+                                                    <td class="text-end fw-bold text-danger" id="risk-mdd">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">CAGR</td>
+                                                    <td class="text-end fw-bold" id="risk-cagr">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">승률</td>
+                                                    <td class="text-end fw-bold" id="risk-winrate">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">분석 거래일</td>
+                                                    <td class="text-end fw-bold" id="trading-days">-</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 벤치마크 비교 섹션 -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-bar-chart-line text-primary"></i> 벤치마크 비교</h5>
+                        <div class="d-flex align-items-center">
+                            <select class="form-select form-select-sm me-2" id="benchmark-select" style="width: 150px;">
+                                <option value="SP500">S&P 500</option>
+                                <option value="NASDAQ">NASDAQ</option>
+                                <option value="KOSPI">KOSPI</option>
+                                <option value="KOSDAQ">KOSDAQ</option>
+                                <option value="DOW">다우존스</option>
+                            </select>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary" onclick="updateBenchmark('3M')">3개월</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="updateBenchmark('6M')">6개월</button>
+                                <button type="button" class="btn btn-outline-secondary active" onclick="updateBenchmark('1Y')">1년</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="updateBenchmark('ALL')">전체</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- 성과 비교 요약 -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-2">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center py-2">
+                                        <small class="text-muted d-block">포트폴리오 수익률</small>
+                                        <h5 class="mb-0" id="benchmark-portfolio-return">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center py-2">
+                                        <small class="text-muted d-block">벤치마크 수익률</small>
+                                        <h5 class="mb-0" id="benchmark-index-return">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="card h-100" id="excess-return-card">
+                                    <div class="card-body text-center py-2">
+                                        <small class="text-muted d-block">초과 수익률</small>
+                                        <h5 class="mb-0" id="benchmark-excess-return">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center py-2">
+                                        <small class="text-muted d-block">알파 (α)</small>
+                                        <h5 class="mb-0" id="benchmark-alpha">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center py-2">
+                                        <small class="text-muted d-block">베타 (β)</small>
+                                        <h5 class="mb-0" id="benchmark-beta">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center py-2">
+                                        <small class="text-muted d-block">상관계수</small>
+                                        <h5 class="mb-0" id="benchmark-correlation">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 비교 차트 -->
+                        <div class="row">
+                            <div class="col-md-8">
+                                <canvas id="benchmarkComparisonChart" height="250"></canvas>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card border-0">
+                                    <div class="card-body">
+                                        <h6 class="text-muted mb-3">추가 분석 지표</h6>
+                                        <table class="table table-sm mb-0">
+                                            <tbody>
+                                                <tr>
+                                                    <td class="text-muted">Information Ratio</td>
+                                                    <td class="text-end fw-bold" id="benchmark-info-ratio">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">Tracking Error</td>
+                                                    <td class="text-end fw-bold" id="benchmark-tracking-error">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">Treynor Ratio</td>
+                                                    <td class="text-end fw-bold" id="benchmark-treynor">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">R²</td>
+                                                    <td class="text-end fw-bold" id="benchmark-rsquared">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">포트폴리오 MDD</td>
+                                                    <td class="text-end fw-bold text-danger" id="benchmark-portfolio-mdd">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">벤치마크 MDD</td>
+                                                    <td class="text-end fw-bold" id="benchmark-index-mdd">-</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        <hr>
+                                        <h6 class="text-muted mb-2">월별 승패</h6>
+                                        <div class="d-flex justify-content-between">
+                                            <span class="badge bg-success" id="benchmark-win-months">승: 0개월</span>
+                                            <span class="badge bg-danger" id="benchmark-lose-months">패: 0개월</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 데이터 없음 표시 -->
+                        <div id="benchmark-empty" class="text-center text-muted py-5" style="display: none;">
+                            <i class="bi bi-database-x fs-1 d-block mb-3"></i>
+                            <p class="mb-2">벤치마크 데이터가 없습니다.</p>
+                            <button class="btn btn-sm btn-outline-primary" onclick="generateSampleBenchmark()">
+                                <i class="bi bi-download me-1"></i>샘플 데이터 생성
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 커스텀 기간 리포트 모달 -->
+    <div class="modal fade" id="customReportModal" tabindex="-1" aria-labelledby="customReportModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="customReportModalLabel">
+                        <i class="bi bi-calendar2-range me-2"></i>기간 선택 리포트
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="customReportForm">
+                        <div class="mb-3">
+                            <label for="reportStartDate" class="form-label">시작일</label>
+                            <input type="date" class="form-control" id="reportStartDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reportEndDate" class="form-label">종료일</label>
+                            <input type="date" class="form-control" id="reportEndDate" required>
+                        </div>
+                        <div class="alert alert-info" role="alert">
+                            <i class="bi bi-info-circle me-2"></i>
+                            선택한 기간의 포트폴리오 성과가 PDF 리포트로 생성됩니다.
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-primary" onclick="downloadCustomReport()">
+                        <i class="bi bi-download me-1"></i>리포트 다운로드
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <script src="auth.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
