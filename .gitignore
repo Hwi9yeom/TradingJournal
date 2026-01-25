@@ -44,3 +44,10 @@ TECH_STACK_COMPARISON.md
 
 ### Logs ###
 logs/
+
+### Secrets & Local Config ###
+application-local.properties
+**/application-local.properties
+.env
+.env.local
+.env.*.local
