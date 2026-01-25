@@ -5,7 +5,6 @@ import com.trading.journal.dto.PortfolioSummaryDto;
 import com.trading.journal.dto.PortfolioTreemapDto;
 import com.trading.journal.entity.HistoricalPrice;
 import com.trading.journal.entity.Portfolio;
-import com.trading.journal.entity.TransactionType;
 import com.trading.journal.repository.HistoricalPriceRepository;
 import com.trading.journal.repository.PortfolioRepository;
 import com.trading.journal.repository.TransactionRepository;
@@ -39,7 +38,8 @@ public class PortfolioAnalysisService {
 
     @Cacheable(value = "portfolio", key = "'summary'")
     public PortfolioSummaryDto getPortfolioSummary() {
-        List<Portfolio> portfolios = portfolioRepository.findAll();
+        // FETCH JOIN으로 Stock과 Account를 함께 로딩하여 N+1 쿼리 방지
+        List<Portfolio> portfolios = portfolioRepository.findAllWithStockAndAccount();
         List<PortfolioDto> holdings = new ArrayList<>();
 
         BigDecimal totalInvestment = BigDecimal.ZERO;
@@ -76,12 +76,8 @@ public class PortfolioAnalysisService {
                             .multiply(new BigDecimal("100"));
         }
 
-        // 실현 손익 계산 (모든 매도 거래의 FIFO 기반 실현손익 합계)
-        BigDecimal totalRealizedPnl =
-                transactionRepository.findAll().stream()
-                        .filter(t -> t.getType() == TransactionType.SELL)
-                        .map(t -> t.getRealizedPnl() != null ? t.getRealizedPnl() : BigDecimal.ZERO)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // 실현 손익 계산 - DB 집계 쿼리 사용 (인메모리 연산 대신 성능 최적화)
+        BigDecimal totalRealizedPnl = transactionRepository.sumTotalRealizedPnl();
 
         return PortfolioSummaryDto.builder()
                 .totalInvestment(totalInvestment)
@@ -190,7 +186,8 @@ public class PortfolioAnalysisService {
                     "Invalid period: " + period + ". Valid periods: " + VALID_PERIODS);
         }
 
-        List<Portfolio> portfolios = portfolioRepository.findAll();
+        // FETCH JOIN으로 Stock과 Account를 함께 로딩하여 N+1 쿼리 방지
+        List<Portfolio> portfolios = portfolioRepository.findAllWithStockAndAccount();
         List<PortfolioTreemapDto.TreemapCell> cells = new ArrayList<>();
 
         LocalDate endDate = LocalDate.now();

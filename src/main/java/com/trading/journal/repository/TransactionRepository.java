@@ -106,6 +106,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
+    /** 전체 실현 손익 합계 조회 (모든 SELL 거래) */
+    @Query("SELECT COALESCE(SUM(t.realizedPnl), 0) FROM Transaction t WHERE t.type = 'SELL'")
+    java.math.BigDecimal sumTotalRealizedPnl();
+
     // ===== 리스크 관리용 쿼리 =====
 
     /** 계좌/종목/타입별 거래 조회 (날짜 오름차순) - R-multiple 계산용 */
