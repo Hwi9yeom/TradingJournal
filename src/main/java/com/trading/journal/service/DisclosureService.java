@@ -125,8 +125,9 @@ public class DisclosureService {
 
     /** 포트폴리오 전체 공시 동기화 */
     public void syncAllPortfolioDisclosures() {
+        // FETCH JOIN으로 Stock 함께 로딩하여 N+1 쿼리 방지
         List<Stock> portfolioStocks =
-                portfolioRepository.findAll().stream()
+                portfolioRepository.findAllWithStockAndAccount().stream()
                         .map(portfolio -> portfolio.getStock())
                         .distinct()
                         .collect(Collectors.toList());

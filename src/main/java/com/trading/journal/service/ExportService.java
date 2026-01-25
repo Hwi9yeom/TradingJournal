@@ -463,7 +463,8 @@ public class ExportService {
             LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
             return transactionRepository.findByDateRange(startDateTime, endDateTime);
         }
-        return transactionRepository.findAll();
+        // FETCH JOIN으로 Stock 함께 로딩하여 N+1 쿼리 방지
+        return transactionRepository.findAllWithStock();
     }
 
     private BigDecimal calculateAmount(Transaction tx) {

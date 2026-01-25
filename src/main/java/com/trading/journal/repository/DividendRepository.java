@@ -94,4 +94,18 @@ public interface DividendRepository extends JpaRepository<Dividend, Long> {
     // account_id가 NULL인 배당금 (마이그레이션용)
     @Query("SELECT d FROM Dividend d WHERE d.account IS NULL")
     List<Dividend> findByAccountIsNull();
+
+    // ===== 집계 쿼리 (N+1 방지) =====
+
+    /** 전체 순배당금 합계 */
+    @Query("SELECT COALESCE(SUM(d.netAmount), 0) FROM Dividend d")
+    BigDecimal sumTotalNetAmount();
+
+    /** 전체 세금 합계 */
+    @Query("SELECT COALESCE(SUM(d.taxAmount), 0) FROM Dividend d")
+    BigDecimal sumTotalTaxAmount();
+
+    /** FETCH JOIN으로 Stock 함께 로딩 */
+    @Query("SELECT d FROM Dividend d JOIN FETCH d.stock LEFT JOIN FETCH d.account")
+    List<Dividend> findAllWithStockAndAccount();
 }

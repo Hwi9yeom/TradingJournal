@@ -148,17 +148,9 @@ public class DividendService {
         LocalDate yearStart = LocalDate.of(now.getYear(), 1, 1);
         LocalDate yearEnd = LocalDate.of(now.getYear(), 12, 31);
 
-        // 전체 배당금
-        List<Dividend> allDividends = dividendRepository.findAll();
-        BigDecimal totalDividends =
-                allDividends.stream()
-                        .map(Dividend::getNetAmount)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalTax =
-                allDividends.stream()
-                        .map(Dividend::getTaxAmount)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // 전체 배당금 - DB 집계 쿼리 사용 (N+1 방지 및 성능 최적화)
+        BigDecimal totalDividends = dividendRepository.sumTotalNetAmount();
+        BigDecimal totalTax = dividendRepository.sumTotalTaxAmount();
 
         // 올해 배당금
         BigDecimal yearlyDividends =

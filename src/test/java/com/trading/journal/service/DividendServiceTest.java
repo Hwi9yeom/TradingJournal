@@ -214,9 +214,9 @@ class DividendServiceTest {
     @Test
     @DisplayName("배당금 요약 정보 조회")
     void getDividendSummary() {
-        // Given
-        List<Dividend> allDividends = Arrays.asList(mockDividend);
-        when(dividendRepository.findAll()).thenReturn(allDividends);
+        // Given - DB 집계 쿼리 mock
+        when(dividendRepository.sumTotalNetAmount()).thenReturn(new BigDecimal("21.15"));
+        when(dividendRepository.sumTotalTaxAmount()).thenReturn(new BigDecimal("3.85"));
         when(dividendRepository.getTotalDividendsByPeriod(any(), any()))
                 .thenReturn(new BigDecimal("500.00"));
         when(dividendRepository.getTopDividendStocks(any(), any())).thenReturn(Arrays.asList());
@@ -235,7 +235,8 @@ class DividendServiceTest {
         assertThat(result.getTotalDividends()).isEqualTo(new BigDecimal("21.15"));
         assertThat(result.getTotalTax()).isEqualTo(new BigDecimal("3.85"));
 
-        verify(dividendRepository).findAll();
+        verify(dividendRepository).sumTotalNetAmount();
+        verify(dividendRepository).sumTotalTaxAmount();
         verify(portfolioAnalysisService).getPortfolioSummary();
     }
 }

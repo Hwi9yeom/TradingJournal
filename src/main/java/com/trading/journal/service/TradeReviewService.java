@@ -136,7 +136,8 @@ public class TradeReviewService {
     /** 복기 통계 조회 */
     @Transactional(readOnly = true)
     public ReviewStatisticsDto getStatistics() {
-        List<TradeReview> allReviews = reviewRepository.findAll();
+        // FETCH JOIN으로 Transaction 함께 로딩하여 N+1 쿼리 방지
+        List<TradeReview> allReviews = reviewRepository.findAllWithTransaction();
         long totalTransactions = transactionRepository.count();
 
         // 전략별 통계

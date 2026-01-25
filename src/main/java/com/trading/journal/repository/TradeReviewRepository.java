@@ -60,4 +60,8 @@ public interface TradeReviewRepository extends JpaRepository<TradeReview, Long> 
                     + "FROM TradeReview r WHERE r.emotionBefore IS NOT NULL AND r.transaction.realizedPnl IS NOT NULL "
                     + "GROUP BY r.emotionBefore")
     List<Object[]> getEmotionBeforeStatistics();
+
+    /** FETCH JOIN으로 Transaction 함께 로딩 (N+1 방지) */
+    @Query("SELECT r FROM TradeReview r LEFT JOIN FETCH r.transaction")
+    List<TradeReview> findAllWithTransaction();
 }

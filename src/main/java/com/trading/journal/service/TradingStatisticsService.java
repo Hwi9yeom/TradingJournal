@@ -297,7 +297,8 @@ public class TradingStatisticsService {
     public Map<String, Object> getOverallStatistics() {
         log.debug("전체 거래 통계 조회 시작");
 
-        List<Transaction> allTx = transactionRepository.findAll();
+        // FETCH JOIN으로 Stock 함께 로딩하여 N+1 쿼리 방지
+        List<Transaction> allTx = transactionRepository.findAllWithStock();
         Map<String, Object> stats = new HashMap<>();
 
         stats.put("totalTrades", allTx.size());
@@ -348,7 +349,8 @@ public class TradingStatisticsService {
     public List<Map<String, Object>> getMonthlyReturns() {
         log.debug("월별 수익률 조회 시작");
 
-        List<Transaction> allTx = transactionRepository.findAll();
+        // FETCH JOIN으로 Stock 함께 로딩하여 N+1 쿼리 방지
+        List<Transaction> allTx = transactionRepository.findAllWithStock();
         Map<String, List<Transaction>> byMonth = groupTransactionsByMonth(allTx);
 
         List<Map<String, Object>> result = buildMonthlyReturnsResponse(byMonth);

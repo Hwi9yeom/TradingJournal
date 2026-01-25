@@ -56,8 +56,8 @@ class PortfolioAnalysisServiceTest {
     void getPortfolioSummary_SingleStock() {
         // Given
         List<Portfolio> portfolios = Arrays.asList(mockPortfolio);
-        when(portfolioRepository.findAll()).thenReturn(portfolios);
-        when(transactionRepository.findAll()).thenReturn(Collections.emptyList());
+        when(portfolioRepository.findAllWithStockAndAccount()).thenReturn(portfolios);
+        when(transactionRepository.sumTotalRealizedPnl()).thenReturn(BigDecimal.ZERO);
         when(stockPriceService.getCurrentPrice("AAPL")).thenReturn(new BigDecimal("160.00"));
         when(stockPriceService.getPreviousClose("AAPL")).thenReturn(new BigDecimal("158.00"));
 
@@ -95,8 +95,8 @@ class PortfolioAnalysisServiceTest {
                         .build();
 
         List<Portfolio> portfolios = Arrays.asList(mockPortfolio, portfolio2);
-        when(portfolioRepository.findAll()).thenReturn(portfolios);
-        when(transactionRepository.findAll()).thenReturn(Collections.emptyList());
+        when(portfolioRepository.findAllWithStockAndAccount()).thenReturn(portfolios);
+        when(transactionRepository.sumTotalRealizedPnl()).thenReturn(BigDecimal.ZERO);
         when(stockPriceService.getCurrentPrice("AAPL")).thenReturn(new BigDecimal("160.00"));
         when(stockPriceService.getPreviousClose("AAPL")).thenReturn(new BigDecimal("158.00"));
         when(stockPriceService.getCurrentPrice("GOOGL")).thenReturn(new BigDecimal("2100.00"));
@@ -116,8 +116,8 @@ class PortfolioAnalysisServiceTest {
     @DisplayName("포트폴리오 요약 조회 - 빈 포트폴리오")
     void getPortfolioSummary_EmptyPortfolio() {
         // Given
-        when(portfolioRepository.findAll()).thenReturn(Collections.emptyList());
-        when(transactionRepository.findAll()).thenReturn(Collections.emptyList());
+        when(portfolioRepository.findAllWithStockAndAccount()).thenReturn(Collections.emptyList());
+        when(transactionRepository.sumTotalRealizedPnl()).thenReturn(BigDecimal.ZERO);
 
         // When
         PortfolioSummaryDto summary = portfolioAnalysisService.getPortfolioSummary();
@@ -166,8 +166,9 @@ class PortfolioAnalysisServiceTest {
     @DisplayName("포트폴리오 메트릭 계산 - API 오류 처리")
     void calculatePortfolioMetrics_ApiError() {
         // Given
-        when(portfolioRepository.findAll()).thenReturn(Arrays.asList(mockPortfolio));
-        when(transactionRepository.findAll()).thenReturn(Collections.emptyList());
+        when(portfolioRepository.findAllWithStockAndAccount())
+                .thenReturn(Arrays.asList(mockPortfolio));
+        when(transactionRepository.sumTotalRealizedPnl()).thenReturn(BigDecimal.ZERO);
         when(stockPriceService.getCurrentPrice("AAPL"))
                 .thenThrow(new RuntimeException("API Error"));
 
