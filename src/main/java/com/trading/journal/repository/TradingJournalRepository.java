@@ -114,4 +114,8 @@ public interface TradingJournalRepository extends JpaRepository<TradingJournal, 
             @Param("accountId") Long accountId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    /** 계좌별 기간별 일지 조회 (날짜 내림차순) */
+    List<TradingJournal> findByAccountIdAndJournalDateBetweenOrderByJournalDateDesc(
+            Long accountId, LocalDate startDate, LocalDate endDate);
 }

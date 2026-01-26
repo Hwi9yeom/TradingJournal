@@ -28,8 +28,10 @@ public interface EconomicEventRepository extends JpaRepository<EconomicEvent, Lo
 
     /** 오늘 이벤트 조회 */
     @Query(
-            "SELECT e FROM EconomicEvent e WHERE DATE(e.eventTime) = CURRENT_DATE ORDER BY e.eventTime")
-    List<EconomicEvent> findTodayEvents();
+            "SELECT e FROM EconomicEvent e WHERE e.eventTime BETWEEN :startOfDay AND :endOfDay ORDER BY e.eventTime")
+    List<EconomicEvent> findTodayEvents(
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay);
 
     /** 특정 국가의 이벤트 조회 */
     List<EconomicEvent> findByCountryAndEventTimeBetweenOrderByEventTimeAsc(

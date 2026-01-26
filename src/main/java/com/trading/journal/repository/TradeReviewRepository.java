@@ -64,4 +64,73 @@ public interface TradeReviewRepository extends JpaRepository<TradeReview, Long> 
     /** FETCH JOIN으로 Transaction 함께 로딩 (N+1 방지) */
     @Query("SELECT r FROM TradeReview r LEFT JOIN FETCH r.transaction")
     List<TradeReview> findAllWithTransaction();
+
+    /** 심리 분석: 감정 전환 통계 */
+    @Query(
+            "SELECT tr.emotionBefore, tr.emotionAfter, COUNT(tr), "
+                    + "SUM(CASE WHEN t.realizedPnl >= 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(tr), "
+                    + "AVG(t.realizedPnl) "
+                    + "FROM TradeReview tr JOIN tr.transaction t "
+                    + "WHERE t.account.id = :accountId "
+                    + "AND tr.emotionBefore IS NOT NULL AND tr.emotionAfter IS NOT NULL "
+                    + "AND t.transactionDate BETWEEN :startDate AND :endDate "
+                    + "GROUP BY tr.emotionBefore, tr.emotionAfter "
+                    + "ORDER BY COUNT(tr) DESC")
+    List<Object[]> getEmotionTransitionStats(
+            @Param("accountId") Long accountId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    /** 심리 분석: 틸트 분석용 거래 조회 */
+    @Query(
+            "SELECT tr FROM TradeReview tr JOIN FETCH tr.transaction t "
+                    + "WHERE t.account.id = :accountId "
+                    + "AND tr.emotionBefore IS NOT NULL AND tr.emotionAfter IS NOT NULL "
+                    + "AND t.transactionDate BETWEEN :startDate AND :endDate "
+                    + "ORDER BY t.transactionDate ASC, tr.createdAt ASC")
+    List<TradeReview> findTradesForTiltAnalysis(
+            @Param("accountId") Long accountId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    /** 심리 분석: 감정-실수 상관관계 (tags를 실수 유형으로 사용) */
+    @Query(
+            "SELECT tr.emotionBefore, tr.tags, COUNT(tr) "
+                    + "FROM TradeReview tr JOIN tr.transaction t "
+                    + "WHERE t.account.id = :accountId "
+                    + "AND tr.emotionBefore IS NOT NULL "
+                    + "AND tr.tags IS NOT NULL "
+                    + "AND t.transactionDate BETWEEN :startDate AND :endDate "
+                    + "GROUP BY tr.emotionBefore, tr.tags")
+    List<Object[]> getEmotionMistakeCorrelation(
+            @Param("accountId") Long accountId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    /** 심리 분석: 감정별 거래 수 */
+    @Query(
+            "SELECT tr.emotionBefore, COUNT(tr) "
+                    + "FROM TradeReview tr JOIN tr.transaction t "
+                    + "WHERE t.account.id = :accountId "
+                    + "AND tr.emotionBefore IS NOT NULL "
+                    + "AND t.transactionDate BETWEEN :startDate AND :endDate "
+                    + "GROUP BY tr.emotionBefore")
+    List<Object[]> countTradesByEmotion(
+            @Param("accountId") Long accountId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    /** 심리 분석: 요일별 통계 */
+    @Query(
+            "SELECT FUNCTION('DAYOFWEEK', t.transactionDate), COUNT(tr), "
+                    + "SUM(CASE WHEN t.realizedPnl >= 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(tr), "
+                    + "AVG(t.realizedPnl), tr.emotionBefore "
+                    + "FROM TradeReview tr JOIN tr.transaction t "
+                    + "WHERE t.account.id = :accountId "
+                    + "AND t.transactionDate BETWEEN :startDate AND :endDate "
+                    + "GROUP BY FUNCTION('DAYOFWEEK', t.transactionDate), tr.emotionBefore")
+    List<Object[]> getDayOfWeekStats(
+            @Param("accountId") Long accountId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 }

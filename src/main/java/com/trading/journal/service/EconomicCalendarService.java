@@ -101,7 +101,9 @@ public class EconomicCalendarService {
 
     /** 오늘 이벤트 조회 */
     public List<EconomicEventDto> getTodayEvents() {
-        List<EconomicEvent> events = eventRepository.findTodayEvents();
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
+        List<EconomicEvent> events = eventRepository.findTodayEvents(startOfDay, endOfDay);
         Set<String> portfolioSymbols = getPortfolioSymbols();
         return events.stream().map(e -> toDto(e, portfolioSymbols)).toList();
     }
