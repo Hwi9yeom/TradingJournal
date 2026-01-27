@@ -71,6 +71,7 @@ public class AccountRiskSettingsService {
                         .maxStockConcentrationPercent(dto.getMaxStockConcentrationPercent())
                         .accountCapital(dto.getAccountCapital())
                         .kellyFraction(dto.getKellyFraction())
+                        .maxHoldingDays(dto.getMaxHoldingDays())
                         .dailyLossAlertEnabled(dto.getDailyLossAlertEnabled())
                         .concentrationAlertEnabled(dto.getConcentrationAlertEnabled())
                         .build();
@@ -105,6 +106,7 @@ public class AccountRiskSettingsService {
         settings.setMaxStockConcentrationPercent(dto.getMaxStockConcentrationPercent());
         settings.setAccountCapital(dto.getAccountCapital());
         settings.setKellyFraction(dto.getKellyFraction());
+        settings.setMaxHoldingDays(dto.getMaxHoldingDays());
         settings.setDailyLossAlertEnabled(dto.getDailyLossAlertEnabled());
         settings.setConcentrationAlertEnabled(dto.getConcentrationAlertEnabled());
 
@@ -245,6 +247,7 @@ public class AccountRiskSettingsService {
                 .maxSectorConcentrationPercent(new BigDecimal("30.00"))
                 .maxStockConcentrationPercent(new BigDecimal("15.00"))
                 .kellyFraction(new BigDecimal("0.50"))
+                .maxHoldingDays(30)
                 .dailyLossAlertEnabled(true)
                 .concentrationAlertEnabled(true)
                 .currentDayPnl(getTodayPnl(account.getId()))
@@ -273,6 +276,7 @@ public class AccountRiskSettingsService {
                         .maxStockConcentrationPercent(settings.getMaxStockConcentrationPercent())
                         .accountCapital(settings.getAccountCapital())
                         .kellyFraction(settings.getKellyFraction())
+                        .maxHoldingDays(settings.getMaxHoldingDays())
                         .dailyLossAlertEnabled(settings.getDailyLossAlertEnabled())
                         .concentrationAlertEnabled(settings.getConcentrationAlertEnabled())
                         .createdAt(settings.getCreatedAt())

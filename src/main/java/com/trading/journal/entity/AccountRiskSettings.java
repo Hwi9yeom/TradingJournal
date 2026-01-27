@@ -72,6 +72,9 @@ public class AccountRiskSettings {
     @Builder.Default
     private BigDecimal kellyFraction = new BigDecimal("0.50");
 
+    /** 과도한 보유 판단 기준 일수 (기본 30일) */
+    @Builder.Default private Integer maxHoldingDays = 30;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

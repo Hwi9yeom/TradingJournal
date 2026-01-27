@@ -64,6 +64,12 @@ public class AccountRiskSettingsDto {
     @Builder.Default
     private BigDecimal kellyFraction = new BigDecimal("0.50");
 
+    // 보유 기간 설정
+    @Min(value = 1, message = "Max holding days must be at least 1")
+    @Max(value = 365, message = "Max holding days cannot exceed 365")
+    @Builder.Default
+    private Integer maxHoldingDays = 30;
+
     // 알림 설정
     @Builder.Default private Boolean dailyLossAlertEnabled = true;
 

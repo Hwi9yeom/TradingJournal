@@ -2,8 +2,10 @@ package com.trading.journal.service;
 
 import com.trading.journal.dto.TradingStatisticsDto;
 import com.trading.journal.dto.TradingStatisticsDto.*;
+import com.trading.journal.entity.AccountRiskSettings;
 import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
+import com.trading.journal.repository.AccountRiskSettingsRepository;
 import com.trading.journal.repository.TransactionRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -88,6 +90,9 @@ public class TradingStatisticsService {
     /** 상위 종목 통계 표시 개수 */
     private static final int TOP_SYMBOLS_LIMIT = 10;
 
+    /** 과도한 보유 판단 기준 (일 단위) */
+    private static final BigDecimal HOLDING_TOO_LONG_THRESHOLD = new BigDecimal("30");
+
     /** 실수 예시 표시 개수 */
     private static final int MISTAKE_EXAMPLES_LIMIT = 3;
 
@@ -129,6 +134,7 @@ public class TradingStatisticsService {
     // ============================================================
 
     private final TransactionRepository transactionRepository;
+    private final AccountRiskSettingsRepository accountRiskSettingsRepository;
 
     // ============================================================
     // Public API - 통계 조회 메서드
@@ -194,7 +200,11 @@ public class TradingStatisticsService {
                 getSellTransactionsWithPnl(accountId, startDate, endDate);
         Map<String, List<Transaction>> bySymbol = groupTransactionsBySymbol(sellTransactions);
 
-        List<SymbolStats> stats = buildSymbolStats(bySymbol);
+        // FIFO 기반 보유 기간 계산
+        Map<Long, BigDecimal> holdingDaysMap =
+                calculateFifoHoldingDays(accountId, sellTransactions);
+
+        List<SymbolStats> stats = buildSymbolStats(bySymbol, holdingDaysMap);
         sortAndRankSymbolStats(stats);
 
         log.debug("종목별 성과 분석 완료 - {} 종목 분석됨", stats.size());
@@ -219,7 +229,7 @@ public class TradingStatisticsService {
         analyzeNoStopLossPattern(sellTransactions, patterns);
         analyzeOvertradingPattern(sellTransactions, patterns);
         analyzeRevengeTradingPattern(sellTransactions, patterns);
-        // TODO: FIFO 매칭 기반 보유 기간 계산이 필요한 과도한 보유(30일 이상) 분석
+        analyzeHoldingTooLongPattern(accountId, sellTransactions, patterns);
 
         log.debug("실수 패턴 분석 완료 - {} 패턴 발견됨", patterns.size());
         return patterns;
@@ -535,6 +545,17 @@ public class TradingStatisticsService {
     /** 수익률 통계 레코드 */
     private record ReturnStatistics(int wins, double totalReturnPct, double maxReturnPct) {}
 
+    /** FIFO 시뮬레이션용 매수 항목 */
+    private static class FifoBuyEntry {
+        final LocalDateTime buyDate;
+        BigDecimal remainingQuantity;
+
+        FifoBuyEntry(LocalDateTime buyDate, BigDecimal quantity) {
+            this.buyDate = buyDate;
+            this.remainingQuantity = quantity;
+        }
+    }
+
     // ============================================================
     // Private Methods - 시간대별 통계 생성
     // ============================================================
@@ -603,19 +624,21 @@ public class TradingStatisticsService {
     // Private Methods - 종목별 통계 생성
     // ============================================================
 
-    private List<SymbolStats> buildSymbolStats(Map<String, List<Transaction>> bySymbol) {
+    private List<SymbolStats> buildSymbolStats(
+            Map<String, List<Transaction>> bySymbol, Map<Long, BigDecimal> holdingDaysMap) {
         List<SymbolStats> stats = new ArrayList<>();
 
         for (Map.Entry<String, List<Transaction>> entry : bySymbol.entrySet()) {
             String symbol = entry.getKey();
             List<Transaction> symbolTrades = entry.getValue();
-            stats.add(buildSingleSymbolStats(symbol, symbolTrades));
+            stats.add(buildSingleSymbolStats(symbol, symbolTrades, holdingDaysMap));
         }
 
         return stats;
     }
 
-    private SymbolStats buildSingleSymbolStats(String symbol, List<Transaction> trades) {
+    private SymbolStats buildSingleSymbolStats(
+            String symbol, List<Transaction> trades, Map<Long, BigDecimal> holdingDaysMap) {
         TradeBasicStats basicStats = calculateBasicStats(trades);
         String stockName = trades.get(0).getStock().getName();
 
@@ -628,7 +651,7 @@ public class TradingStatisticsService {
                 .totalReturn(basicStats.totalReturn())
                 .avgReturn(basicStats.avgReturn())
                 .totalProfit(basicStats.totalProfit())
-                .avgHoldingDays(BigDecimal.ZERO) // TODO: FIFO 매칭으로 계산
+                .avgHoldingDays(calculateAvgHoldingDaysForSymbol(trades, holdingDaysMap))
                 .build();
     }
 
@@ -699,6 +722,51 @@ public class TradingStatisticsService {
                             revengeTrades,
                             PRIORITY_STR_HIGH));
         }
+    }
+
+    /** 과도한 보유 패턴 분석 - FIFO 매칭 기반 보유 기간 계산 (기준: 계좌 리스크 설정의 maxHoldingDays) */
+    private void analyzeHoldingTooLongPattern(
+            Long accountId, List<Transaction> sellTransactions, List<MistakePattern> patterns) {
+        BigDecimal threshold = resolveMaxHoldingDays(accountId);
+
+        Map<Long, BigDecimal> holdingDays = calculateFifoHoldingDays(accountId, sellTransactions);
+
+        List<Transaction> longHolding =
+                sellTransactions.stream()
+                        .filter(
+                                t -> {
+                                    BigDecimal days = holdingDays.get(t.getId());
+                                    return days != null
+                                            && days.compareTo(threshold) > 0
+                                            && isLosingTrade(t);
+                                })
+                        .toList();
+
+        if (!longHolding.isEmpty()) {
+            log.debug("과도한 보유 패턴 발견 - {} 건 (기준: {}일)", longHolding.size(), threshold);
+            patterns.add(
+                    createMistakePattern(
+                            MistakeTypes.HOLDING_TOO_LONG,
+                            "과도한 보유",
+                            String.format(
+                                    "%s일 이상 보유하여 손실이 발생한 거래가 %d건 있습니다.",
+                                    threshold.stripTrailingZeros().toPlainString(),
+                                    longHolding.size()),
+                            longHolding,
+                            PRIORITY_STR_MEDIUM));
+        }
+    }
+
+    /** 계좌 리스크 설정에서 maxHoldingDays 조회 (설정 없으면 기본값 사용) */
+    private BigDecimal resolveMaxHoldingDays(Long accountId) {
+        if (accountId != null) {
+            return accountRiskSettingsRepository
+                    .findByAccountId(accountId)
+                    .map(AccountRiskSettings::getMaxHoldingDays)
+                    .map(BigDecimal::valueOf)
+                    .orElse(HOLDING_TOO_LONG_THRESHOLD);
+        }
+        return HOLDING_TOO_LONG_THRESHOLD;
     }
 
     private MistakePattern createMistakePattern(
@@ -1267,6 +1335,123 @@ public class TradingStatisticsService {
     }
 
     // ============================================================
+    // Private Methods - FIFO 기반 보유 기간 계산
+    // ============================================================
+
+    /**
+     * FIFO 매칭 기반 보유 기간 계산
+     *
+     * <p>종목별 매수/매도 거래를 FIFO 순서로 매칭하여 각 매도 거래의 가중 평균 보유 기간을 산출합니다.
+     *
+     * @param accountId 계좌 ID (null이면 전체)
+     * @param sellTransactions 매도 거래 목록
+     * @return 매도 거래 ID → 보유 기간(일) 매핑
+     */
+    private Map<Long, BigDecimal> calculateFifoHoldingDays(
+            Long accountId, List<Transaction> sellTransactions) {
+        Map<Long, BigDecimal> holdingDaysMap = new HashMap<>();
+        if (sellTransactions.isEmpty()) {
+            return holdingDaysMap;
+        }
+
+        // 매도 거래를 (계좌, 종목) 쌍으로 그룹핑
+        Map<String, List<Transaction>> grouped =
+                sellTransactions.stream().collect(Collectors.groupingBy(this::accountStockKey));
+
+        for (List<Transaction> sells : grouped.values()) {
+            Transaction sample = sells.get(0);
+            Long accId = sample.getAccount() != null ? sample.getAccount().getId() : null;
+            Long stockId = sample.getStock().getId();
+
+            List<Transaction> sortedSells =
+                    sells.stream()
+                            .sorted(Comparator.comparing(Transaction::getTransactionDate))
+                            .toList();
+
+            // 해당 계좌/종목의 모든 매수 거래 조회 (FIFO 순서)
+            List<Transaction> buys =
+                    transactionRepository.findByAccountIdAndStockIdAndTypeOrderByTransactionDateAsc(
+                            accId, stockId, TransactionType.BUY);
+
+            simulateFifoMatching(sortedSells, buys, holdingDaysMap);
+        }
+
+        return holdingDaysMap;
+    }
+
+    /** FIFO 순서로 매수/매도를 매칭하여 보유 기간 계산 */
+    private void simulateFifoMatching(
+            List<Transaction> sortedSells,
+            List<Transaction> buys,
+            Map<Long, BigDecimal> holdingDaysMap) {
+        List<FifoBuyEntry> buyQueue = new ArrayList<>();
+        for (Transaction buy : buys) {
+            buyQueue.add(new FifoBuyEntry(buy.getTransactionDate(), buy.getQuantity()));
+        }
+
+        int buyIndex = 0;
+        for (Transaction sell : sortedSells) {
+            BigDecimal remainingToSell = sell.getQuantity();
+            BigDecimal weightedDays = BigDecimal.ZERO;
+            BigDecimal totalConsumed = BigDecimal.ZERO;
+
+            while (remainingToSell.compareTo(BigDecimal.ZERO) > 0 && buyIndex < buyQueue.size()) {
+                FifoBuyEntry entry = buyQueue.get(buyIndex);
+
+                if (entry.remainingQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+                    buyIndex++;
+                    continue;
+                }
+
+                BigDecimal consumed = entry.remainingQuantity.min(remainingToSell);
+                long days =
+                        java.time.temporal.ChronoUnit.DAYS.between(
+                                entry.buyDate.toLocalDate(),
+                                sell.getTransactionDate().toLocalDate());
+
+                weightedDays = weightedDays.add(BigDecimal.valueOf(days).multiply(consumed));
+                totalConsumed = totalConsumed.add(consumed);
+
+                entry.remainingQuantity = entry.remainingQuantity.subtract(consumed);
+                remainingToSell = remainingToSell.subtract(consumed);
+
+                if (entry.remainingQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+                    buyIndex++;
+                }
+            }
+
+            if (totalConsumed.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal avgDays =
+                        weightedDays.divide(totalConsumed, DISPLAY_SCALE, RoundingMode.HALF_UP);
+                holdingDaysMap.put(sell.getId(), avgDays);
+            }
+        }
+    }
+
+    /** 종목별 평균 보유 기간 계산 (FIFO 결과 활용) */
+    private BigDecimal calculateAvgHoldingDaysForSymbol(
+            List<Transaction> trades, Map<Long, BigDecimal> holdingDaysMap) {
+        List<BigDecimal> days =
+                trades.stream()
+                        .map(t -> holdingDaysMap.get(t.getId()))
+                        .filter(Objects::nonNull)
+                        .toList();
+
+        if (days.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal total = days.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        return total.divide(BigDecimal.valueOf(days.size()), DISPLAY_SCALE, RoundingMode.HALF_UP);
+    }
+
+    /** (계좌ID, 종목ID) 키 생성 */
+    private String accountStockKey(Transaction t) {
+        Long accId = t.getAccount() != null ? t.getAccount().getId() : null;
+        return accId + ":" + t.getStock().getId();
+    }
+
+    // ============================================================
     // Private Methods - 유틸리티
     // ============================================================
 
@@ -1298,6 +1483,7 @@ public class TradingStatisticsService {
             case MistakeTypes.OVERTRADING -> "일일 최대 거래 횟수 3회로 제한";
             case MistakeTypes.REVENGE_TRADING -> "손실 후 최소 1시간 휴식 후 거래";
             case MistakeTypes.FOMO_ENTRY -> "진입 전 체크리스트 확인 필수";
+            case MistakeTypes.HOLDING_TOO_LONG -> "손실 포지션 보유 기간 30일 이내로 관리";
             default -> "거래 규칙 재검토";
         };
     }
