@@ -133,4 +133,18 @@ public class TradingPsychologyController {
         return ResponseEntity.ok(
                 psychologyService.analyzeDailyRhythm(accountId, startDate, endDate));
     }
+
+    // 10. Psychology-performance correlation
+    @GetMapping("/performance-correlation")
+    @Operation(
+            summary = "심리-성과 상관관계",
+            description = "감정 상태, 집중도/규율 점수, 계획 준수 여부와 거래 성과의 상관관계를 분석합니다.")
+    public ResponseEntity<PsychologyPerformanceCorrelation> getPerformanceCorrelation(
+            @RequestParam Long accountId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        log.info("Performance correlation analysis requested for account: {}", accountId);
+        return ResponseEntity.ok(
+                psychologyService.analyzePerformanceCorrelation(accountId, startDate, endDate));
+    }
 }

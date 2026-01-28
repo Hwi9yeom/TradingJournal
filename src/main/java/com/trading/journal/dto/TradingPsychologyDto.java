@@ -233,4 +233,100 @@ public class TradingPsychologyDto {
         private int occurrences;
         private BigDecimal avgImpactOnPnl;
     }
+
+    // ============================================================
+    // 심리-성과 상관관계 분석 (Performance Correlation)
+    // ============================================================
+
+    // 18. PsychologyPerformanceCorrelation - 전체 상관관계 분석 결과
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class PsychologyPerformanceCorrelation {
+        private List<EmotionPerformanceStats> emotionPerformance;
+        private ScoreCorrelation focusCorrelation;
+        private ScoreCorrelation disciplineCorrelation;
+        private OptimalState optimalState;
+        private PlanAdherenceStats planAdherence;
+        private List<String> recommendations;
+    }
+
+    // 19. EmotionPerformanceStats - 감정 상태별 성과
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class EmotionPerformanceStats {
+        private EmotionState emotion;
+        private String emotionLabel;
+        private int tradeCount;
+        private int winCount;
+        private BigDecimal winRate;
+        private BigDecimal avgPnl;
+        private BigDecimal totalPnl;
+        private BigDecimal avgRMultiple;
+        private String performanceGrade; // A, B, C, D, F
+    }
+
+    // 20. ScoreCorrelation - 점수(집중도/규율)와 성과의 상관관계
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ScoreCorrelation {
+        private String scoreName;
+        private List<ScorePerformanceGroup> groups;
+        private BigDecimal correlationCoefficient; // -1 ~ 1
+        private String correlationStrength; // STRONG, MODERATE, WEAK, NONE
+        private String recommendation;
+    }
+
+    // 21. ScorePerformanceGroup - 점수별 성과 그룹
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ScorePerformanceGroup {
+        private int score;
+        private int tradeCount;
+        private BigDecimal winRate;
+        private BigDecimal avgPnl;
+        private BigDecimal totalPnl;
+    }
+
+    // 22. OptimalState - 최적 심리 상태 분석
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class OptimalState {
+        private EmotionState bestEmotion;
+        private String bestEmotionLabel;
+        private Integer optimalFocusMin;
+        private Integer optimalFocusMax;
+        private Integer optimalDisciplineMin;
+        private Integer optimalDisciplineMax;
+        private BigDecimal optimalWinRate;
+        private BigDecimal optimalAvgPnl;
+        private BigDecimal overallWinRate;
+        private BigDecimal overallAvgPnl;
+        private BigDecimal improvementPercent;
+    }
+
+    // 23. PlanAdherenceStats - 매매 계획 준수 vs 미준수 성과 비교
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class PlanAdherenceStats {
+        private int followedCount;
+        private BigDecimal followedWinRate;
+        private BigDecimal followedAvgPnl;
+        private int notFollowedCount;
+        private BigDecimal notFollowedWinRate;
+        private BigDecimal notFollowedAvgPnl;
+        private BigDecimal winRateDifference;
+        private BigDecimal pnlDifference;
+    }
 }

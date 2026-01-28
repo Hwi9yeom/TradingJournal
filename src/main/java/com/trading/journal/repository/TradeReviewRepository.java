@@ -133,4 +133,49 @@ public interface TradeReviewRepository extends JpaRepository<TradeReview, Long> 
             @Param("accountId") Long accountId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
+    /** 심리-성과 상관관계: 감정 상태별 성과 통계 */
+    @Query(
+            "SELECT tr.emotionBefore, COUNT(tr), "
+                    + "SUM(CASE WHEN t.realizedPnl > 0 THEN 1 ELSE 0 END), "
+                    + "AVG(t.realizedPnl), SUM(t.realizedPnl), AVG(t.rMultiple) "
+                    + "FROM TradeReview tr JOIN tr.transaction t "
+                    + "WHERE t.account.id = :accountId "
+                    + "AND tr.emotionBefore IS NOT NULL "
+                    + "AND t.realizedPnl IS NOT NULL "
+                    + "AND t.transactionDate BETWEEN :startDate AND :endDate "
+                    + "GROUP BY tr.emotionBefore")
+    List<Object[]> getEmotionPerformanceStats(
+            @Param("accountId") Long accountId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    /** 심리-성과 상관관계: 계획 준수 여부별 성과 */
+    @Query(
+            "SELECT tr.followedPlan, COUNT(tr), "
+                    + "SUM(CASE WHEN t.realizedPnl > 0 THEN 1 ELSE 0 END), "
+                    + "AVG(t.realizedPnl), SUM(t.realizedPnl) "
+                    + "FROM TradeReview tr JOIN tr.transaction t "
+                    + "WHERE t.account.id = :accountId "
+                    + "AND tr.followedPlan IS NOT NULL "
+                    + "AND t.realizedPnl IS NOT NULL "
+                    + "AND t.transactionDate BETWEEN :startDate AND :endDate "
+                    + "GROUP BY tr.followedPlan")
+    List<Object[]> getPlanAdherencePerformance(
+            @Param("accountId") Long accountId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    /** 심리-성과 상관관계: 감정별 거래 상세 (집중도/규율 점수 상관관계 분석용) */
+    @Query(
+            "SELECT tr FROM TradeReview tr JOIN FETCH tr.transaction t "
+                    + "WHERE t.account.id = :accountId "
+                    + "AND tr.emotionBefore IS NOT NULL "
+                    + "AND t.realizedPnl IS NOT NULL "
+                    + "AND t.transactionDate BETWEEN :startDate AND :endDate "
+                    + "ORDER BY t.transactionDate ASC")
+    List<TradeReview> findReviewsWithPerformance(
+            @Param("accountId") Long accountId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 }

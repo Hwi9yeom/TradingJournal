@@ -1061,4 +1061,552 @@ public class TradingPsychologyService {
         }
         return null;
     }
+
+    /**
+     * 심리-성과 상관관계 분석
+     *
+     * @param accountId 계좌 ID
+     * @param startDate 시작일
+     * @param endDate 종료일
+     * @return 심리-성과 상관관계 분석 결과
+     */
+    public PsychologyPerformanceCorrelation analyzePerformanceCorrelation(
+            Long accountId, LocalDate startDate, LocalDate endDate) {
+        log.info(
+                "Analyzing psychology-performance correlation for account: {} from {} to {}",
+                accountId,
+                startDate,
+                endDate);
+
+        LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
+        LocalDateTime endDateTime = endDate != null ? endDate.atTime(23, 59, 59) : null;
+
+        // 1. 감정별 성과 통계
+        List<EmotionPerformanceStats> emotionPerformance =
+                calculateEmotionPerformanceStats(accountId, startDateTime, endDateTime);
+
+        // 2. 집중도 점수 상관관계
+        ScoreCorrelation focusCorrelation =
+                calculateScoreCorrelation(accountId, startDate, endDate, "focusScore", "집중도");
+
+        // 3. 규율 점수 상관관계
+        ScoreCorrelation disciplineCorrelation =
+                calculateScoreCorrelation(accountId, startDate, endDate, "disciplineScore", "규율");
+
+        // 4. 최적 상태 분석
+        OptimalState optimalState =
+                calculateOptimalState(
+                        emotionPerformance,
+                        focusCorrelation.getGroups(),
+                        disciplineCorrelation.getGroups());
+
+        // 5. 계획 준수 통계
+        PlanAdherenceStats planAdherence =
+                calculatePlanAdherenceStats(accountId, startDateTime, endDateTime);
+
+        // 6. 추천사항 생성
+        List<String> recommendations =
+                generatePerformanceRecommendations(
+                        emotionPerformance,
+                        focusCorrelation,
+                        disciplineCorrelation,
+                        optimalState,
+                        planAdherence);
+
+        return PsychologyPerformanceCorrelation.builder()
+                .emotionPerformance(emotionPerformance)
+                .focusCorrelation(focusCorrelation)
+                .disciplineCorrelation(disciplineCorrelation)
+                .optimalState(optimalState)
+                .planAdherence(planAdherence)
+                .recommendations(recommendations)
+                .build();
+    }
+
+    /**
+     * 감정별 성과 통계 계산
+     *
+     * @param accountId 계좌 ID
+     * @param startDateTime 시작 일시
+     * @param endDateTime 종료 일시
+     * @return 감정별 성과 통계 목록
+     */
+    private List<EmotionPerformanceStats> calculateEmotionPerformanceStats(
+            Long accountId, LocalDateTime startDateTime, LocalDateTime endDateTime) {
+
+        List<Object[]> stats =
+                tradeReviewRepository.getEmotionPerformanceStats(
+                        accountId, startDateTime, endDateTime);
+
+        return stats.stream()
+                .map(
+                        row -> {
+                            EmotionState emotion = (EmotionState) row[0];
+                            Long count = (Long) row[1];
+                            Long winCount = (Long) row[2];
+                            Double avgPnl = row[3] != null ? (Double) row[3] : 0.0;
+                            Double totalPnl = row[4] != null ? (Double) row[4] : 0.0;
+                            Double avgRMultiple = row[5] != null ? (Double) row[5] : 0.0;
+
+                            BigDecimal winRate =
+                                    count > 0
+                                            ? BigDecimal.valueOf(winCount * 100.0 / count)
+                                                    .setScale(2, RoundingMode.HALF_UP)
+                                            : BigDecimal.ZERO;
+
+                            // 승률 기반 등급: 60%+ → A, 55%+ → B, 50%+ → C, 45%+ → D, else → F
+                            String performanceGrade = calculateWinRateGrade(winRate);
+
+                            return EmotionPerformanceStats.builder()
+                                    .emotion(emotion)
+                                    .emotionLabel(emotion.getLabel())
+                                    .tradeCount(count.intValue())
+                                    .winCount(winCount.intValue())
+                                    .winRate(winRate)
+                                    .avgPnl(
+                                            BigDecimal.valueOf(avgPnl)
+                                                    .setScale(2, RoundingMode.HALF_UP))
+                                    .totalPnl(
+                                            BigDecimal.valueOf(totalPnl)
+                                                    .setScale(2, RoundingMode.HALF_UP))
+                                    .avgRMultiple(
+                                            BigDecimal.valueOf(avgRMultiple)
+                                                    .setScale(2, RoundingMode.HALF_UP))
+                                    .performanceGrade(performanceGrade)
+                                    .build();
+                        })
+                .sorted(Comparator.comparing(EmotionPerformanceStats::getTotalPnl).reversed())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 승률 기반 등급 계산
+     *
+     * @param winRate 승률 (%)
+     * @return 등급 (A/B/C/D/F)
+     */
+    private String calculateWinRateGrade(BigDecimal winRate) {
+        if (winRate.compareTo(new BigDecimal("60")) >= 0) return "A";
+        if (winRate.compareTo(new BigDecimal("55")) >= 0) return "B";
+        if (winRate.compareTo(new BigDecimal("50")) >= 0) return "C";
+        if (winRate.compareTo(new BigDecimal("45")) >= 0) return "D";
+        return "F";
+    }
+
+    /**
+     * 점수별 상관관계 계산 (집중도 또는 규율)
+     *
+     * @param accountId 계좌 ID
+     * @param startDate 시작일
+     * @param endDate 종료일
+     * @param scoreField 점수 필드명 ("focusScore" or "disciplineScore")
+     * @param scoreName 점수 표시명
+     * @return 점수 상관관계
+     */
+    private ScoreCorrelation calculateScoreCorrelation(
+            Long accountId,
+            LocalDate startDate,
+            LocalDate endDate,
+            String scoreField,
+            String scoreName) {
+
+        List<TradingJournal> journals =
+                tradingJournalRepository.findByAccountIdAndJournalDateBetweenOrderByJournalDateDesc(
+                        accountId, startDate, endDate);
+
+        // 점수별 그룹화 (1-5)
+        Map<Integer, List<TradingJournal>> groupedByScore = new HashMap<>();
+        for (int score = 1; score <= 5; score++) {
+            groupedByScore.put(score, new ArrayList<>());
+        }
+
+        for (TradingJournal journal : journals) {
+            Integer score =
+                    "focusScore".equals(scoreField)
+                            ? journal.getFocusScore()
+                            : journal.getDisciplineScore();
+            if (score != null && score >= 1 && score <= 5) {
+                groupedByScore.get(score).add(journal);
+            }
+        }
+
+        // 각 그룹의 성과 계산
+        List<ScorePerformanceGroup> groups = new ArrayList<>();
+        for (int score = 1; score <= 5; score++) {
+            List<TradingJournal> scoreJournals = groupedByScore.get(score);
+
+            if (scoreJournals.isEmpty()) {
+                groups.add(
+                        ScorePerformanceGroup.builder()
+                                .score(score)
+                                .tradeCount(0)
+                                .winRate(BigDecimal.ZERO)
+                                .avgPnl(BigDecimal.ZERO)
+                                .totalPnl(BigDecimal.ZERO)
+                                .build());
+            } else {
+                int totalTrades =
+                        scoreJournals.stream()
+                                .mapToInt(
+                                        j ->
+                                                j.getTradeSummaryCount() != null
+                                                        ? j.getTradeSummaryCount()
+                                                        : 0)
+                                .sum();
+
+                BigDecimal avgWinRate =
+                        scoreJournals.stream()
+                                .map(TradingJournal::getTradeSummaryWinRate)
+                                .filter(Objects::nonNull)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                                .divide(
+                                        BigDecimal.valueOf(Math.max(1, scoreJournals.size())),
+                                        2,
+                                        RoundingMode.HALF_UP);
+
+                BigDecimal totalPnl =
+                        scoreJournals.stream()
+                                .map(TradingJournal::getTradeSummaryProfit)
+                                .filter(Objects::nonNull)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                                .setScale(2, RoundingMode.HALF_UP);
+
+                BigDecimal avgPnl =
+                        totalTrades > 0
+                                ? totalPnl.divide(
+                                        BigDecimal.valueOf(totalTrades), 2, RoundingMode.HALF_UP)
+                                : BigDecimal.ZERO;
+
+                groups.add(
+                        ScorePerformanceGroup.builder()
+                                .score(score)
+                                .tradeCount(totalTrades)
+                                .winRate(avgWinRate)
+                                .avgPnl(avgPnl)
+                                .totalPnl(totalPnl)
+                                .build());
+            }
+        }
+
+        // Pearson 상관계수 계산
+        BigDecimal correlationCoefficient = calculatePearsonCorrelation(groups);
+
+        // 상관 강도 결정
+        String correlationStrength = determineCorrelationStrength(correlationCoefficient);
+
+        // 추천사항 생성
+        String recommendation = generateScoreRecommendation(scoreName, correlationStrength);
+
+        return ScoreCorrelation.builder()
+                .scoreName(scoreName)
+                .groups(groups)
+                .correlationCoefficient(correlationCoefficient)
+                .correlationStrength(correlationStrength)
+                .recommendation(recommendation)
+                .build();
+    }
+
+    /**
+     * Pearson 상관계수 계산 (점수와 평균 PnL 간)
+     *
+     * @param groups 점수별 성과 그룹
+     * @return 상관계수
+     */
+    private BigDecimal calculatePearsonCorrelation(List<ScorePerformanceGroup> groups) {
+        // 유효한 데이터만 필터링 (거래 수 > 0)
+        List<ScorePerformanceGroup> validGroups =
+                groups.stream().filter(g -> g.getTradeCount() > 0).collect(Collectors.toList());
+
+        if (validGroups.size() < 2) {
+            return BigDecimal.ZERO;
+        }
+
+        // 평균 계산
+        double meanScore =
+                validGroups.stream().mapToInt(ScorePerformanceGroup::getScore).average().orElse(0);
+        double meanPnl =
+                validGroups.stream()
+                        .mapToDouble(g -> g.getAvgPnl().doubleValue())
+                        .average()
+                        .orElse(0);
+
+        // 공분산 및 표준편차 계산
+        double covariance = 0.0;
+        double scoreVariance = 0.0;
+        double pnlVariance = 0.0;
+
+        for (ScorePerformanceGroup group : validGroups) {
+            double scoreDiff = group.getScore() - meanScore;
+            double pnlDiff = group.getAvgPnl().doubleValue() - meanPnl;
+
+            covariance += scoreDiff * pnlDiff;
+            scoreVariance += scoreDiff * scoreDiff;
+            pnlVariance += pnlDiff * pnlDiff;
+        }
+
+        // 상관계수 = 공분산 / (score 표준편차 * pnl 표준편차)
+        double denominator = Math.sqrt(scoreVariance * pnlVariance);
+        if (denominator == 0) {
+            return BigDecimal.ZERO;
+        }
+
+        double correlation = covariance / denominator;
+        return BigDecimal.valueOf(correlation).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 상관 강도 결정
+     *
+     * @param coefficient 상관계수
+     * @return 상관 강도 (STRONG/MODERATE/WEAK/NONE)
+     */
+    private String determineCorrelationStrength(BigDecimal coefficient) {
+        BigDecimal absCoefficient = coefficient.abs();
+
+        if (absCoefficient.compareTo(new BigDecimal("0.7")) >= 0) return "STRONG";
+        if (absCoefficient.compareTo(new BigDecimal("0.4")) >= 0) return "MODERATE";
+        if (absCoefficient.compareTo(new BigDecimal("0.2")) >= 0) return "WEAK";
+        return "NONE";
+    }
+
+    /**
+     * 점수 상관관계 추천사항 생성
+     *
+     * @param scoreName 점수명
+     * @param strength 상관 강도
+     * @return 추천사항
+     */
+    private String generateScoreRecommendation(String scoreName, String strength) {
+        switch (strength) {
+            case "STRONG":
+                return scoreName + " 점수가 성과에 큰 영향을 미칩니다. " + scoreName + " 향상에 집중하세요.";
+            case "MODERATE":
+                return scoreName + " 점수가 성과와 어느 정도 연관이 있습니다. " + scoreName + " 관리가 도움이 될 수 있습니다.";
+            case "WEAK":
+                return scoreName + " 점수가 성과에 미치는 영향이 미미합니다.";
+            default:
+                return scoreName + " 점수와 성과 간 명확한 상관관계가 없습니다. 다른 요인을 고려하세요.";
+        }
+    }
+
+    /**
+     * 최적 상태 계산
+     *
+     * @param emotionPerformance 감정별 성과
+     * @param focusGroups 집중도 그룹
+     * @param disciplineGroups 규율 그룹
+     * @return 최적 상태
+     */
+    private OptimalState calculateOptimalState(
+            List<EmotionPerformanceStats> emotionPerformance,
+            List<ScorePerformanceGroup> focusGroups,
+            List<ScorePerformanceGroup> disciplineGroups) {
+
+        // 최고 승률 감정 찾기
+        EmotionPerformanceStats bestEmotion =
+                emotionPerformance.stream()
+                        .max(Comparator.comparing(EmotionPerformanceStats::getWinRate))
+                        .orElse(null);
+
+        // 집중도 최적 범위 (평균 PnL 기준)
+        ScorePerformanceGroup bestFocus =
+                focusGroups.stream()
+                        .filter(g -> g.getTradeCount() > 0)
+                        .max(Comparator.comparing(ScorePerformanceGroup::getAvgPnl))
+                        .orElse(null);
+
+        // 규율 최적 범위
+        ScorePerformanceGroup bestDiscipline =
+                disciplineGroups.stream()
+                        .filter(g -> g.getTradeCount() > 0)
+                        .max(Comparator.comparing(ScorePerformanceGroup::getAvgPnl))
+                        .orElse(null);
+
+        // 전체 평균 승률 및 PnL 계산
+        BigDecimal overallWinRate =
+                emotionPerformance.stream()
+                        .map(e -> e.getWinRate().multiply(BigDecimal.valueOf(e.getTradeCount())))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(
+                                BigDecimal.valueOf(
+                                        Math.max(
+                                                1,
+                                                emotionPerformance.stream()
+                                                        .mapToInt(
+                                                                EmotionPerformanceStats
+                                                                        ::getTradeCount)
+                                                        .sum())),
+                                2,
+                                RoundingMode.HALF_UP);
+
+        BigDecimal overallAvgPnl =
+                emotionPerformance.stream()
+                        .map(EmotionPerformanceStats::getTotalPnl)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(
+                                BigDecimal.valueOf(
+                                        Math.max(
+                                                1,
+                                                emotionPerformance.stream()
+                                                        .mapToInt(
+                                                                EmotionPerformanceStats
+                                                                        ::getTradeCount)
+                                                        .sum())),
+                                2,
+                                RoundingMode.HALF_UP);
+
+        // 최적 상태 대비 개선 가능 퍼센트
+        BigDecimal optimalWinRate = bestEmotion != null ? bestEmotion.getWinRate() : overallWinRate;
+        BigDecimal optimalAvgPnl = bestEmotion != null ? bestEmotion.getAvgPnl() : overallAvgPnl;
+
+        BigDecimal improvementPercent =
+                overallWinRate.compareTo(BigDecimal.ZERO) > 0
+                        ? optimalWinRate
+                                .subtract(overallWinRate)
+                                .multiply(new BigDecimal("100"))
+                                .divide(overallWinRate, 2, RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO;
+
+        return OptimalState.builder()
+                .bestEmotion(bestEmotion != null ? bestEmotion.getEmotion() : null)
+                .bestEmotionLabel(bestEmotion != null ? bestEmotion.getEmotionLabel() : "데이터 없음")
+                .optimalFocusMin(bestFocus != null ? bestFocus.getScore() : null)
+                .optimalFocusMax(bestFocus != null ? bestFocus.getScore() : null)
+                .optimalDisciplineMin(bestDiscipline != null ? bestDiscipline.getScore() : null)
+                .optimalDisciplineMax(bestDiscipline != null ? bestDiscipline.getScore() : null)
+                .optimalWinRate(optimalWinRate)
+                .optimalAvgPnl(optimalAvgPnl)
+                .overallWinRate(overallWinRate)
+                .overallAvgPnl(overallAvgPnl)
+                .improvementPercent(improvementPercent)
+                .build();
+    }
+
+    /**
+     * 계획 준수 통계 계산
+     *
+     * @param accountId 계좌 ID
+     * @param startDateTime 시작 일시
+     * @param endDateTime 종료 일시
+     * @return 계획 준수 통계
+     */
+    private PlanAdherenceStats calculatePlanAdherenceStats(
+            Long accountId, LocalDateTime startDateTime, LocalDateTime endDateTime) {
+
+        List<Object[]> stats =
+                tradeReviewRepository.getPlanAdherencePerformance(
+                        accountId, startDateTime, endDateTime);
+
+        // 준수/미준수 데이터 분리
+        Long followedCount = 0L;
+        BigDecimal followedWinRate = BigDecimal.ZERO;
+        BigDecimal followedAvgPnl = BigDecimal.ZERO;
+
+        Long notFollowedCount = 0L;
+        BigDecimal notFollowedWinRate = BigDecimal.ZERO;
+        BigDecimal notFollowedAvgPnl = BigDecimal.ZERO;
+
+        for (Object[] row : stats) {
+            Boolean followedPlan = (Boolean) row[0];
+            Long count = (Long) row[1];
+            Long winCount = (Long) row[2];
+            Double avgPnl = row[3] != null ? (Double) row[3] : 0.0;
+
+            BigDecimal winRate =
+                    count > 0
+                            ? BigDecimal.valueOf(winCount * 100.0 / count)
+                                    .setScale(2, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO;
+
+            if (Boolean.TRUE.equals(followedPlan)) {
+                followedCount = count;
+                followedWinRate = winRate;
+                followedAvgPnl = BigDecimal.valueOf(avgPnl).setScale(2, RoundingMode.HALF_UP);
+            } else {
+                notFollowedCount = count;
+                notFollowedWinRate = winRate;
+                notFollowedAvgPnl = BigDecimal.valueOf(avgPnl).setScale(2, RoundingMode.HALF_UP);
+            }
+        }
+
+        // 차이 계산
+        BigDecimal winRateDifference = followedWinRate.subtract(notFollowedWinRate);
+        BigDecimal pnlDifference = followedAvgPnl.subtract(notFollowedAvgPnl);
+
+        return PlanAdherenceStats.builder()
+                .followedCount(followedCount.intValue())
+                .followedWinRate(followedWinRate)
+                .followedAvgPnl(followedAvgPnl)
+                .notFollowedCount(notFollowedCount.intValue())
+                .notFollowedWinRate(notFollowedWinRate)
+                .notFollowedAvgPnl(notFollowedAvgPnl)
+                .winRateDifference(winRateDifference)
+                .pnlDifference(pnlDifference)
+                .build();
+    }
+
+    /**
+     * 성과 상관관계 추천사항 생성
+     *
+     * @param emotionPerformance 감정별 성과
+     * @param focusCorrelation 집중도 상관관계
+     * @param disciplineCorrelation 규율 상관관계
+     * @param optimalState 최적 상태
+     * @param planAdherence 계획 준수 통계
+     * @return 추천사항 목록
+     */
+    private List<String> generatePerformanceRecommendations(
+            List<EmotionPerformanceStats> emotionPerformance,
+            ScoreCorrelation focusCorrelation,
+            ScoreCorrelation disciplineCorrelation,
+            OptimalState optimalState,
+            PlanAdherenceStats planAdherence) {
+
+        List<String> recommendations = new ArrayList<>();
+
+        // 1. 최고 성과 감정 추천
+        if (optimalState.getBestEmotion() != null) {
+            recommendations.add(
+                    String.format(
+                            "%s 감정 상태에서 가장 좋은 성과(승률: %s%%)를 보입니다. 이 상태를 유지하도록 노력하세요.",
+                            optimalState.getBestEmotionLabel(), optimalState.getOptimalWinRate()));
+        }
+
+        // 2. 집중도 상관관계 추천
+        if ("STRONG".equals(focusCorrelation.getCorrelationStrength())
+                || "MODERATE".equals(focusCorrelation.getCorrelationStrength())) {
+            recommendations.add(focusCorrelation.getRecommendation());
+        }
+
+        // 3. 규율 상관관계 추천
+        if ("STRONG".equals(disciplineCorrelation.getCorrelationStrength())
+                || "MODERATE".equals(disciplineCorrelation.getCorrelationStrength())) {
+            recommendations.add(disciplineCorrelation.getRecommendation());
+        }
+
+        // 4. 계획 준수 추천
+        if (planAdherence.getWinRateDifference().compareTo(new BigDecimal("5")) > 0) {
+            recommendations.add(
+                    String.format(
+                            "계획을 준수한 거래의 승률이 %s%% 포인트 더 높습니다. 거래 계획을 철저히 따르세요.",
+                            planAdherence.getWinRateDifference()));
+        } else if (planAdherence.getWinRateDifference().compareTo(new BigDecimal("-5")) < 0) {
+            recommendations.add("계획 미준수 시 오히려 성과가 더 좋습니다. 계획을 재검토하고 유연성을 고려하세요.");
+        }
+
+        // 5. 개선 가능성 추천
+        if (optimalState.getImprovementPercent().compareTo(new BigDecimal("10")) > 0) {
+            recommendations.add(
+                    String.format(
+                            "최적 상태를 유지하면 현재 대비 승률을 %s%% 개선할 수 있습니다.",
+                            optimalState.getImprovementPercent()));
+        }
+
+        // 기본 추천
+        if (recommendations.isEmpty()) {
+            recommendations.add("현재 심리 상태와 성과 간 명확한 패턴이 발견되지 않았습니다. 더 많은 데이터가 필요합니다.");
+        }
+
+        return recommendations;
+    }
 }
