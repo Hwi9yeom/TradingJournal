@@ -1,6 +1,7 @@
 package com.trading.journal.controller;
 
 import com.trading.journal.dto.BenchmarkComparisonDto;
+import com.trading.journal.dto.CompositeDashboardDto;
 import com.trading.journal.dto.CorrelationMatrixDto;
 import com.trading.journal.dto.DrawdownDto;
 import com.trading.journal.dto.EquityCurveDto;
@@ -19,6 +20,7 @@ import com.trading.journal.entity.Sector;
 import com.trading.journal.entity.Stock;
 import com.trading.journal.service.AnalysisService;
 import com.trading.journal.service.BenchmarkService;
+import com.trading.journal.service.CompositeDashboardService;
 import com.trading.journal.service.PortfolioAnalysisService;
 import com.trading.journal.service.RiskMetricsService;
 import com.trading.journal.service.SectorAnalysisService;
@@ -50,6 +52,7 @@ public class AnalysisController {
     private final TaxCalculationService taxCalculationService;
     private final TradingStatisticsService tradingStatisticsService;
     private final PortfolioAnalysisService portfolioAnalysisService;
+    private final CompositeDashboardService compositeDashboardService;
 
     @GetMapping("/period")
     public ResponseEntity<PeriodAnalysisDto> analyzePeriod(
@@ -437,5 +440,24 @@ public class AnalysisController {
         log.info("Getting portfolio treemap for period: {}", period);
         PortfolioTreemapDto treemap = portfolioAnalysisService.getPortfolioTreemap(period);
         return ResponseEntity.ok(treemap);
+    }
+
+    // ==================== Composite Dashboard API ====================
+
+    /**
+     * 복합 지표 대시보드 조회
+     *
+     * <p>포트폴리오 현황, 리스크 지표, 심리 점수, 거래 통계를 한 화면에서 볼 수 있는 통합 대시보드
+     *
+     * @param accountId 계좌 ID (null이면 전체)
+     * @return 복합 대시보드 DTO
+     */
+    @GetMapping("/dashboard/composite")
+    public ResponseEntity<CompositeDashboardDto> getCompositeDashboard(
+            @RequestParam(required = false) Long accountId) {
+        log.info("Getting composite dashboard for account: {}", accountId);
+        CompositeDashboardDto dashboard =
+                compositeDashboardService.getCompositeDashboard(accountId);
+        return ResponseEntity.ok(dashboard);
     }
 }

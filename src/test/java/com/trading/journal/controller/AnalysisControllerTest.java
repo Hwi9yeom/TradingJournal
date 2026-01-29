@@ -14,6 +14,7 @@ import com.trading.journal.dto.StockAnalysisDto;
 import com.trading.journal.dto.TaxCalculationDto;
 import com.trading.journal.service.AnalysisService;
 import com.trading.journal.service.BenchmarkService;
+import com.trading.journal.service.CompositeDashboardService;
 import com.trading.journal.service.PortfolioAnalysisService;
 import com.trading.journal.service.RiskMetricsService;
 import com.trading.journal.service.SectorAnalysisService;
@@ -54,6 +55,8 @@ class AnalysisControllerTest {
     @MockitoBean private TradingStatisticsService tradingStatisticsService;
 
     @MockitoBean private PortfolioAnalysisService portfolioAnalysisService;
+
+    @MockitoBean private CompositeDashboardService compositeDashboardService;
 
     @Test
     void analyzePeriod_ShouldReturnPeriodAnalysis() throws Exception {
