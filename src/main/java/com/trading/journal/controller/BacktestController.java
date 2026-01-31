@@ -1,10 +1,12 @@
 package com.trading.journal.controller;
 
+import com.trading.journal.dto.BacktestComparisonDto;
 import com.trading.journal.dto.BacktestRequestDto;
 import com.trading.journal.dto.BacktestResultDto;
 import com.trading.journal.dto.BacktestSummaryDto;
 import com.trading.journal.dto.OptimizationRequestDto;
 import com.trading.journal.dto.OptimizationResultDto;
+import com.trading.journal.service.BacktestComparisonService;
 import com.trading.journal.service.BacktestService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 public class BacktestController {
 
     private final BacktestService backtestService;
+    private final BacktestComparisonService backtestComparisonService;
 
     /** 백테스트 실행 */
     @PostMapping("/run")
@@ -68,5 +71,54 @@ public class BacktestController {
 
         OptimizationResultDto result = backtestService.optimizeStrategy(request);
         return ResponseEntity.ok(result);
+    }
+
+    // ==================== 백테스트 비교 API ====================
+
+    /**
+     * 여러 백테스트 결과 비교
+     *
+     * @param backtestIds 비교할 백테스트 ID 목록
+     * @return 비교 분석 결과
+     */
+    @PostMapping("/compare")
+    public ResponseEntity<BacktestComparisonDto> compareBacktests(
+            @RequestBody List<Long> backtestIds) {
+        log.info("백테스트 비교 요청: {} 개", backtestIds.size());
+        BacktestComparisonDto comparison = backtestComparisonService.compareBacktests(backtestIds);
+        return ResponseEntity.ok(comparison);
+    }
+
+    /**
+     * 상위 성과 백테스트 자동 비교
+     *
+     * @param metric 기준 지표 (return, sharpe, drawdown)
+     * @param limit 비교 개수 (기본 5)
+     * @return 비교 분석 결과
+     */
+    @GetMapping("/compare/top")
+    public ResponseEntity<BacktestComparisonDto> compareTopPerformers(
+            @RequestParam(defaultValue = "return") String metric,
+            @RequestParam(defaultValue = "5") int limit) {
+        log.info("상위 성과 백테스트 비교 요청: metric={}, limit={}", metric, limit);
+        BacktestComparisonDto comparison =
+                backtestComparisonService.compareTopPerformers(metric, limit);
+        return ResponseEntity.ok(comparison);
+    }
+
+    /**
+     * 동일 전략 다른 파라미터 비교
+     *
+     * @param strategyName 전략 이름
+     * @param limit 비교 개수 (기본 5)
+     * @return 비교 분석 결과
+     */
+    @GetMapping("/compare/strategy/{strategyName}")
+    public ResponseEntity<BacktestComparisonDto> compareStrategyVariants(
+            @PathVariable String strategyName, @RequestParam(defaultValue = "5") int limit) {
+        log.info("전략 변형 비교 요청: strategy={}, limit={}", strategyName, limit);
+        BacktestComparisonDto comparison =
+                backtestComparisonService.compareStrategyVariants(strategyName, limit);
+        return ResponseEntity.ok(comparison);
     }
 }
