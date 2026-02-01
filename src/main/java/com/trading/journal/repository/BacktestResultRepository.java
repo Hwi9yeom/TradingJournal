@@ -35,10 +35,18 @@ public interface BacktestResultRepository extends JpaRepository<BacktestResult, 
             "SELECT b FROM BacktestResult b WHERE b.sharpeRatio IS NOT NULL ORDER BY b.sharpeRatio DESC")
     List<BacktestResult> findByBestSharpeRatio();
 
-    /** 특정 전략 유형으로 조회 */
+    /** 특정 전략 유형으로 조회 (인덱스 활용) */
     @Query(
-            "SELECT b FROM BacktestResult b WHERE b.strategyConfig LIKE %:strategyType% ORDER BY b.executedAt DESC")
+            "SELECT b FROM BacktestResult b WHERE b.strategyType = :strategyType ORDER BY b.executedAt DESC")
     List<BacktestResult> findByStrategyType(@Param("strategyType") String strategyType);
+
+    /** ID로 조회 + trades 즉시 로딩 (N+1 방지) */
+    @Query("SELECT DISTINCT b FROM BacktestResult b LEFT JOIN FETCH b.trades WHERE b.id = :id")
+    java.util.Optional<BacktestResult> findByIdWithTrades(@Param("id") Long id);
+
+    /** 여러 ID로 조회 + trades 즉시 로딩 (N+1 방지) */
+    @Query("SELECT DISTINCT b FROM BacktestResult b LEFT JOIN FETCH b.trades WHERE b.id IN :ids")
+    List<BacktestResult> findAllByIdWithTrades(@Param("ids") List<Long> ids);
 
     /** 전략별 평균 성과 조회 */
     @Query(

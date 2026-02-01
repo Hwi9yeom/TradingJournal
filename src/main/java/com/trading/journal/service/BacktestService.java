@@ -574,6 +574,7 @@ public class BacktestService {
                 BacktestResult.builder()
                         .strategyName(strategy.getName())
                         .strategyConfig(toJson(strategy.getParameters()))
+                        .strategyType(request.getStrategyType().name())
                         .symbol(request.getSymbol())
                         .startDate(request.getStartDate())
                         .endDate(request.getEndDate())
@@ -967,6 +968,33 @@ public class BacktestService {
         result.setEquityCurveJson(objectMapper.writeValueAsString(equityCurve));
         result.setDrawdownCurveJson(objectMapper.writeValueAsString(drawdownCurve));
         result.setBenchmarkCurveJson(objectMapper.writeValueAsString(benchmarkCurve));
+
+        // 정규화된 equity curve 계산 (0-100% 스케일, 비교 분석용)
+        List<BigDecimal> normalizedCurve = normalizeToPercent(equityCurve);
+        result.setNormalizedEquityCurveJson(objectMapper.writeValueAsString(normalizedCurve));
+    }
+
+    /** Equity curve를 0-100% 스케일로 정규화 */
+    private List<BigDecimal> normalizeToPercent(List<BigDecimal> curve) {
+        if (curve.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        BigDecimal min = curve.stream().min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+        BigDecimal max = curve.stream().max(BigDecimal::compareTo).orElse(BigDecimal.ONE);
+        BigDecimal range = max.subtract(min);
+
+        if (range.compareTo(BigDecimal.ZERO) == 0) {
+            return curve.stream().map(v -> BigDecimal.valueOf(50)).collect(Collectors.toList());
+        }
+
+        return curve.stream()
+                .map(
+                        v ->
+                                v.subtract(min)
+                                        .divide(range, DECIMAL_SCALE, RoundingMode.HALF_UP)
+                                        .multiply(HUNDRED))
+                .collect(Collectors.toList());
     }
 
     /** Equity curve 계산 */
@@ -1183,12 +1211,12 @@ public class BacktestService {
                 .build();
     }
 
-    /** 백테스트 결과 상세 조회 */
+    /** 백테스트 결과 상세 조회 (trades 즉시 로딩으로 N+1 방지) */
     @Transactional(readOnly = true)
     public BacktestResultDto getResult(Long id) {
         BacktestResult result =
                 backtestResultRepository
-                        .findById(id)
+                        .findByIdWithTrades(id)
                         .orElseThrow(
                                 () -> new IllegalArgumentException("백테스트 결과를 찾을 수 없습니다: " + id));
 

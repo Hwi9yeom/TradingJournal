@@ -1,0 +1,24 @@
+# Test configuration - disable Flyway and use in-memory H2
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+
+  # Disable Flyway for tests - JPA creates tables
+  flyway:
+    enabled: false
+
+  # Disable Redis for tests
+  data:
+    redis:
+      enabled: false

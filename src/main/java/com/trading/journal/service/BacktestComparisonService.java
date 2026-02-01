@@ -59,7 +59,8 @@ public class BacktestComparisonService {
             throw new IllegalArgumentException("비교하려면 최소 2개의 백테스트가 필요합니다.");
         }
 
-        List<BacktestResult> results = backtestResultRepository.findAllById(backtestIds);
+        // trades 즉시 로딩으로 N+1 쿼리 방지
+        List<BacktestResult> results = backtestResultRepository.findAllByIdWithTrades(backtestIds);
 
         if (results.size() < 2) {
             throw new IllegalArgumentException("유효한 백테스트가 2개 미만입니다.");

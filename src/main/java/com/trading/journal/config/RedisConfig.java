@@ -40,6 +40,8 @@ public class RedisConfig {
     private static final String CACHE_DIVIDEND = "dividend";
     private static final String CACHE_DISCLOSURE = "disclosure";
     private static final String CACHE_HISTORICAL_QUOTES = "historicalQuotes";
+    private static final String CACHE_BACKTEST_COMPARISON = "backtest_comparison";
+    private static final String CACHE_BACKTEST_RESULT = "backtest_result";
 
     // TTL 상수
     private static final Duration TTL_REALTIME = Duration.ofMinutes(1);
@@ -114,7 +116,9 @@ public class RedisConfig {
                         new ConcurrentMapCache(CACHE_ANALYSIS),
                         new ConcurrentMapCache(CACHE_DIVIDEND),
                         new ConcurrentMapCache(CACHE_DISCLOSURE),
-                        new ConcurrentMapCache(CACHE_HISTORICAL_QUOTES)));
+                        new ConcurrentMapCache(CACHE_HISTORICAL_QUOTES),
+                        new ConcurrentMapCache(CACHE_BACKTEST_COMPARISON),
+                        new ConcurrentMapCache(CACHE_BACKTEST_RESULT)));
         return cacheManager;
     }
 
@@ -159,6 +163,12 @@ public class RedisConfig {
 
         // 과거 가격 데이터 - 24시간 캐시 (과거 데이터는 변경되지 않음)
         cacheConfigurations.put(CACHE_HISTORICAL_QUOTES, defaultConfig.entryTtl(TTL_HISTORICAL));
+
+        // 백테스트 비교 결과 - 10분 캐시
+        cacheConfigurations.put(CACHE_BACKTEST_COMPARISON, defaultConfig.entryTtl(TTL_DEFAULT));
+
+        // 백테스트 결과 - 5분 캐시
+        cacheConfigurations.put(CACHE_BACKTEST_RESULT, defaultConfig.entryTtl(TTL_SHORT));
 
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(defaultConfig)

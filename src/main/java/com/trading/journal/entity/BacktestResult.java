@@ -29,6 +29,10 @@ public class BacktestResult {
     @Column(columnDefinition = "TEXT")
     private String strategyConfig;
 
+    /** 전략 타입 (인덱싱용 - MOVING_AVERAGE, RSI, BOLLINGER_BAND, MOMENTUM, MACD) */
+    @Column(name = "strategy_type", length = 50)
+    private String strategyType;
+
     /** 백테스트 대상 종목 */
     @Column(length = 50)
     private String symbol;
@@ -136,6 +140,10 @@ public class BacktestResult {
     /** Benchmark Curve (JSON) */
     @Column(columnDefinition = "TEXT")
     private String benchmarkCurveJson;
+
+    /** 정규화된 Equity Curve (0-100%, 비교 분석용) */
+    @Column(columnDefinition = "TEXT")
+    private String normalizedEquityCurveJson;
 
     @PrePersist
     protected void onCreate() {
