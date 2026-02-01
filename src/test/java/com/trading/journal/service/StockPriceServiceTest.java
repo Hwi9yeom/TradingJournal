@@ -6,17 +6,22 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import com.trading.journal.entity.HistoricalPrice;
+import com.trading.journal.exception.PriceDataException;
+import com.trading.journal.repository.HistoricalPriceRepository;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import yahoofinance.Stock;
@@ -27,6 +32,8 @@ import yahoofinance.quotes.stock.StockQuote;
 
 @ExtendWith(MockitoExtension.class)
 class StockPriceServiceTest {
+
+    @Mock private HistoricalPriceRepository historicalPriceRepository;
 
     @InjectMocks private StockPriceService stockPriceService;
 
@@ -69,8 +76,8 @@ class StockPriceServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> stockPriceService.getCurrentPrice("INVALID"))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("Failed to fetch stock price");
+                    .isInstanceOf(PriceDataException.class)
+                    .hasMessageContaining("현재가 조회 실패");
         }
     }
 
@@ -126,6 +133,10 @@ class StockPriceServiceTest {
         HistoricalQuote quote2 = mock(HistoricalQuote.class);
         List<HistoricalQuote> expectedQuotes = Arrays.asList(quote1, quote2);
 
+        when(historicalPriceRepository.findBySymbolAndPriceDateBetweenOrderByPriceDateAsc(
+                        eq("AAPL"), any(), any()))
+                .thenReturn(Collections.emptyList());
+
         when(mockStock.getHistory(any(Calendar.class), any(Calendar.class), eq(Interval.DAILY)))
                 .thenReturn(expectedQuotes);
 
@@ -148,6 +159,10 @@ class StockPriceServiceTest {
         LocalDate from = LocalDate.now().minusDays(7);
         LocalDate to = LocalDate.now();
 
+        when(historicalPriceRepository.findBySymbolAndPriceDateBetweenOrderByPriceDateAsc(
+                        eq("INVALID"), any(), any()))
+                .thenReturn(Collections.emptyList());
+
         try (MockedStatic<YahooFinance> yahooFinanceMock = mockStatic(YahooFinance.class)) {
             yahooFinanceMock
                     .when(() -> YahooFinance.get("INVALID"))
@@ -155,8 +170,51 @@ class StockPriceServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> stockPriceService.getHistoricalQuotes("INVALID", from, to))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("Failed to fetch historical quotes");
+                    .isInstanceOf(PriceDataException.class)
+                    .hasMessageContaining("과거 가격 데이터 조회 실패");
         }
+    }
+
+    @Test
+    @DisplayName("과거 시세 조회 - 캐시 히트 (80% 이상 커버리지)")
+    void getHistoricalQuotes_CacheHit() {
+        // Given - 5일 범위 조회 (주말 제외 시 약 3.5일 예상, 4개 데이터면 100% 이상 커버리지)
+        LocalDate from = LocalDate.now().minusDays(5);
+        LocalDate to = LocalDate.now();
+
+        List<HistoricalPrice> cachedPrices =
+                Arrays.asList(
+                        HistoricalPrice.builder()
+                                .symbol("AAPL")
+                                .priceDate(LocalDate.now().minusDays(4))
+                                .closePrice(new BigDecimal("150.00"))
+                                .build(),
+                        HistoricalPrice.builder()
+                                .symbol("AAPL")
+                                .priceDate(LocalDate.now().minusDays(3))
+                                .closePrice(new BigDecimal("151.00"))
+                                .build(),
+                        HistoricalPrice.builder()
+                                .symbol("AAPL")
+                                .priceDate(LocalDate.now().minusDays(2))
+                                .closePrice(new BigDecimal("152.00"))
+                                .build(),
+                        HistoricalPrice.builder()
+                                .symbol("AAPL")
+                                .priceDate(LocalDate.now().minusDays(1))
+                                .closePrice(new BigDecimal("153.00"))
+                                .build());
+
+        when(historicalPriceRepository.findBySymbolAndPriceDateBetweenOrderByPriceDateAsc(
+                        eq("AAPL"), any(), any()))
+                .thenReturn(cachedPrices);
+
+        // When
+        List<HistoricalQuote> result = stockPriceService.getHistoricalQuotes("AAPL", from, to);
+
+        // Then - Yahoo Finance API 호출 없이 캐시된 데이터 반환
+        assertThat(result).hasSize(4);
+        assertThat(result.get(0).getClose()).isEqualByComparingTo(new BigDecimal("150.00"));
+        assertThat(result.get(3).getClose()).isEqualByComparingTo(new BigDecimal("153.00"));
     }
 }

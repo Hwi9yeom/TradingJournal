@@ -13,11 +13,13 @@ import com.trading.journal.entity.AccountType;
 import com.trading.journal.entity.Stock;
 import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
+import com.trading.journal.exception.TransactionNotFoundException;
 import com.trading.journal.repository.StockRepository;
 import com.trading.journal.repository.TransactionRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -138,13 +140,15 @@ class TransactionServiceTest {
                         .price(new BigDecimal("200.00"))
                         .commission(new BigDecimal("3.00"))
                         .transactionDate(sellDto.getTransactionDate())
+                        .realizedPnl(new BigDecimal("100.00"))
+                        .costBasis(new BigDecimal("897.00"))
                         .build();
 
         FifoResult fifoResult =
                 FifoResult.builder()
                         .realizedPnl(new BigDecimal("100.00"))
                         .costBasis(new BigDecimal("897.00"))
-                        .consumptions(new java.util.ArrayList<>())
+                        .consumptions(Collections.emptyList())
                         .build();
 
         when(accountService.getDefaultAccount()).thenReturn(mockAccount);
@@ -162,6 +166,8 @@ class TransactionServiceTest {
         assertThat(result.getStockSymbol()).isEqualTo("TSLA");
         assertThat(result.getType()).isEqualTo(TransactionType.SELL);
         assertThat(result.getTotalAmount()).isEqualByComparingTo(new BigDecimal("997.00"));
+        assertThat(result.getRealizedPnl()).isEqualByComparingTo(new BigDecimal("100.00"));
+        assertThat(result.getCostBasis()).isEqualByComparingTo(new BigDecimal("897.00"));
 
         verify(accountService).getDefaultAccount();
         verify(stockRepository).findBySymbol("TSLA");
@@ -228,8 +234,8 @@ class TransactionServiceTest {
 
         // When & Then
         assertThatThrownBy(() -> transactionService.getTransactionById(999L))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Transaction not found with id: 999");
+                .isInstanceOf(TransactionNotFoundException.class)
+                .hasMessageContaining("거래를 찾을 수 없습니다");
     }
 
     @Test
