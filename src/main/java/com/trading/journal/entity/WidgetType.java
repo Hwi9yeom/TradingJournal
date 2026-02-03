@@ -28,5 +28,13 @@ public enum WidgetType {
     // 분석
     RISK_METRICS, // 리스크 지표
     TRADING_STATS, // 거래 통계 (승률, 평균손익)
-    STREAK_INDICATOR // 연승/연패 표시
+    STREAK_INDICATOR, // 연승/연패 표시
+
+    // 고급 분석 (Advanced Analytics)
+    MONTE_CARLO_SUMMARY, // 몬테카를로 시뮬레이션 요약 (VaR, 기대수익)
+    MONTE_CARLO_CHART, // 몬테카를로 분포 차트
+    STRESS_TEST_SUMMARY, // 스트레스 테스트 결과 요약
+    STRESS_TEST_SCENARIOS, // 시나리오별 영향 목록
+    TAX_HARVESTING_OPPORTUNITIES, // Tax-Loss Harvesting 기회
+    SCREENER_WATCHLIST // 스크리너 관심종목
 }

@@ -328,6 +328,12 @@ public class DashboardConfigService {
             case RISK_METRICS -> "리스크 지표";
             case TRADING_STATS -> "거래 통계";
             case STREAK_INDICATOR -> "연승/연패";
+            case MONTE_CARLO_SUMMARY -> "몬테카를로 시뮬레이션";
+            case MONTE_CARLO_CHART -> "몬테카를로 차트";
+            case STRESS_TEST_SUMMARY -> "스트레스 테스트 요약";
+            case STRESS_TEST_SCENARIOS -> "스트레스 시나리오";
+            case TAX_HARVESTING_OPPORTUNITIES -> "절세 기회";
+            case SCREENER_WATCHLIST -> "스크리너 관심종목";
         };
     }
 
@@ -351,6 +357,12 @@ public class DashboardConfigService {
             case RISK_METRICS -> "bi-shield-exclamation";
             case TRADING_STATS -> "bi-calculator";
             case STREAK_INDICATOR -> "bi-lightning";
+            case MONTE_CARLO_SUMMARY -> "bi-dice-5";
+            case MONTE_CARLO_CHART -> "bi-activity";
+            case STRESS_TEST_SUMMARY -> "bi-exclamation-triangle";
+            case STRESS_TEST_SCENARIOS -> "bi-list-check";
+            case TAX_HARVESTING_OPPORTUNITIES -> "bi-piggy-bank";
+            case SCREENER_WATCHLIST -> "bi-binoculars";
         };
     }
 
@@ -368,11 +380,20 @@ public class DashboardConfigService {
                             ACTIVE_ALERTS,
                             RISK_METRICS,
                             TRADING_STATS,
-                            STREAK_INDICATOR ->
+                            STREAK_INDICATOR,
+                            MONTE_CARLO_SUMMARY,
+                            STRESS_TEST_SUMMARY ->
                     3;
             case ALLOCATION_PIE, SECTOR_ALLOCATION -> 4;
-            case EQUITY_CURVE, DRAWDOWN_CHART, MONTHLY_RETURNS -> 8;
-            case HOLDINGS_LIST, RECENT_TRANSACTIONS, TOP_PERFORMERS, WORST_PERFORMERS -> 6;
+            case EQUITY_CURVE, DRAWDOWN_CHART, MONTHLY_RETURNS, MONTE_CARLO_CHART -> 8;
+            case HOLDINGS_LIST,
+                            RECENT_TRANSACTIONS,
+                            TOP_PERFORMERS,
+                            WORST_PERFORMERS,
+                            STRESS_TEST_SCENARIOS,
+                            TAX_HARVESTING_OPPORTUNITIES,
+                            SCREENER_WATCHLIST ->
+                    6;
         };
     }
 
@@ -389,7 +410,9 @@ public class DashboardConfigService {
                             ACTIVE_ALERTS,
                             RISK_METRICS,
                             TRADING_STATS,
-                            SECTOR_ALLOCATION ->
+                            SECTOR_ALLOCATION,
+                            MONTE_CARLO_SUMMARY,
+                            STRESS_TEST_SUMMARY ->
                     3;
             case EQUITY_CURVE,
                             DRAWDOWN_CHART,
@@ -397,7 +420,11 @@ public class DashboardConfigService {
                             HOLDINGS_LIST,
                             RECENT_TRANSACTIONS,
                             TOP_PERFORMERS,
-                            WORST_PERFORMERS ->
+                            WORST_PERFORMERS,
+                            MONTE_CARLO_CHART,
+                            STRESS_TEST_SCENARIOS,
+                            TAX_HARVESTING_OPPORTUNITIES,
+                            SCREENER_WATCHLIST ->
                     4;
         };
     }

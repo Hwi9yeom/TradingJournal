@@ -1,7 +1,9 @@
 package com.trading.journal.controller;
 
+import com.trading.journal.dto.AdvancedWidgetDto.*;
 import com.trading.journal.dto.DashboardConfigDto;
 import com.trading.journal.dto.DashboardWidgetDto;
+import com.trading.journal.service.AdvancedWidgetService;
 import com.trading.journal.service.DashboardConfigService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 public class DashboardConfigController {
 
     private final DashboardConfigService dashboardConfigService;
+    private final AdvancedWidgetService advancedWidgetService;
 
     // 임시로 userId 1 사용 (추후 인증 연동)
     private static final Long DEFAULT_USER_ID = 1L;
@@ -79,5 +82,33 @@ public class DashboardConfigController {
         log.debug("사용 가능한 위젯 목록 조회");
         List<DashboardWidgetDto> widgets = dashboardConfigService.getAvailableWidgets();
         return ResponseEntity.ok(widgets);
+    }
+
+    /** Monte Carlo 시뮬레이션 요약 위젯 */
+    @GetMapping("/widgets/monte-carlo-summary")
+    public ResponseEntity<MonteCarloSummaryWidget> getMonteCarloSummaryWidget() {
+        log.debug("Monte Carlo 시뮬레이션 요약 위젯 조회");
+        return ResponseEntity.ok(advancedWidgetService.getMonteCarloSummary());
+    }
+
+    /** 스트레스 테스트 요약 위젯 */
+    @GetMapping("/widgets/stress-test-summary")
+    public ResponseEntity<StressTestSummaryWidget> getStressTestSummaryWidget() {
+        log.debug("스트레스 테스트 요약 위젯 조회");
+        return ResponseEntity.ok(advancedWidgetService.getStressTestSummary());
+    }
+
+    /** 스트레스 테스트 시나리오 위젯 */
+    @GetMapping("/widgets/stress-test-scenarios")
+    public ResponseEntity<StressTestScenariosWidget> getStressTestScenariosWidget() {
+        log.debug("스트레스 테스트 시나리오 위젯 조회");
+        return ResponseEntity.ok(advancedWidgetService.getStressTestScenarios());
+    }
+
+    /** 절세 기회 위젯 */
+    @GetMapping("/widgets/tax-harvesting")
+    public ResponseEntity<TaxHarvestingWidget> getTaxHarvestingWidget() {
+        log.debug("절세 기회 위젯 조회");
+        return ResponseEntity.ok(advancedWidgetService.getTaxHarvestingOpportunities());
     }
 }
