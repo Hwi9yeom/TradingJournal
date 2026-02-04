@@ -359,6 +359,60 @@ public class GoalService {
                         && goal.getDeadline().isBefore(today)
                         && goal.getStatus() == GoalStatus.ACTIVE;
 
+        // 예상 달성일 계산
+        LocalDate estimatedCompletionDate = null;
+        String estimatedCompletionMessage = null;
+
+        if (goal.getStatus() == GoalStatus.ACTIVE
+                && goal.getCurrentValue() != null
+                && goal.getStartValue() != null
+                && goal.getTargetValue() != null
+                && daysElapsed > 0) {
+
+            BigDecimal progressMade = goal.getCurrentValue().subtract(goal.getStartValue());
+            BigDecimal remainingProgress = goal.getTargetValue().subtract(goal.getCurrentValue());
+
+            // 진행률이 양수인 경우에만 계산
+            if (progressMade.compareTo(BigDecimal.ZERO) > 0
+                    && remainingProgress.compareTo(BigDecimal.ZERO) > 0) {
+
+                // 일일 진행률 = (현재값 - 시작값) / 경과일수
+                BigDecimal dailyProgressRate =
+                        progressMade.divide(
+                                BigDecimal.valueOf(daysElapsed), 10, RoundingMode.HALF_UP);
+
+                // 예상 잔여일수 = 남은 목표값 / 일일 진행률
+                BigDecimal estimatedDaysToCompletion =
+                        remainingProgress.divide(dailyProgressRate, 0, RoundingMode.CEILING);
+
+                // 최대 10년(3650일)으로 제한
+                long estimatedDays = Math.min(estimatedDaysToCompletion.longValue(), 3650L);
+                estimatedCompletionDate = today.plusDays(estimatedDays);
+
+                // 메시지 생성
+                if (goal.getDeadline() != null) {
+                    if (estimatedCompletionDate.isBefore(goal.getDeadline())
+                            || estimatedCompletionDate.isEqual(goal.getDeadline())) {
+                        estimatedCompletionMessage = "목표 기한 내 달성 예상";
+                    } else {
+                        long daysLate =
+                                ChronoUnit.DAYS.between(
+                                        goal.getDeadline(), estimatedCompletionDate);
+                        estimatedCompletionMessage = "목표 기한보다 " + daysLate + "일 지연 예상";
+                    }
+                } else {
+                    estimatedCompletionMessage = "약 " + estimatedDays + "일 후 달성 예상";
+                }
+            } else if (progressMade.compareTo(BigDecimal.ZERO) <= 0) {
+                estimatedCompletionMessage = "진행 없음 - 예상 달성일 계산 불가";
+            } else if (remainingProgress.compareTo(BigDecimal.ZERO) <= 0) {
+                estimatedCompletionDate = today;
+                estimatedCompletionMessage = "목표 달성 완료!";
+            }
+        } else if (goal.getStatus() == GoalStatus.COMPLETED) {
+            estimatedCompletionMessage = "달성 완료";
+        }
+
         return GoalDto.builder()
                 .id(goal.getId())
                 .name(goal.getName())
@@ -384,6 +438,8 @@ public class GoalService {
                 .isOverdue(isOverdue)
                 .statusLabel(getStatusLabel(goal.getStatus()))
                 .goalTypeLabel(getGoalTypeLabel(goal.getGoalType()))
+                .estimatedCompletionDate(estimatedCompletionDate)
+                .estimatedCompletionMessage(estimatedCompletionMessage)
                 .build();
     }
 

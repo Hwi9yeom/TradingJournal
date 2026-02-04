@@ -42,4 +42,6 @@ public class GoalDto {
     private Boolean isOverdue;
     private String statusLabel;
     private String goalTypeLabel;
+    private LocalDate estimatedCompletionDate; // 예상 달성일
+    private String estimatedCompletionMessage; // 예상 달성일 메시지
 }
