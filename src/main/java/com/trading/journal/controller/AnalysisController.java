@@ -388,6 +388,31 @@ public class AnalysisController {
         return ResponseEntity.ok(response);
     }
 
+    /** 외부 소스에서 벤치마크 데이터 동기화 */
+    @PostMapping("/benchmark/sync")
+    public ResponseEntity<Map<String, Object>> syncBenchmarkData(
+            @RequestParam BenchmarkType benchmark,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        log.info("Syncing benchmark data for {} from {} to {}", benchmark, startDate, endDate);
+
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("시작일은 종료일보다 이전이어야 합니다");
+        }
+
+        Map<String, Object> result =
+                benchmarkService.syncBenchmarkData(benchmark, startDate, endDate);
+        return ResponseEntity.ok(result);
+    }
+
+    /** 모든 벤치마크 데이터 동기화 (최근 1년) */
+    @PostMapping("/benchmark/sync-all")
+    public ResponseEntity<List<Map<String, Object>>> syncAllBenchmarks() {
+        log.info("Syncing all benchmark data");
+        List<Map<String, Object>> results = benchmarkService.syncAllBenchmarks();
+        return ResponseEntity.ok(results);
+    }
+
     // ==================== 섹터별 분석 API ====================
 
     /** 섹터별 종합 분석 */

@@ -26,7 +26,9 @@ public class YahooFinanceBenchmarkProvider implements BenchmarkDataProvider {
             Map.of(
                     BenchmarkType.SP500, "^GSPC",
                     BenchmarkType.NASDAQ, "^IXIC",
-                    BenchmarkType.DOW, "^DJI");
+                    BenchmarkType.DOW, "^DJI",
+                    BenchmarkType.KOSPI, "^KS11",
+                    BenchmarkType.KOSDAQ, "^KQ11");
 
     @Override
     @CircuitBreaker(name = "yahooFinance", fallbackMethod = "fallbackFetchPrices")

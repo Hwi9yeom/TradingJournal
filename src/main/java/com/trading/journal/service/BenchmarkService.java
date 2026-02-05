@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class BenchmarkService {
 
     private final BenchmarkPriceRepository benchmarkPriceRepository;
     private final AnalysisService analysisService;
+    private final List<com.trading.journal.provider.BenchmarkDataProvider> dataProviders;
 
     private static final MathContext MC = new MathContext(10, RoundingMode.HALF_UP);
     private static final BigDecimal RISK_FREE_RATE = new BigDecimal("0.03"); // 3% 연간 무위험 이자율
@@ -230,6 +232,115 @@ public class BenchmarkService {
     @Transactional
     public List<BenchmarkPrice> saveBenchmarkPrices(List<BenchmarkPrice> prices) {
         return benchmarkPriceRepository.saveAll(prices);
+    }
+
+    /** 외부 데이터 소스에서 벤치마크 데이터 동기화 */
+    @Transactional
+    public Map<String, Object> syncBenchmarkData(
+            BenchmarkType benchmark, LocalDate startDate, LocalDate endDate) {
+        log.info("Syncing benchmark data for {} from {} to {}", benchmark, startDate, endDate);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("benchmark", benchmark.name());
+        result.put("startDate", startDate.toString());
+        result.put("endDate", endDate.toString());
+
+        // 지원하는 provider 찾기
+        var provider =
+                dataProviders.stream().filter(p -> p.supports(benchmark)).findFirst().orElse(null);
+
+        if (provider == null) {
+            log.warn("No data provider found for benchmark: {}", benchmark);
+            result.put("success", false);
+            result.put("message", "해당 벤치마크를 지원하는 데이터 제공자가 없습니다: " + benchmark.getLabel());
+            result.put("fetchedCount", 0);
+            return result;
+        }
+
+        try {
+            List<BenchmarkPrice> prices = provider.fetchPrices(benchmark, startDate, endDate);
+
+            if (prices.isEmpty()) {
+                result.put("success", false);
+                result.put("message", "데이터를 가져오지 못했습니다.");
+                result.put("fetchedCount", 0);
+                return result;
+            }
+
+            // 중복 제거 후 저장 (upsert 로직)
+            int savedCount = 0;
+            for (BenchmarkPrice price : prices) {
+                var existing =
+                        benchmarkPriceRepository.findByBenchmarkAndPriceDate(
+                                benchmark, price.getPriceDate());
+                if (existing.isEmpty()) {
+                    benchmarkPriceRepository.save(price);
+                    savedCount++;
+                } else {
+                    // 기존 데이터 업데이트
+                    BenchmarkPrice existingPrice = existing.get();
+                    existingPrice.setOpenPrice(price.getOpenPrice());
+                    existingPrice.setHighPrice(price.getHighPrice());
+                    existingPrice.setLowPrice(price.getLowPrice());
+                    existingPrice.setClosePrice(price.getClosePrice());
+                    existingPrice.setVolume(price.getVolume());
+                    existingPrice.setDailyReturn(price.getDailyReturn());
+                    benchmarkPriceRepository.save(existingPrice);
+                }
+            }
+
+            result.put("success", true);
+            result.put("message", provider.getProviderName() + "에서 데이터를 성공적으로 동기화했습니다.");
+            result.put("fetchedCount", prices.size());
+            result.put("newCount", savedCount);
+            result.put("provider", provider.getProviderName());
+
+            log.info(
+                    "Synced {} prices for {} ({} new) from {}",
+                    prices.size(),
+                    benchmark,
+                    savedCount,
+                    provider.getProviderName());
+
+        } catch (Exception e) {
+            log.error("Error syncing benchmark data for {}: {}", benchmark, e.getMessage(), e);
+            result.put("success", false);
+            result.put("message", "동기화 중 오류 발생: " + e.getMessage());
+            result.put("fetchedCount", 0);
+        }
+
+        return result;
+    }
+
+    /** 모든 벤치마크 데이터 동기화 (최근 1년) */
+    @Transactional
+    public List<Map<String, Object>> syncAllBenchmarks() {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusYears(1);
+
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (BenchmarkType benchmark : BenchmarkType.values()) {
+            results.add(syncBenchmarkData(benchmark, startDate, endDate));
+        }
+        return results;
+    }
+
+    /** 일일 벤치마크 데이터 동기화 (스케줄러) - 매일 오후 11시 실행 */
+    @Transactional
+    @Scheduled(cron = "0 0 23 * * *")
+    public void scheduledDailySync() {
+        log.info("Starting scheduled daily benchmark sync");
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(7); // 최근 7일 동기화 (누락 방지)
+
+        for (BenchmarkType benchmark : BenchmarkType.values()) {
+            try {
+                syncBenchmarkData(benchmark, startDate, endDate);
+            } catch (Exception e) {
+                log.error("Failed to sync benchmark {}: {}", benchmark, e.getMessage());
+            }
+        }
+        log.info("Completed scheduled daily benchmark sync");
     }
 
     /** 샘플 벤치마크 데이터 생성 (테스트/데모용) */
