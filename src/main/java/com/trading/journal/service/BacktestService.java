@@ -225,6 +225,7 @@ public class BacktestService {
 
     /** 백테스트 실행 */
     @Transactional
+    @com.trading.journal.annotation.MeasurePerformance("백테스트 실행")
     public BacktestResultDto runBacktest(BacktestRequestDto request) {
         long startTime = System.currentTimeMillis();
 
@@ -1213,6 +1214,7 @@ public class BacktestService {
 
     /** 백테스트 결과 상세 조회 (trades 즉시 로딩으로 N+1 방지) */
     @Transactional(readOnly = true)
+    @com.trading.journal.annotation.MeasurePerformance("백테스트 조회")
     public BacktestResultDto getResult(Long id) {
         BacktestResult result =
                 backtestResultRepository

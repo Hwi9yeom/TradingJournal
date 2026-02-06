@@ -66,3 +66,14 @@ resilience4j:
 
 server:
   port: 8080
+
+# 로깅 설정
+logging:
+  level:
+    root: INFO
+    # 성능 로깅 (PerformanceLoggingAspect)
+    PERFORMANCE: INFO
+    # 느린 쿼리 디버깅 시 DEBUG로 변경
+    # org.hibernate.SQL: DEBUG
+    # org.hibernate.stat: DEBUG
+    com.trading.journal: INFO

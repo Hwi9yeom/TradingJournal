@@ -15,8 +15,55 @@ import org.springframework.stereotype.Component;
 public class PerformanceLoggingAspect {
 
     private static final Logger performanceLogger = LoggerFactory.getLogger("PERFORMANCE");
-    private static final long SLOW_THRESHOLD_MS = 1000;
+    private static final long DEFAULT_SLOW_THRESHOLD_MS = 1000;
     private static final long BYTES_PER_MB = 1024L * 1024L;
+
+    /**
+     * @MeasurePerformance 어노테이션이 붙은 메서드 성능 로깅
+     */
+    @Around("@annotation(measurePerformance)")
+    public Object logAnnotatedPerformance(
+            ProceedingJoinPoint joinPoint,
+            com.trading.journal.annotation.MeasurePerformance measurePerformance)
+            throws Throwable {
+        String className = joinPoint.getTarget().getClass().getSimpleName();
+        String methodName = joinPoint.getSignature().getName();
+        String description = measurePerformance.value();
+        long slowThreshold = measurePerformance.slowThresholdMs();
+
+        String label =
+                description.isEmpty()
+                        ? className + "." + methodName
+                        : description + " (" + className + "." + methodName + ")";
+
+        long startTime = System.currentTimeMillis();
+        Throwable exception = null;
+
+        try {
+            return joinPoint.proceed();
+        } catch (Throwable e) {
+            exception = e;
+            throw e;
+        } finally {
+            long executionTime = System.currentTimeMillis() - startTime;
+            logMeasuredResult(label, executionTime, slowThreshold, exception);
+        }
+    }
+
+    /**
+     * @MeasurePerformance 결과 로깅
+     */
+    private void logMeasuredResult(String label, long time, long threshold, Throwable ex) {
+        if (ex != null) {
+            performanceLogger.error(
+                    "[MEASURED] {} FAILED - {}ms - {}", label, time, ex.getMessage());
+        } else if (time > threshold) {
+            performanceLogger.warn(
+                    "[MEASURED] {} SLOW - {}ms (threshold: {}ms)", label, time, threshold);
+        } else {
+            performanceLogger.info("[MEASURED] {} - {}ms", label, time);
+        }
+    }
 
     /** 서비스, 컨트롤러, 리포지토리 레이어의 모든 메서드를 대상으로 성능 로깅 */
     @Around(
@@ -58,7 +105,7 @@ public class PerformanceLoggingAspect {
         if (ex != null) {
             performanceLogger.error(
                     "[{}] {} FAILED - {}ms - Exception: {}", layer, method, time, ex.getMessage());
-        } else if (time > SLOW_THRESHOLD_MS) {
+        } else if (time > DEFAULT_SLOW_THRESHOLD_MS) {
             performanceLogger.warn("[{}] {} SLOW - {}ms", layer, method, time);
         } else {
             performanceLogger.info("[{}] {} SUCCESS - {}ms", layer, method, time);

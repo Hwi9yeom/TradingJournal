@@ -52,6 +52,7 @@ public class BacktestComparisonService {
      * @return 비교 결과 DTO
      */
     @Cacheable(value = "backtest_comparison", key = "#backtestIds.hashCode()")
+    @com.trading.journal.annotation.MeasurePerformance("백테스트 비교 분석")
     public BacktestComparisonDto compareBacktests(List<Long> backtestIds) {
         log.info("Comparing {} backtests: {}", backtestIds.size(), backtestIds);
 
