@@ -51,16 +51,28 @@ public class TaxCalculationService {
         Map<Long, List<Transaction>> transactionsByStock =
                 yearTransactions.stream().collect(Collectors.groupingBy(t -> t.getStock().getId()));
 
+        // 종목별 매수 거래 미리 필터링 및 정렬 (반복 필터링 방지)
+        Map<Long, List<Transaction>> buyTransactionsByStock = new HashMap<>();
+        for (Map.Entry<Long, List<Transaction>> entry : transactionsByStock.entrySet()) {
+            List<Transaction> sortedBuys =
+                    entry.getValue().stream()
+                            .filter(t -> t.getType() == TransactionType.BUY)
+                            .sorted(Comparator.comparing(Transaction::getTransactionDate))
+                            .collect(Collectors.toList());
+            buyTransactionsByStock.put(entry.getKey(), sortedBuys);
+        }
+
         List<TaxCalculationDto.TaxDetailDto> taxDetails = new ArrayList<>();
         BigDecimal totalProfit = BigDecimal.ZERO;
         BigDecimal totalLoss = BigDecimal.ZERO;
 
         // 각 종목별로 세금 계산
         for (Transaction sellTransaction : sellTransactions) {
+            Long stockId = sellTransaction.getStock().getId();
             TaxCalculationDto.TaxDetailDto detail =
                     calculateTaxDetail(
                             sellTransaction,
-                            transactionsByStock.get(sellTransaction.getStock().getId()));
+                            buyTransactionsByStock.getOrDefault(stockId, Collections.emptyList()));
 
             if (detail != null) {
                 taxDetails.add(detail);
@@ -105,8 +117,14 @@ public class TaxCalculationService {
                 .build();
     }
 
+    /**
+     * 세금 상세 계산 (최적화: 미리 필터링/정렬된 매수 거래 목록 사용)
+     *
+     * @param sellTransaction 매도 거래
+     * @param sortedBuyTransactions 이미 날짜순 정렬된 매수 거래 목록
+     */
     private TaxCalculationDto.TaxDetailDto calculateTaxDetail(
-            Transaction sellTransaction, List<Transaction> stockTransactions) {
+            Transaction sellTransaction, List<Transaction> sortedBuyTransactions) {
 
         // FIFO 방식으로 계산된 realizedPnl과 costBasis 사용
         BigDecimal realizedPnl = sellTransaction.getRealizedPnl();
@@ -120,21 +138,17 @@ public class TaxCalculationService {
         BigDecimal sellAmount = sellTransaction.getTotalAmount();
         LocalDate sellDate = sellTransaction.getTransactionDate().toLocalDate();
 
-        // 첫 매수일 찾기 (보유 기간 계산용)
-        List<Transaction> buyTransactions =
-                stockTransactions.stream()
-                        .filter(t -> t.getType() == TransactionType.BUY)
+        // 첫 매수일 찾기 (보유 기간 계산용) - 이미 정렬되어 있으므로 필터만 수행
+        LocalDate firstBuyDate =
+                sortedBuyTransactions.stream()
                         .filter(
                                 t ->
                                         t.getTransactionDate()
                                                 .isBefore(sellTransaction.getTransactionDate()))
-                        .sorted(Comparator.comparing(Transaction::getTransactionDate))
-                        .collect(Collectors.toList());
+                        .findFirst()
+                        .map(t -> t.getTransactionDate().toLocalDate())
+                        .orElse(sellDate);
 
-        LocalDate firstBuyDate =
-                buyTransactions.isEmpty()
-                        ? sellDate
-                        : buyTransactions.get(0).getTransactionDate().toLocalDate();
         long holdingDays = ChronoUnit.DAYS.between(firstBuyDate, sellDate);
         boolean isLongTerm = holdingDays >= 365;
 

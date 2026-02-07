@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,14 +41,29 @@ public class PortfolioAnalysisService {
     public PortfolioSummaryDto getPortfolioSummary() {
         // FETCH JOIN으로 Stock과 Account를 함께 로딩하여 N+1 쿼리 방지
         List<Portfolio> portfolios = portfolioRepository.findAllWithStockAndAccount();
-        List<PortfolioDto> holdings = new ArrayList<>();
 
+        if (portfolios.isEmpty()) {
+            return buildEmptySummary();
+        }
+
+        // 병렬로 모든 가격 데이터 조회 (성능 최적화)
+        Map<String, BigDecimal[]> priceMap = fetchPricesInParallel(portfolios);
+
+        List<PortfolioDto> holdings = new ArrayList<>();
         BigDecimal totalInvestment = BigDecimal.ZERO;
         BigDecimal totalCurrentValue = BigDecimal.ZERO;
         BigDecimal totalDayChange = BigDecimal.ZERO;
 
         for (Portfolio portfolio : portfolios) {
-            PortfolioDto dto = calculatePortfolioMetrics(portfolio);
+            String symbol = portfolio.getStock().getSymbol();
+            BigDecimal[] prices =
+                    priceMap.getOrDefault(
+                            symbol, new BigDecimal[] {BigDecimal.ZERO, BigDecimal.ZERO});
+            BigDecimal currentPrice = prices[0];
+            BigDecimal previousClose = prices[1];
+
+            PortfolioDto dto =
+                    calculatePortfolioMetricsWithPrices(portfolio, currentPrice, previousClose);
             holdings.add(dto);
 
             totalInvestment = totalInvestment.add(portfolio.getTotalInvestment());
@@ -92,6 +108,66 @@ public class PortfolioAnalysisService {
                 .build();
     }
 
+    /** 모든 포트폴리오의 가격을 병렬로 조회 (성능 최적화) */
+    private Map<String, BigDecimal[]> fetchPricesInParallel(List<Portfolio> portfolios) {
+        Map<String, BigDecimal[]> priceMap = new java.util.concurrent.ConcurrentHashMap<>();
+
+        List<java.util.concurrent.CompletableFuture<Void>> futures =
+                portfolios.stream()
+                        .map(
+                                portfolio -> {
+                                    String symbol = portfolio.getStock().getSymbol();
+                                    return java.util.concurrent.CompletableFuture.runAsync(
+                                            () -> {
+                                                try {
+                                                    BigDecimal currentPrice =
+                                                            stockPriceService.getCurrentPrice(
+                                                                    symbol);
+                                                    BigDecimal previousClose =
+                                                            stockPriceService.getPreviousClose(
+                                                                    symbol);
+                                                    priceMap.put(
+                                                            symbol,
+                                                            new BigDecimal[] {
+                                                                currentPrice, previousClose
+                                                            });
+                                                } catch (Exception e) {
+                                                    log.warn(
+                                                            "Failed to fetch prices for {}: {}",
+                                                            symbol,
+                                                            e.getMessage());
+                                                    priceMap.put(
+                                                            symbol,
+                                                            new BigDecimal[] {
+                                                                BigDecimal.ZERO, BigDecimal.ZERO
+                                                            });
+                                                }
+                                            });
+                                })
+                        .collect(java.util.stream.Collectors.toList());
+
+        // 모든 가격 조회 완료 대기
+        java.util.concurrent.CompletableFuture.allOf(
+                        futures.toArray(new java.util.concurrent.CompletableFuture[0]))
+                .join();
+
+        return priceMap;
+    }
+
+    private PortfolioSummaryDto buildEmptySummary() {
+        return PortfolioSummaryDto.builder()
+                .totalInvestment(BigDecimal.ZERO)
+                .totalCurrentValue(BigDecimal.ZERO)
+                .totalProfitLoss(BigDecimal.ZERO)
+                .totalProfitLossPercent(BigDecimal.ZERO)
+                .totalDayChange(BigDecimal.ZERO)
+                .totalDayChangePercent(BigDecimal.ZERO)
+                .totalRealizedPnl(BigDecimal.ZERO)
+                .holdings(new ArrayList<>())
+                .lastUpdated(LocalDateTime.now())
+                .build();
+    }
+
     @Cacheable(value = "portfolio", key = "#symbol")
     public PortfolioDto getPortfolioBySymbol(String symbol) {
         Portfolio portfolio =
@@ -110,68 +186,76 @@ public class PortfolioAnalysisService {
                     stockPriceService.getCurrentPrice(portfolio.getStock().getSymbol());
             BigDecimal previousClose =
                     stockPriceService.getPreviousClose(portfolio.getStock().getSymbol());
-
-            BigDecimal currentValue = currentPrice.multiply(portfolio.getQuantity());
-            BigDecimal profitLoss = currentValue.subtract(portfolio.getTotalInvestment());
-            BigDecimal profitLossPercent = BigDecimal.ZERO;
-
-            if (portfolio.getTotalInvestment().compareTo(BigDecimal.ZERO) > 0) {
-                profitLossPercent =
-                        profitLoss
-                                .divide(portfolio.getTotalInvestment(), 4, RoundingMode.HALF_UP)
-                                .multiply(new BigDecimal("100"));
-            }
-
-            BigDecimal dayChange =
-                    currentPrice.subtract(previousClose).multiply(portfolio.getQuantity());
-            BigDecimal dayChangePercent = BigDecimal.ZERO;
-
-            if (previousClose.compareTo(BigDecimal.ZERO) > 0) {
-                dayChangePercent =
-                        currentPrice
-                                .subtract(previousClose)
-                                .divide(previousClose, 4, RoundingMode.HALF_UP)
-                                .multiply(new BigDecimal("100"));
-            }
-
-            return PortfolioDto.builder()
-                    .id(portfolio.getId())
-                    .stockSymbol(portfolio.getStock().getSymbol())
-                    .stockName(portfolio.getStock().getName())
-                    .quantity(portfolio.getQuantity())
-                    .averagePrice(portfolio.getAveragePrice())
-                    .totalInvestment(portfolio.getTotalInvestment())
-                    .currentPrice(currentPrice)
-                    .currentValue(currentValue)
-                    .profitLoss(profitLoss)
-                    .profitLossPercent(profitLossPercent)
-                    .dayChange(dayChange)
-                    .dayChangePercent(dayChangePercent)
-                    .lastUpdated(LocalDateTime.now())
-                    .build();
-
+            return calculatePortfolioMetricsWithPrices(portfolio, currentPrice, previousClose);
         } catch (Exception e) {
             log.error(
                     "Failed to calculate portfolio metrics for symbol: {}",
                     portfolio.getStock().getSymbol(),
                     e);
-
-            return PortfolioDto.builder()
-                    .id(portfolio.getId())
-                    .stockSymbol(portfolio.getStock().getSymbol())
-                    .stockName(portfolio.getStock().getName())
-                    .quantity(portfolio.getQuantity())
-                    .averagePrice(portfolio.getAveragePrice())
-                    .totalInvestment(portfolio.getTotalInvestment())
-                    .currentPrice(BigDecimal.ZERO)
-                    .currentValue(BigDecimal.ZERO)
-                    .profitLoss(BigDecimal.ZERO)
-                    .profitLossPercent(BigDecimal.ZERO)
-                    .dayChange(BigDecimal.ZERO)
-                    .dayChangePercent(BigDecimal.ZERO)
-                    .lastUpdated(LocalDateTime.now())
-                    .build();
+            return buildFallbackPortfolioDto(portfolio);
         }
+    }
+
+    /** 미리 조회된 가격으로 포트폴리오 메트릭 계산 (병렬 조회 시 사용) */
+    private PortfolioDto calculatePortfolioMetricsWithPrices(
+            Portfolio portfolio, BigDecimal currentPrice, BigDecimal previousClose) {
+        BigDecimal currentValue = currentPrice.multiply(portfolio.getQuantity());
+        BigDecimal profitLoss = currentValue.subtract(portfolio.getTotalInvestment());
+        BigDecimal profitLossPercent = BigDecimal.ZERO;
+
+        if (portfolio.getTotalInvestment().compareTo(BigDecimal.ZERO) > 0) {
+            profitLossPercent =
+                    profitLoss
+                            .divide(portfolio.getTotalInvestment(), 4, RoundingMode.HALF_UP)
+                            .multiply(new BigDecimal("100"));
+        }
+
+        BigDecimal dayChange =
+                currentPrice.subtract(previousClose).multiply(portfolio.getQuantity());
+        BigDecimal dayChangePercent = BigDecimal.ZERO;
+
+        if (previousClose.compareTo(BigDecimal.ZERO) > 0) {
+            dayChangePercent =
+                    currentPrice
+                            .subtract(previousClose)
+                            .divide(previousClose, 4, RoundingMode.HALF_UP)
+                            .multiply(new BigDecimal("100"));
+        }
+
+        return PortfolioDto.builder()
+                .id(portfolio.getId())
+                .stockSymbol(portfolio.getStock().getSymbol())
+                .stockName(portfolio.getStock().getName())
+                .quantity(portfolio.getQuantity())
+                .averagePrice(portfolio.getAveragePrice())
+                .totalInvestment(portfolio.getTotalInvestment())
+                .currentPrice(currentPrice)
+                .currentValue(currentValue)
+                .profitLoss(profitLoss)
+                .profitLossPercent(profitLossPercent)
+                .dayChange(dayChange)
+                .dayChangePercent(dayChangePercent)
+                .lastUpdated(LocalDateTime.now())
+                .build();
+    }
+
+    /** 가격 조회 실패 시 사용할 기본 PortfolioDto */
+    private PortfolioDto buildFallbackPortfolioDto(Portfolio portfolio) {
+        return PortfolioDto.builder()
+                .id(portfolio.getId())
+                .stockSymbol(portfolio.getStock().getSymbol())
+                .stockName(portfolio.getStock().getName())
+                .quantity(portfolio.getQuantity())
+                .averagePrice(portfolio.getAveragePrice())
+                .totalInvestment(portfolio.getTotalInvestment())
+                .currentPrice(BigDecimal.ZERO)
+                .currentValue(BigDecimal.ZERO)
+                .profitLoss(BigDecimal.ZERO)
+                .profitLossPercent(BigDecimal.ZERO)
+                .dayChange(BigDecimal.ZERO)
+                .dayChangePercent(BigDecimal.ZERO)
+                .lastUpdated(LocalDateTime.now())
+                .build();
     }
 
     // ==================== Portfolio Treemap ====================
@@ -188,33 +272,44 @@ public class PortfolioAnalysisService {
 
         // FETCH JOIN으로 Stock과 Account를 함께 로딩하여 N+1 쿼리 방지
         List<Portfolio> portfolios = portfolioRepository.findAllWithStockAndAccount();
-        List<PortfolioTreemapDto.TreemapCell> cells = new ArrayList<>();
+
+        // 빈 포지션 필터링
+        List<Portfolio> activePortfolios =
+                portfolios.stream()
+                        .filter(p -> p.getQuantity().compareTo(BigDecimal.ZERO) > 0)
+                        .collect(java.util.stream.Collectors.toList());
+
+        if (activePortfolios.isEmpty()) {
+            return PortfolioTreemapDto.builder()
+                    .cells(new ArrayList<>())
+                    .period(period)
+                    .lastUpdated(LocalDateTime.now())
+                    .totalInvestment(BigDecimal.ZERO)
+                    .totalPerformance(BigDecimal.ZERO)
+                    .build();
+        }
 
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = calculateStartDate(period, endDate);
 
+        // 병렬로 가격 데이터 조회 (성능 최적화)
+        Map<String, BigDecimal[]> priceMap = fetchPricesInParallel(activePortfolios);
+
+        List<PortfolioTreemapDto.TreemapCell> cells = new ArrayList<>();
         BigDecimal totalInvestment = BigDecimal.ZERO;
         BigDecimal weightedPerformanceSum = BigDecimal.ZERO;
 
-        for (Portfolio portfolio : portfolios) {
-            if (portfolio.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-                continue; // Skip empty positions
-            }
-
+        for (Portfolio portfolio : activePortfolios) {
             String symbol = portfolio.getStock().getSymbol();
             BigDecimal performance = calculatePeriodPerformance(symbol, startDate, endDate);
             boolean hasData = performance != null;
 
-            BigDecimal currentPrice = BigDecimal.ZERO;
-            BigDecimal priceChange = BigDecimal.ZERO;
-
-            try {
-                currentPrice = stockPriceService.getCurrentPrice(symbol);
-                BigDecimal previousClose = stockPriceService.getPreviousClose(symbol);
-                priceChange = currentPrice.subtract(previousClose);
-            } catch (Exception e) {
-                log.warn("Failed to get current price for {}: {}", symbol, e.getMessage());
-            }
+            BigDecimal[] prices =
+                    priceMap.getOrDefault(
+                            symbol, new BigDecimal[] {BigDecimal.ZERO, BigDecimal.ZERO});
+            BigDecimal currentPrice = prices[0];
+            BigDecimal previousClose = prices[1];
+            BigDecimal priceChange = currentPrice.subtract(previousClose);
 
             String sector =
                     portfolio.getStock().getSector() != null

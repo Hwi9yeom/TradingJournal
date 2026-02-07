@@ -35,6 +35,7 @@ public class GoalService {
 
     /** 새 목표 생성 */
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "goalSummary", allEntries = true)
     public GoalDto createGoal(GoalDto dto) {
         Goal goal =
                 Goal.builder()
@@ -76,6 +77,7 @@ public class GoalService {
 
     /** 목표 수정 */
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "goalSummary", allEntries = true)
     public GoalDto updateGoal(Long id, GoalDto dto) {
         Goal goal =
                 goalRepository
@@ -105,6 +107,7 @@ public class GoalService {
 
     /** 목표 삭제 */
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "goalSummary", allEntries = true)
     public void deleteGoal(Long id) {
         if (!goalRepository.existsById(id)) {
             throw new IllegalArgumentException("목표를 찾을 수 없습니다: " + id);
@@ -153,6 +156,7 @@ public class GoalService {
     }
 
     /** 목표 요약 정보 조회 */
+    @org.springframework.cache.annotation.Cacheable(value = "goalSummary", key = "'summary'")
     public GoalSummaryDto getGoalSummary() {
         List<Goal> allGoals = goalRepository.findAll();
         LocalDate today = LocalDate.now();

@@ -104,9 +104,9 @@ public class FifoCalculationService {
         // 매도 거래에 실현손익 저장
         sellTransaction.setRealizedPnl(result.getRealizedPnl());
         sellTransaction.setCostBasis(result.getCostBasis());
-        transactionRepository.save(sellTransaction);
 
-        // 매수 거래들의 잔여 수량 차감
+        // 매수 거래들의 잔여 수량 차감 - 배치로 수집
+        List<Transaction> modifiedBuyTransactions = new ArrayList<>();
         for (BuyConsumption consumption : result.getConsumptions()) {
             Transaction buyTx = consumption.getBuyTransaction();
             BigDecimal expectedRemaining =
@@ -122,14 +122,19 @@ public class FifoCalculationService {
             }
 
             buyTx.setRemainingQuantity(newRemaining);
-            transactionRepository.save(buyTx);
+            modifiedBuyTransactions.add(buyTx);
         }
 
+        // 배치 저장: 매도 거래 + 모든 수정된 매수 거래를 한 번에 저장
+        modifiedBuyTransactions.add(sellTransaction);
+        transactionRepository.saveAll(modifiedBuyTransactions);
+
         log.debug(
-                "FIFO 적용 완료 - 매도 ID: {}, 실현손익: {}, 원가: {}",
+                "FIFO 적용 완료 - 매도 ID: {}, 실현손익: {}, 원가: {}, 수정된 매수거래: {}건",
                 sellTransaction.getId(),
                 result.getRealizedPnl(),
-                result.getCostBasis());
+                result.getCostBasis(),
+                modifiedBuyTransactions.size() - 1);
     }
 
     /** 특정 계좌/종목의 FIFO 재계산 거래 수정/삭제 시 호출 */
@@ -141,31 +146,95 @@ public class FifoCalculationService {
                 transactionRepository.findByAccountIdAndStockIdOrderByTransactionDateAsc(
                         accountId, stockId);
 
-        // 모든 거래의 FIFO 필드 초기화
-        for (Transaction tx : allTransactions) {
-            if (tx.getType() == TransactionType.BUY) {
-                tx.setRemainingQuantity(tx.getQuantity());
-                tx.setRealizedPnl(null);
-                tx.setCostBasis(null);
-            } else {
-                tx.setRemainingQuantity(null);
-                tx.setRealizedPnl(null);
-                tx.setCostBasis(null);
-            }
+        // 매수/매도 분리 및 정렬
+        List<Transaction> buyTransactions =
+                allTransactions.stream()
+                        .filter(t -> t.getType() == TransactionType.BUY)
+                        .sorted(Comparator.comparing(Transaction::getTransactionDate))
+                        .toList();
+
+        List<Transaction> sellTransactions =
+                allTransactions.stream()
+                        .filter(t -> t.getType() == TransactionType.SELL)
+                        .sorted(Comparator.comparing(Transaction::getTransactionDate))
+                        .toList();
+
+        // 모든 거래의 FIFO 필드 초기화 (인메모리에서 수정)
+        for (Transaction tx : buyTransactions) {
+            tx.setRemainingQuantity(tx.getQuantity());
+            tx.setRealizedPnl(null);
+            tx.setCostBasis(null);
         }
+        for (Transaction tx : sellTransactions) {
+            tx.setRemainingQuantity(null);
+            tx.setRealizedPnl(null);
+            tx.setCostBasis(null);
+        }
+
+        // 인메모리 FIFO 계산 (DB 재조회 없이)
+        calculateFifoInMemory(buyTransactions, sellTransactions);
+
+        // 모든 거래 한 번에 저장
         transactionRepository.saveAll(allTransactions);
 
-        // 매도 거래를 날짜 순서대로 FIFO 적용
-        allTransactions.stream()
-                .filter(t -> t.getType() == TransactionType.SELL)
-                .sorted(Comparator.comparing(Transaction::getTransactionDate))
-                .forEach(
-                        sellTx -> {
-                            FifoResult result = calculateFifoProfit(sellTx);
-                            applyFifoResult(sellTx, result);
-                        });
+        log.info(
+                "FIFO 재계산 완료 - Account: {}, Stock: {}, 매수: {}건, 매도: {}건",
+                accountId,
+                stockId,
+                buyTransactions.size(),
+                sellTransactions.size());
+    }
 
-        log.info("FIFO 재계산 완료 - Account: {}, Stock: {}", accountId, stockId);
+    /** 인메모리 FIFO 계산 (DB 재조회 없이 최적화) */
+    private void calculateFifoInMemory(
+            List<Transaction> buyTransactions, List<Transaction> sellTransactions) {
+        // 매수 거래의 잔여 수량 추적용 Map
+        java.util.Map<Long, BigDecimal> remainingQuantities = new java.util.HashMap<>();
+        for (Transaction buy : buyTransactions) {
+            remainingQuantities.put(buy.getId(), buy.getQuantity());
+        }
+
+        for (Transaction sellTx : sellTransactions) {
+            BigDecimal remainingToSell = sellTx.getQuantity();
+            BigDecimal totalCostBasis = BigDecimal.ZERO;
+
+            // FIFO 순서로 매수 거래 소진
+            for (Transaction buyTx : buyTransactions) {
+                if (remainingToSell.compareTo(BigDecimal.ZERO) <= 0) {
+                    break;
+                }
+
+                // 매도일 이전 매수만 사용
+                if (!buyTx.getTransactionDate().isBefore(sellTx.getTransactionDate())
+                        && !buyTx.getTransactionDate().isEqual(sellTx.getTransactionDate())) {
+                    continue;
+                }
+
+                BigDecimal available =
+                        remainingQuantities.getOrDefault(buyTx.getId(), BigDecimal.ZERO);
+                if (available.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+
+                BigDecimal consumed = available.min(remainingToSell);
+                BigDecimal buyUnitPrice = calculateUnitPrice(buyTx);
+                BigDecimal consumedCost = buyUnitPrice.multiply(consumed);
+
+                totalCostBasis = totalCostBasis.add(consumedCost);
+                remainingToSell = remainingToSell.subtract(consumed);
+
+                // 잔여 수량 업데이트
+                BigDecimal newRemaining = available.subtract(consumed).max(BigDecimal.ZERO);
+                remainingQuantities.put(buyTx.getId(), newRemaining);
+                buyTx.setRemainingQuantity(newRemaining);
+            }
+
+            // 매도 거래에 손익 저장
+            BigDecimal sellAmount = sellTx.getTotalAmount();
+            BigDecimal realizedPnl = sellAmount.subtract(totalCostBasis);
+            sellTx.setRealizedPnl(realizedPnl);
+            sellTx.setCostBasis(totalCostBasis);
+        }
     }
 
     /** 기존 모든 매도 거래에 대한 realizedPnl 마이그레이션 */

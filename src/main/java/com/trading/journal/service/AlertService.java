@@ -211,6 +211,7 @@ public class AlertService {
     }
 
     /** 알림 조회 */
+    @Transactional(readOnly = true)
     public AlertDto getAlert(Long id) {
         Alert alert =
                 alertRepository
@@ -220,6 +221,7 @@ public class AlertService {
     }
 
     /** 읽지 않은 알림 조회 */
+    @Transactional(readOnly = true)
     public List<AlertDto> getUnreadAlerts() {
         return alertRepository
                 .findByStatusInOrderByPriorityDescCreatedAtDesc(List.of(AlertStatus.UNREAD))
@@ -229,6 +231,7 @@ public class AlertService {
     }
 
     /** 모든 알림 조회 (페이징) */
+    @Transactional(readOnly = true)
     public Page<AlertDto> getAllAlerts(int page, int size) {
         return alertRepository
                 .findByStatusInOrderByCreatedAtDesc(
@@ -237,6 +240,7 @@ public class AlertService {
     }
 
     /** 알림 요약 조회 */
+    @Transactional(readOnly = true)
     public AlertSummaryDto getAlertSummary() {
         long unreadCount = alertRepository.countByStatus(AlertStatus.UNREAD);
         long criticalCount =

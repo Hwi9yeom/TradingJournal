@@ -338,39 +338,37 @@ public class TransactionService {
                 sellTransaction.getAccount() != null ? sellTransaction.getAccount().getId() : null;
         Long stockId = sellTransaction.getStock().getId();
 
-        List<Transaction> buyTransactions =
-                transactionRepository.findByAccountIdAndStockIdAndTypeOrderByTransactionDateAsc(
-                        accountId, stockId, TransactionType.BUY);
+        // 성능 최적화: 초기 리스크가 설정된 BUY 거래만 DB에서 조회
+        List<Transaction> buyTransactionsWithRisk =
+                transactionRepository.findBuyTransactionsWithInitialRisk(accountId, stockId);
 
-        // 초기 리스크가 설정된 BUY 거래들의 평균 리스크 계산
-        BigDecimal totalInitialRisk = BigDecimal.ZERO;
-        int count = 0;
-        for (Transaction buy : buyTransactions) {
-            if (buy.getInitialRiskAmount() != null
-                    && buy.getInitialRiskAmount().compareTo(BigDecimal.ZERO) > 0) {
-                // 주당 리스크 기준으로 계산
-                BigDecimal riskPerShare =
-                        buy.getInitialRiskAmount()
-                                .divide(buy.getQuantity(), 4, RoundingMode.HALF_UP);
-                totalInitialRisk = totalInitialRisk.add(riskPerShare);
-                count++;
-            }
+        if (buyTransactionsWithRisk.isEmpty()) {
+            return;
         }
 
-        if (count > 0) {
-            BigDecimal avgRiskPerShare =
-                    totalInitialRisk.divide(BigDecimal.valueOf(count), 4, RoundingMode.HALF_UP);
-            BigDecimal sellInitialRisk = avgRiskPerShare.multiply(sellTransaction.getQuantity());
+        // 평균 리스크 계산 (이미 initialRiskAmount > 0인 것만 조회됨)
+        BigDecimal totalInitialRisk = BigDecimal.ZERO;
+        for (Transaction buy : buyTransactionsWithRisk) {
+            BigDecimal riskPerShare =
+                    buy.getInitialRiskAmount().divide(buy.getQuantity(), 4, RoundingMode.HALF_UP);
+            totalInitialRisk = totalInitialRisk.add(riskPerShare);
+        }
 
-            if (sellInitialRisk.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal rMultiple =
-                        sellTransaction
-                                .getRealizedPnl()
-                                .divide(sellInitialRisk, 4, RoundingMode.HALF_UP);
-                sellTransaction.setRMultiple(rMultiple);
-                sellTransaction.setInitialRiskAmount(sellInitialRisk);
-                transactionRepository.save(sellTransaction);
-            }
+        BigDecimal avgRiskPerShare =
+                totalInitialRisk.divide(
+                        BigDecimal.valueOf(buyTransactionsWithRisk.size()),
+                        4,
+                        RoundingMode.HALF_UP);
+        BigDecimal sellInitialRisk = avgRiskPerShare.multiply(sellTransaction.getQuantity());
+
+        if (sellInitialRisk.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal rMultiple =
+                    sellTransaction
+                            .getRealizedPnl()
+                            .divide(sellInitialRisk, 4, RoundingMode.HALF_UP);
+            sellTransaction.setRMultiple(rMultiple);
+            sellTransaction.setInitialRiskAmount(sellInitialRisk);
+            transactionRepository.save(sellTransaction);
         }
     }
 

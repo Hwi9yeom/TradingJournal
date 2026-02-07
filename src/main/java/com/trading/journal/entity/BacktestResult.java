@@ -109,7 +109,11 @@ public class BacktestResult {
     private BigDecimal avgHoldingDays;
 
     /** 백테스트 거래 목록 */
-    @OneToMany(mappedBy = "backtestResult", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(
+            mappedBy = "backtestResult",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY)
     @Builder.Default
     private List<BacktestTrade> trades = new ArrayList<>();
 

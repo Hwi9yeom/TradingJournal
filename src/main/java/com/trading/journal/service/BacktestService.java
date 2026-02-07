@@ -1281,6 +1281,9 @@ public class BacktestService {
 
     // === 전략 최적화 ===
 
+    /** 최대 파라미터 조합 수 제한 (리소스 보호) */
+    private static final int MAX_PARAMETER_COMBINATIONS = 10000;
+
     /** 전략 파라미터 최적화 (그리드 서치) */
     @Transactional
     public OptimizationResultDto optimizeStrategy(OptimizationRequestDto request) {
@@ -1290,6 +1293,14 @@ public class BacktestService {
         // 1. 파라미터 조합 생성
         List<Map<String, Object>> paramCombinations =
                 generateParameterCombinations(request.getParameterRanges());
+
+        // 조합 수 제한 검증 (리소스 보호)
+        if (paramCombinations.size() > MAX_PARAMETER_COMBINATIONS) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "파라미터 조합 수(%d)가 최대 허용 한도(%d)를 초과합니다. 파라미터 범위를 줄여주세요.",
+                            paramCombinations.size(), MAX_PARAMETER_COMBINATIONS));
+        }
         log.info("테스트할 파라미터 조합 수: {}", paramCombinations.size());
 
         // 2. 가격 데이터 미리 조회 (재사용)
@@ -1297,55 +1308,99 @@ public class BacktestService {
                 fetchHistoricalPriceData(
                         request.getSymbol(), request.getStartDate(), request.getEndDate());
 
-        // 3. 각 조합에 대해 백테스트 실행 (병렬 처리)
+        // 3. 각 조합에 대해 백테스트 실행 (제한된 병렬 처리)
         List<ParameterResult> results = Collections.synchronizedList(new ArrayList<>());
         final int totalCombinations = paramCombinations.size();
         final AtomicInteger completedCount = new AtomicInteger(0);
         final AtomicInteger logInterval =
                 new AtomicInteger(Math.max(1, totalCombinations / 10)); // 10% 단위 로깅
 
-        paramCombinations.parallelStream()
-                .forEach(
-                        params -> {
-                            try {
-                                BacktestRequestDto backtestRequest =
-                                        createBacktestRequestFromOptimization(request, params);
-                                TradingStrategy strategy = createStrategy(backtestRequest);
-                                BacktestResult result =
-                                        executeBacktest(backtestRequest, strategy, prices);
+        // CPU 코어 수 기반 병렬화 제한 (최대 4개로 제한하여 리소스 보호)
+        int parallelism = Math.min(4, Runtime.getRuntime().availableProcessors());
+        java.util.concurrent.ForkJoinPool customPool =
+                new java.util.concurrent.ForkJoinPool(parallelism);
 
-                                BigDecimal targetValue =
-                                        getTargetValue(result, request.getTarget());
+        try {
+            customPool
+                    .submit(
+                            () ->
+                                    paramCombinations.parallelStream()
+                                            .forEach(
+                                                    params -> {
+                                                        try {
+                                                            BacktestRequestDto backtestRequest =
+                                                                    createBacktestRequestFromOptimization(
+                                                                            request, params);
+                                                            TradingStrategy strategy =
+                                                                    createStrategy(backtestRequest);
+                                                            BacktestResult result =
+                                                                    executeBacktest(
+                                                                            backtestRequest,
+                                                                            strategy,
+                                                                            prices);
 
-                                results.add(
-                                        ParameterResult.builder()
-                                                .parameters(params)
-                                                .targetValue(targetValue)
-                                                .totalReturn(result.getTotalReturn())
-                                                .maxDrawdown(result.getMaxDrawdown())
-                                                .sharpeRatio(result.getSharpeRatio())
-                                                .profitFactor(result.getProfitFactor())
-                                                .totalTrades(result.getTotalTrades())
-                                                .winRate(result.getWinRate())
-                                                .build());
+                                                            BigDecimal targetValue =
+                                                                    getTargetValue(
+                                                                            result,
+                                                                            request.getTarget());
 
-                                // 진행률 로깅 (10% 단위)
-                                int completed = completedCount.incrementAndGet();
-                                if (completed % logInterval.get() == 0
-                                        || completed == totalCombinations) {
-                                    log.info(
-                                            "최적화 진행률: {}/{} ({}%)",
-                                            completed,
-                                            totalCombinations,
-                                            String.format(
-                                                    "%.0f",
-                                                    (double) completed / totalCombinations * 100));
-                                }
-                            } catch (Exception e) {
-                                log.warn("파라미터 조합 테스트 실패: {} - {}", params, e.getMessage());
-                                completedCount.incrementAndGet();
-                            }
-                        });
+                                                            results.add(
+                                                                    ParameterResult.builder()
+                                                                            .parameters(params)
+                                                                            .targetValue(
+                                                                                    targetValue)
+                                                                            .totalReturn(
+                                                                                    result
+                                                                                            .getTotalReturn())
+                                                                            .maxDrawdown(
+                                                                                    result
+                                                                                            .getMaxDrawdown())
+                                                                            .sharpeRatio(
+                                                                                    result
+                                                                                            .getSharpeRatio())
+                                                                            .profitFactor(
+                                                                                    result
+                                                                                            .getProfitFactor())
+                                                                            .totalTrades(
+                                                                                    result
+                                                                                            .getTotalTrades())
+                                                                            .winRate(
+                                                                                    result
+                                                                                            .getWinRate())
+                                                                            .build());
+
+                                                            // 진행률 로깅 (10% 단위)
+                                                            int completed =
+                                                                    completedCount
+                                                                            .incrementAndGet();
+                                                            if (completed % logInterval.get() == 0
+                                                                    || completed
+                                                                            == totalCombinations) {
+                                                                log.info(
+                                                                        "최적화 진행률: {}/{} ({}%)",
+                                                                        completed,
+                                                                        totalCombinations,
+                                                                        String.format(
+                                                                                "%.0f",
+                                                                                (double) completed
+                                                                                        / totalCombinations
+                                                                                        * 100));
+                                                            }
+                                                        } catch (Exception e) {
+                                                            log.warn(
+                                                                    "파라미터 조합 테스트 실패: {} - {}",
+                                                                    params,
+                                                                    e.getMessage());
+                                                            completedCount.incrementAndGet();
+                                                        }
+                                                    }))
+                    .get(); // 완료 대기
+        } catch (Exception e) {
+            log.error("최적화 병렬 처리 중 오류: {}", e.getMessage());
+            throw new RuntimeException("최적화 실행 실패", e);
+        } finally {
+            customPool.shutdown();
+        }
 
         if (results.isEmpty()) {
             throw new RuntimeException("최적화 실패: 유효한 결과가 없습니다");

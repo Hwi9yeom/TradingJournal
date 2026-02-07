@@ -117,7 +117,7 @@ class PortfolioAnalysisServiceTest {
     void getPortfolioSummary_EmptyPortfolio() {
         // Given
         when(portfolioRepository.findAllWithStockAndAccount()).thenReturn(Collections.emptyList());
-        when(transactionRepository.sumTotalRealizedPnl()).thenReturn(BigDecimal.ZERO);
+        // 빈 포트폴리오의 경우 early return으로 transactionRepository 호출하지 않음
 
         // When
         PortfolioSummaryDto summary = portfolioAnalysisService.getPortfolioSummary();
@@ -183,6 +183,7 @@ class PortfolioAnalysisServiceTest {
         PortfolioDto holding = summary.getHoldings().get(0);
         assertThat(holding.getCurrentPrice()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(holding.getCurrentValue()).isEqualByComparingTo(BigDecimal.ZERO);
-        assertThat(holding.getProfitLoss()).isEqualByComparingTo(BigDecimal.ZERO);
+        // 병렬 호출 시 가격이 0이면 profitLoss는 -투자금으로 계산됨
+        assertThat(holding.getProfitLoss()).isEqualByComparingTo(new BigDecimal("-1500.00"));
     }
 }

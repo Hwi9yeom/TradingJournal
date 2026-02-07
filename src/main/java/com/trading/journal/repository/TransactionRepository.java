@@ -124,6 +124,18 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("stockId") Long stockId,
             @Param("type") TransactionType type);
 
+    /** R-multiple 계산용: 초기 리스크가 설정된 BUY 거래만 조회 (성능 최적화) */
+    @Query(
+            "SELECT t FROM Transaction t WHERE "
+                    + "((:accountId IS NULL AND t.account IS NULL) OR t.account.id = :accountId) "
+                    + "AND t.stock.id = :stockId "
+                    + "AND t.type = 'BUY' "
+                    + "AND t.initialRiskAmount IS NOT NULL "
+                    + "AND t.initialRiskAmount > 0 "
+                    + "ORDER BY t.transactionDate ASC")
+    List<Transaction> findBuyTransactionsWithInitialRisk(
+            @Param("accountId") Long accountId, @Param("stockId") Long stockId);
+
     /** R-multiple이 있는 SELL 거래 조회 (리스크 분석용) */
     @Query(
             "SELECT t FROM Transaction t WHERE "

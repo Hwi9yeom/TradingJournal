@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 거래 통계 분석 서비스
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Service;
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class TradingStatisticsService {
 
     // ============================================================
@@ -148,6 +150,9 @@ public class TradingStatisticsService {
      * @param endDate 종료일
      * @return 시간대별 통계 목록
      */
+    @org.springframework.cache.annotation.Cacheable(
+            value = "tradingStats",
+            key = "'timeOfDay_' + #accountId + '_' + #startDate + '_' + #endDate")
     public List<TimeOfDayStats> getTimeOfDayPerformance(
             Long accountId, LocalDate startDate, LocalDate endDate) {
         log.debug("시간대별 성과 분석 시작 - accountId: {}, period: {} ~ {}", accountId, startDate, endDate);
@@ -170,6 +175,9 @@ public class TradingStatisticsService {
      * @param endDate 종료일
      * @return 요일별 통계 목록
      */
+    @org.springframework.cache.annotation.Cacheable(
+            value = "tradingStats",
+            key = "'weekday_' + #accountId + '_' + #startDate + '_' + #endDate")
     public List<WeekdayStats> getWeekdayPerformance(
             Long accountId, LocalDate startDate, LocalDate endDate) {
         log.debug("요일별 성과 분석 시작 - accountId: {}, period: {} ~ {}", accountId, startDate, endDate);
@@ -192,6 +200,9 @@ public class TradingStatisticsService {
      * @param endDate 종료일
      * @return 종목별 통계 목록 (수익 기준 정렬, 순위 포함)
      */
+    @org.springframework.cache.annotation.Cacheable(
+            value = "tradingStats",
+            key = "'symbol_' + #accountId + '_' + #startDate + '_' + #endDate")
     public List<SymbolStats> getSymbolPerformance(
             Long accountId, LocalDate startDate, LocalDate endDate) {
         log.debug("종목별 성과 분석 시작 - accountId: {}, period: {} ~ {}", accountId, startDate, endDate);
@@ -304,6 +315,7 @@ public class TradingStatisticsService {
      *
      * @return 전체 통계 맵
      */
+    @org.springframework.cache.annotation.Cacheable(value = "tradingStats", key = "'overall'")
     public Map<String, Object> getOverallStatistics() {
         log.debug("전체 거래 통계 조회 시작");
 

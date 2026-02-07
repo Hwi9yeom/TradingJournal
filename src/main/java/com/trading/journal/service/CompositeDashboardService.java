@@ -34,6 +34,32 @@ public class CompositeDashboardService {
     /** 기본 분석 기간 (일) */
     private static final int DEFAULT_ANALYSIS_DAYS = 90;
 
+    /** 전용 스레드 풀 (I/O 바운드 작업에 최적화) */
+    private java.util.concurrent.ExecutorService dashboardExecutor;
+
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        // I/O 바운드 작업에 적합한 스레드 풀 (코어 수 * 2)
+        int poolSize = Math.max(4, Runtime.getRuntime().availableProcessors() * 2);
+        dashboardExecutor = java.util.concurrent.Executors.newFixedThreadPool(poolSize);
+        log.info("Dashboard executor initialized with {} threads", poolSize);
+    }
+
+    @jakarta.annotation.PreDestroy
+    public void destroy() {
+        if (dashboardExecutor != null) {
+            dashboardExecutor.shutdown();
+            try {
+                if (!dashboardExecutor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                    dashboardExecutor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                dashboardExecutor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
     /**
      * 복합 대시보드 데이터 조회
      *
@@ -51,20 +77,21 @@ public class CompositeDashboardService {
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(DEFAULT_ANALYSIS_DAYS);
 
-        // 병렬로 4개 서비스 호출
+        // 병렬로 4개 서비스 호출 (전용 Executor 사용)
         CompletableFuture<PortfolioOverview> portfolioFuture =
-                CompletableFuture.supplyAsync(() -> fetchPortfolioOverview());
+                CompletableFuture.supplyAsync(() -> fetchPortfolioOverview(), dashboardExecutor);
 
         CompletableFuture<RiskMetricsSummary> riskFuture =
                 CompletableFuture.supplyAsync(
-                        () -> fetchRiskMetrics(accountId, startDate, endDate));
+                        () -> fetchRiskMetrics(accountId, startDate, endDate), dashboardExecutor);
 
         CompletableFuture<PsychologyScoreDetail> psychologyFuture =
                 CompletableFuture.supplyAsync(
-                        () -> fetchPsychologyScore(accountId, startDate, endDate));
+                        () -> fetchPsychologyScore(accountId, startDate, endDate),
+                        dashboardExecutor);
 
         CompletableFuture<TradingStatisticsSummary> statisticsFuture =
-                CompletableFuture.supplyAsync(this::fetchTradingStatistics);
+                CompletableFuture.supplyAsync(this::fetchTradingStatistics, dashboardExecutor);
 
         // 모든 결과 수집 (개별 에러 핸들링)
         PortfolioOverview portfolioOverview =

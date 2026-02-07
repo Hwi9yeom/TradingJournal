@@ -58,6 +58,10 @@ public class TradingPsychologyService {
      * @param endDate 종료일
      * @return 종합 심리 분석 결과
      */
+    @org.springframework.cache.annotation.Cacheable(
+            value = "tradingPsychology",
+            key =
+                    "'fullAnalysis_' + (#accountId != null ? #accountId : 'all') + '_' + #startDate + '_' + #endDate")
     public com.trading.journal.dto.TradingPsychologyDto getFullAnalysis(
             Long accountId, LocalDate startDate, LocalDate endDate) {
         log.info(
@@ -212,6 +216,10 @@ public class TradingPsychologyService {
      * @param accountId 계좌 ID
      * @return 틸트 분석 결과
      */
+    @org.springframework.cache.annotation.Cacheable(
+            value = "tiltStatus",
+            key =
+                    "'tilt_' + (#accountId != null ? #accountId : 'all') + '_' + T(java.time.LocalDate).now()")
     public TiltAnalysis getCurrentTiltStatus(Long accountId) {
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(7);
@@ -297,6 +305,10 @@ public class TradingPsychologyService {
      * @param endDate 종료일
      * @return 심리 점수
      */
+    @org.springframework.cache.annotation.Cacheable(
+            value = "psychologicalScore",
+            key =
+                    "'score_' + (#accountId != null ? #accountId : 'all') + '_' + #startDate + '_' + #endDate")
     public PsychologicalScore calculatePsychologicalScore(
             Long accountId, LocalDate startDate, LocalDate endDate) {
         log.info("Calculating psychological score for account: {}", accountId);
@@ -731,24 +743,49 @@ public class TradingPsychologyService {
 
     private List<ScoreTrend> calculateScoreTrend(
             Long accountId, LocalDate startDate, LocalDate endDate) {
+        // Fetch all data upfront to avoid N+1 query pattern (2 queries instead of 2 * weeks)
+        LocalDateTime rangeStartDateTime = startDate.atStartOfDay();
+        LocalDateTime rangeEndDateTime = endDate.atTime(23, 59, 59);
+
+        List<TradeReview> allTrades =
+                tradeReviewRepository.findTradesForTiltAnalysis(
+                        accountId, rangeStartDateTime, rangeEndDateTime);
+        List<TradingJournal> allJournals =
+                tradingJournalRepository.findByAccountIdAndJournalDateBetweenOrderByJournalDateDesc(
+                        accountId, startDate, endDate);
+
+        // Group by week in memory
+        Map<LocalDate, List<TradeReview>> tradesByWeek = new HashMap<>();
+        Map<LocalDate, List<TradingJournal>> journalsByWeek = new HashMap<>();
+
+        // Pre-compute week start dates for grouping
+        for (TradeReview trade : allTrades) {
+            LocalDate tradeDate =
+                    trade.getTransaction() != null
+                                    && trade.getTransaction().getTransactionDate() != null
+                            ? trade.getTransaction().getTransactionDate().toLocalDate()
+                            : (trade.getReviewedAt() != null
+                                    ? trade.getReviewedAt().toLocalDate()
+                                    : trade.getCreatedAt().toLocalDate());
+            LocalDate weekStart = getWeekStart(tradeDate, startDate);
+            tradesByWeek.computeIfAbsent(weekStart, k -> new ArrayList<>()).add(trade);
+        }
+
+        for (TradingJournal journal : allJournals) {
+            LocalDate journalDate = journal.getJournalDate();
+            LocalDate weekStart = getWeekStart(journalDate, startDate);
+            journalsByWeek.computeIfAbsent(weekStart, k -> new ArrayList<>()).add(journal);
+        }
+
         // Weekly aggregation for trend
         List<ScoreTrend> trend = new ArrayList<>();
         LocalDate current = startDate;
 
         while (!current.isAfter(endDate)) {
-            LocalDate weekEnd = current.plusDays(6);
-            if (weekEnd.isAfter(endDate)) weekEnd = endDate;
-
-            LocalDateTime weekStartDateTime = current.atStartOfDay();
-            LocalDateTime weekEndDateTime = weekEnd.atTime(23, 59, 59);
-
             List<TradeReview> weekTrades =
-                    tradeReviewRepository.findTradesForTiltAnalysis(
-                            accountId, weekStartDateTime, weekEndDateTime);
+                    tradesByWeek.getOrDefault(current, Collections.emptyList());
             List<TradingJournal> weekJournals =
-                    tradingJournalRepository
-                            .findByAccountIdAndJournalDateBetweenOrderByJournalDateDesc(
-                                    accountId, current, weekEnd);
+                    journalsByWeek.getOrDefault(current, Collections.emptyList());
 
             ScoreComponents components = calculateScoreComponents(weekTrades, weekJournals);
             BigDecimal weekScore =
@@ -774,6 +811,13 @@ public class TradingPsychologyService {
         }
 
         return trend;
+    }
+
+    /** Calculate week start date aligned to the analysis start date */
+    private LocalDate getWeekStart(LocalDate date, LocalDate analysisStartDate) {
+        long daysSinceStart = java.time.temporal.ChronoUnit.DAYS.between(analysisStartDate, date);
+        long weekNumber = daysSinceStart / 7;
+        return analysisStartDate.plusDays(weekNumber * 7);
     }
 
     private List<RecoveryEvent> findRecoveryEvents(List<TradingJournal> journals) {
