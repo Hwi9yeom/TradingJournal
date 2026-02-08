@@ -42,6 +42,18 @@ public class RedisConfig {
     private static final String CACHE_HISTORICAL_QUOTES = "historicalQuotes";
     private static final String CACHE_BACKTEST_COMPARISON = "backtest_comparison";
     private static final String CACHE_BACKTEST_RESULT = "backtest_result";
+    private static final String CACHE_TRADING_STATS = "tradingStats";
+    private static final String CACHE_GOALS = "goals";
+    private static final String CACHE_TRADING_PSYCHOLOGY = "tradingPsychology";
+    private static final String CACHE_TILT_STATUS = "tiltStatus";
+    private static final String CACHE_PSYCHOLOGICAL_SCORE = "psychologicalScore";
+    private static final String CACHE_COMPOSITE_DASHBOARD = "composite_dashboard";
+    private static final String CACHE_BENCHMARK_COMPARISON = "benchmarkComparison";
+    private static final String CACHE_REBALANCING = "rebalancing";
+    private static final String CACHE_SECTOR_ANALYSIS = "sectorAnalysis";
+    private static final String CACHE_RISK = "risk";
+    private static final String CACHE_RISK_METRICS = "riskMetrics";
+    private static final String CACHE_TREEMAP = "treemap";
 
     // TTL 상수
     private static final Duration TTL_REALTIME = Duration.ofMinutes(1);
@@ -118,7 +130,19 @@ public class RedisConfig {
                         new ConcurrentMapCache(CACHE_DISCLOSURE),
                         new ConcurrentMapCache(CACHE_HISTORICAL_QUOTES),
                         new ConcurrentMapCache(CACHE_BACKTEST_COMPARISON),
-                        new ConcurrentMapCache(CACHE_BACKTEST_RESULT)));
+                        new ConcurrentMapCache(CACHE_BACKTEST_RESULT),
+                        new ConcurrentMapCache(CACHE_TRADING_STATS),
+                        new ConcurrentMapCache(CACHE_GOALS),
+                        new ConcurrentMapCache(CACHE_TRADING_PSYCHOLOGY),
+                        new ConcurrentMapCache(CACHE_TILT_STATUS),
+                        new ConcurrentMapCache(CACHE_PSYCHOLOGICAL_SCORE),
+                        new ConcurrentMapCache(CACHE_COMPOSITE_DASHBOARD),
+                        new ConcurrentMapCache(CACHE_BENCHMARK_COMPARISON),
+                        new ConcurrentMapCache(CACHE_REBALANCING),
+                        new ConcurrentMapCache(CACHE_SECTOR_ANALYSIS),
+                        new ConcurrentMapCache(CACHE_RISK),
+                        new ConcurrentMapCache(CACHE_RISK_METRICS),
+                        new ConcurrentMapCache(CACHE_TREEMAP)));
         return cacheManager;
     }
 
@@ -169,6 +193,36 @@ public class RedisConfig {
 
         // 백테스트 결과 - 5분 캐시
         cacheConfigurations.put(CACHE_BACKTEST_RESULT, defaultConfig.entryTtl(TTL_SHORT));
+
+        // 거래 통계 - 30분 캐시
+        cacheConfigurations.put(CACHE_TRADING_STATS, defaultConfig.entryTtl(TTL_ANALYSIS));
+
+        // 목표 - 10분 캐시
+        cacheConfigurations.put(CACHE_GOALS, defaultConfig.entryTtl(TTL_DEFAULT));
+
+        // 트레이딩 심리 분석 - 30분 캐시
+        cacheConfigurations.put(CACHE_TRADING_PSYCHOLOGY, defaultConfig.entryTtl(TTL_ANALYSIS));
+        cacheConfigurations.put(CACHE_TILT_STATUS, defaultConfig.entryTtl(TTL_DEFAULT));
+        cacheConfigurations.put(CACHE_PSYCHOLOGICAL_SCORE, defaultConfig.entryTtl(TTL_ANALYSIS));
+
+        // 복합 대시보드 - 5분 캐시
+        cacheConfigurations.put(CACHE_COMPOSITE_DASHBOARD, defaultConfig.entryTtl(TTL_SHORT));
+
+        // 벤치마크 비교 - 30분 캐시
+        cacheConfigurations.put(CACHE_BENCHMARK_COMPARISON, defaultConfig.entryTtl(TTL_ANALYSIS));
+
+        // 리밸런싱 - 10분 캐시
+        cacheConfigurations.put(CACHE_REBALANCING, defaultConfig.entryTtl(TTL_DEFAULT));
+
+        // 섹터 분석 - 30분 캐시
+        cacheConfigurations.put(CACHE_SECTOR_ANALYSIS, defaultConfig.entryTtl(TTL_ANALYSIS));
+
+        // 리스크 대시보드 - 10분 캐시
+        cacheConfigurations.put(CACHE_RISK, defaultConfig.entryTtl(TTL_DEFAULT));
+        cacheConfigurations.put(CACHE_RISK_METRICS, defaultConfig.entryTtl(TTL_DEFAULT));
+
+        // 트리맵 - 5분 캐시
+        cacheConfigurations.put(CACHE_TREEMAP, defaultConfig.entryTtl(TTL_SHORT));
 
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(defaultConfig)
