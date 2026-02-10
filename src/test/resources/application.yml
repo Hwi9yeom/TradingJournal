@@ -22,3 +22,15 @@ spring:
   data:
     redis:
       enabled: false
+
+# JWT Configuration for tests - secure test secret (32+ characters)
+jwt:
+  secret: "test-jwt-secret-key-for-unit-testing-minimum-32-characters-required"
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+# Admin user configuration for tests
+admin:
+  username: testadmin
+  password: "TestAdminPassword123!"
+  force-password-change: false

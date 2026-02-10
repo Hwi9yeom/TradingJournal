@@ -38,7 +38,7 @@ public class DataInitializer implements ApplicationRunner {
     @Value("${admin.username:admin}")
     private String adminUsername;
 
-    @Value("${admin.password:admin123}")
+    @Value("${admin.password:}")
     private String adminPassword;
 
     @Value("${admin.force-password-change:true}")
@@ -64,6 +64,19 @@ public class DataInitializer implements ApplicationRunner {
 
     private void createAdminUserIfNotExists() {
         if (!userRepository.existsByUsername(adminUsername)) {
+            // SECURITY: Validate admin password is properly configured
+            if (adminPassword == null || adminPassword.isBlank()) {
+                throw new IllegalStateException(
+                        "SECURITY ERROR: ADMIN_PASSWORD environment variable must be set. "
+                                + "Cannot start application with empty admin password.");
+            }
+            if (adminPassword.length() < 12) {
+                throw new IllegalStateException(
+                        "SECURITY ERROR: ADMIN_PASSWORD must be at least 12 characters. "
+                                + "Current length: "
+                                + adminPassword.length());
+            }
+
             User admin =
                     User.builder()
                             .username(adminUsername)

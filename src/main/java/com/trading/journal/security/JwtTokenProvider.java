@@ -2,6 +2,7 @@ package com.trading.journal.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import javax.crypto.SecretKey;
@@ -23,6 +24,28 @@ public class JwtTokenProvider {
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
+
+    private static final int MIN_SECRET_LENGTH = 32; // 256 bits for HMAC-SHA256
+
+    @PostConstruct
+    public void validateConfiguration() {
+        // SECURITY: Validate JWT secret is properly configured
+        if (jwtSecret == null || jwtSecret.isBlank()) {
+            throw new IllegalStateException(
+                    "SECURITY ERROR: JWT_SECRET environment variable must be set. "
+                            + "Cannot start application without JWT secret.");
+        }
+        if (jwtSecret.length() < MIN_SECRET_LENGTH) {
+            throw new IllegalStateException(
+                    "SECURITY ERROR: JWT_SECRET must be at least "
+                            + MIN_SECRET_LENGTH
+                            + " characters (256 bits). "
+                            + "Current length: "
+                            + jwtSecret.length()
+                            + ". Generate a secure secret using: openssl rand -base64 32");
+        }
+        log.info("JWT configuration validated successfully");
+    }
 
     private SecretKey getSigningKey() {
         byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);

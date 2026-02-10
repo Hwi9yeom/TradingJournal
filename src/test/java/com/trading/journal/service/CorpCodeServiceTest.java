@@ -12,7 +12,9 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(
         properties = {
             "spring.jpa.hibernate.ddl-auto=none",
-            "spring.datasource.url=jdbc:h2:mem:testdb"
+            "spring.datasource.url=jdbc:h2:mem:testdb",
+            "jwt.secret=test-jwt-secret-key-for-unit-testing-minimum-32-characters-required",
+            "admin.password=TestAdminPassword123!"
         })
 class CorpCodeServiceTest {
 

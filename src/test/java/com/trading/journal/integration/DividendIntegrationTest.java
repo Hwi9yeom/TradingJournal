@@ -30,7 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
             "spring.datasource.url=jdbc:h2:mem:integrationtest",
             "spring.h2.console.enabled=false",
             "spring.cache.type=simple",
-            "spring.data.redis.enabled=false"
+            "spring.data.redis.enabled=false",
+            "jwt.secret=test-jwt-secret-key-for-unit-testing-minimum-32-characters-required",
+            "admin.password=TestAdminPassword123!"
         })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Transactional
