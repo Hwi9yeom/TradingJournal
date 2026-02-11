@@ -21,9 +21,12 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final PortfolioRepository portfolioRepository;
+    private final SecurityContextService securityContextService;
 
     public AccountDto createAccount(AccountDto dto) {
-        if (accountRepository.existsByName(dto.getName())) {
+        Long userId = securityContextService.getCurrentUserId().orElse(null);
+
+        if (accountRepository.existsByNameAndUserId(dto.getName(), userId)) {
             throw new IllegalArgumentException("이미 존재하는 계좌 이름입니다: " + dto.getName());
         }
 
@@ -33,6 +36,7 @@ public class AccountService {
                         .accountType(dto.getAccountType())
                         .description(dto.getDescription())
                         .isDefault(false)
+                        .userId(userId)
                         .build();
 
         Account saved = accountRepository.save(account);
@@ -42,7 +46,8 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<AccountDto> getAllAccounts() {
-        return accountRepository.findAllByOrderByIsDefaultDescCreatedAtAsc().stream()
+        Long userId = securityContextService.getCurrentUserId().orElse(null);
+        return accountRepository.findByUserIdOrderByIsDefaultDescCreatedAtAsc(userId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -51,36 +56,45 @@ public class AccountService {
     public AccountDto getAccount(Long id) {
         Account account =
                 accountRepository.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
+        validateOwnership(account);
         return convertToDto(account);
     }
 
     @Transactional(readOnly = true)
     public Long getDefaultAccountId() {
+        Long userId = securityContextService.getCurrentUserId().orElse(null);
         return accountRepository
-                .findByIsDefaultTrue()
+                .findByUserIdAndIsDefaultTrue(userId)
                 .map(Account::getId)
                 .orElseThrow(() -> new AccountNotFoundException("기본 계좌가 설정되지 않았습니다"));
     }
 
     @Transactional(readOnly = true)
     public Account getDefaultAccount() {
+        Long userId = securityContextService.getCurrentUserId().orElse(null);
         return accountRepository
-                .findByIsDefaultTrue()
+                .findByUserIdAndIsDefaultTrue(userId)
                 .orElseThrow(() -> new AccountNotFoundException("기본 계좌가 설정되지 않았습니다"));
     }
 
     @Transactional(readOnly = true)
     public Account getAccountEntity(Long id) {
-        return accountRepository.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
+        Account account =
+                accountRepository.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
+        validateOwnership(account);
+        return account;
     }
 
     public AccountDto updateAccount(Long id, AccountDto dto) {
         Account account =
                 accountRepository.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
+        validateOwnership(account);
+
+        Long userId = securityContextService.getCurrentUserId().orElse(null);
 
         // 이름 중복 체크 (자신 제외)
         if (!account.getName().equals(dto.getName())
-                && accountRepository.existsByName(dto.getName())) {
+                && accountRepository.existsByNameAndUserId(dto.getName(), userId)) {
             throw new IllegalArgumentException("이미 존재하는 계좌 이름입니다: " + dto.getName());
         }
 
@@ -96,6 +110,7 @@ public class AccountService {
     public void deleteAccount(Long id) {
         Account account =
                 accountRepository.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
+        validateOwnership(account);
 
         if (account.getIsDefault()) {
             throw new IllegalArgumentException("기본 계좌는 삭제할 수 없습니다");
@@ -111,9 +126,11 @@ public class AccountService {
     }
 
     public AccountDto setDefaultAccount(Long id) {
+        Long userId = securityContextService.getCurrentUserId().orElse(null);
+
         // 기존 기본 계좌 해제
         accountRepository
-                .findByIsDefaultTrue()
+                .findByUserIdAndIsDefaultTrue(userId)
                 .ifPresent(
                         existingDefault -> {
                             existingDefault.setIsDefault(false);
@@ -123,6 +140,7 @@ public class AccountService {
         // 새 기본 계좌 설정
         Account account =
                 accountRepository.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
+        validateOwnership(account);
         account.setIsDefault(true);
         Account saved = accountRepository.save(account);
 
@@ -147,6 +165,23 @@ public class AccountService {
                             log.info("기본 계좌 자동 생성: {}", saved.getName());
                             return saved;
                         });
+    }
+
+    /**
+     * Validates that the current user owns the given account.
+     *
+     * @param account The account to validate
+     * @throws com.trading.journal.exception.UnauthorizedAccessException if user doesn't own the
+     *     account
+     */
+    private void validateOwnership(Account account) {
+        Long currentUserId = securityContextService.getCurrentUserId().orElse(null);
+        String currentUsername = securityContextService.getCurrentUsername().orElse("anonymous");
+
+        if (currentUserId == null || !currentUserId.equals(account.getUserId())) {
+            throw new com.trading.journal.exception.UnauthorizedAccessException(
+                    "Account", account.getId(), currentUsername);
+        }
     }
 
     private AccountDto convertToDto(Account account) {

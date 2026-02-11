@@ -9,7 +9,8 @@ import lombok.*;
         indexes = {
             @Index(name = "idx_account_name", columnList = "name"),
             @Index(name = "idx_account_type", columnList = "accountType"),
-            @Index(name = "idx_account_is_default", columnList = "isDefault")
+            @Index(name = "idx_account_is_default", columnList = "isDefault"),
+            @Index(name = "idx_account_user_id", columnList = "user_id")
         })
 @Getter
 @Setter
@@ -34,4 +35,7 @@ public class Account extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private Boolean isDefault = false;
+
+    @Column(name = "user_id")
+    private Long userId;
 }

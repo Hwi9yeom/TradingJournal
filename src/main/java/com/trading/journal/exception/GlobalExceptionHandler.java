@@ -77,6 +77,17 @@ public class GlobalExceptionHandler {
                 HttpStatus.NOT_FOUND, "Account Not Found", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(UnauthorizedAccessException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorizedAccessException(
+            UnauthorizedAccessException ex, WebRequest request) {
+        log.warn("Unauthorized access attempt: {}", ex.getMessage());
+        return buildErrorResponse(
+                HttpStatus.FORBIDDEN,
+                "Access Denied",
+                "You do not have permission to access this resource.",
+                request);
+    }
+
     // ==================== Business Logic Exceptions (400/422) ====================
 
     @ExceptionHandler(InvalidTradeException.class)

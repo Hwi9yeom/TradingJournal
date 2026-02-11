@@ -7,6 +7,7 @@ import com.trading.journal.entity.Stock;
 import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
 import com.trading.journal.exception.TransactionNotFoundException;
+import com.trading.journal.exception.UnauthorizedAccessException;
 import com.trading.journal.repository.StockRepository;
 import com.trading.journal.repository.TransactionRepository;
 import java.math.BigDecimal;
@@ -33,6 +34,7 @@ public class TransactionService {
     private final StockPriceService stockPriceService;
     private final AccountService accountService;
     private final FifoCalculationService fifoCalculationService;
+    private final SecurityContextService securityContextService;
 
     public TransactionDto createTransaction(TransactionDto dto) {
         // Account 처리: accountId가 없으면 기본 계좌 사용
@@ -154,6 +156,7 @@ public class TransactionService {
                 transactionRepository
                         .findById(id)
                         .orElseThrow(() -> new TransactionNotFoundException(id));
+        validateTransactionOwnership(transaction);
         return convertToDto(transaction);
     }
 
@@ -162,6 +165,7 @@ public class TransactionService {
                 transactionRepository
                         .findById(id)
                         .orElseThrow(() -> new TransactionNotFoundException(id));
+        validateTransactionOwnership(transaction);
 
         // Account 변경 시
         if (dto.getAccountId() != null
@@ -211,6 +215,7 @@ public class TransactionService {
                 transactionRepository
                         .findById(id)
                         .orElseThrow(() -> new TransactionNotFoundException(id));
+        validateTransactionOwnership(transaction);
 
         Long stockId = transaction.getStock().getId();
         Long accountId = transaction.getAccount() != null ? transaction.getAccount().getId() : null;
@@ -403,5 +408,27 @@ public class TransactionService {
             return null;
         }
         return realizedPnl.divide(initialRisk, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Validates that the current user owns the transaction through its account.
+     *
+     * @param transaction The transaction to validate
+     * @throws UnauthorizedAccessException if user doesn't own the transaction's account
+     */
+    private void validateTransactionOwnership(Transaction transaction) {
+        if (transaction.getAccount() == null) {
+            // Legacy transactions without account - allow access for migration purposes
+            return;
+        }
+
+        Long currentUserId = securityContextService.getCurrentUserId().orElse(null);
+        String currentUsername = securityContextService.getCurrentUsername().orElse("anonymous");
+        Long accountUserId = transaction.getAccount().getUserId();
+
+        if (currentUserId == null || !currentUserId.equals(accountUserId)) {
+            throw new UnauthorizedAccessException(
+                    "Transaction", transaction.getId(), currentUsername);
+        }
     }
 }

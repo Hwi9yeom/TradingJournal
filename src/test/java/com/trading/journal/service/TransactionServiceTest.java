@@ -45,6 +45,8 @@ class TransactionServiceTest {
 
     @Mock private FifoCalculationService fifoCalculationService;
 
+    @Mock private SecurityContextService securityContextService;
+
     @InjectMocks private TransactionService transactionService;
 
     private Account mockAccount;
@@ -60,7 +62,16 @@ class TransactionServiceTest {
                         .name("기본 계좌")
                         .accountType(AccountType.GENERAL)
                         .isDefault(true)
+                        .userId(100L)
                         .build();
+
+        // Set up security context mock to return the same user ID as the account owner
+        lenient()
+                .when(securityContextService.getCurrentUserId())
+                .thenReturn(java.util.Optional.of(100L));
+        lenient()
+                .when(securityContextService.getCurrentUsername())
+                .thenReturn(java.util.Optional.of("testuser"));
 
         mockStock =
                 Stock.builder().id(1L).symbol("AAPL").name("Apple Inc.").exchange("NASDAQ").build();
