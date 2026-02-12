@@ -5,6 +5,7 @@ import com.trading.journal.security.JwtAuthenticationFilter;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -29,6 +30,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+
+    @Value("${spring.h2.console.enabled:false}")
+    private boolean h2ConsoleEnabled;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -57,7 +61,7 @@ public class SecurityConfig {
                                                 "/v3/api-docs/**",
                                                 "/swagger-ui.html")
                                         .permitAll()
-                                        .requestMatchers("/h2-console/**")
+                                        .requestMatchers("/error")
                                         .permitAll()
                                         // All API endpoints require authentication (except
                                         // /api/auth/**)
@@ -65,8 +69,11 @@ public class SecurityConfig {
                                         .authenticated()
                                         .anyRequest()
                                         .authenticated())
-                // H2 Console support
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+
+        if (h2ConsoleEnabled) {
+            http.authorizeHttpRequests(auth -> auth.requestMatchers("/h2-console/**").permitAll());
+        }
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

@@ -1,79 +1,49 @@
 spring:
   datasource:
-    url: jdbc:h2:file:./data/tradingjournal;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-    # HikariCP Connection Pool 설정
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      idle-timeout: 300000        # 5분
-      connection-timeout: 20000   # 20초
-      max-lifetime: 1200000       # 20분
-      pool-name: TradingJournalHikariCP
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+    url: ${DB_URL:jdbc:h2:file:./data/tradingjournal;DB_CLOSE_ON_EXIT=FALSE}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    open-in-view: false
     properties:
       hibernate:
-        format_sql: true
-        show_sql: true
-    # Flyway보다 먼저 실행되도록 설정
-    defer-datasource-initialization: false
+        format_sql: ${HIBERNATE_FORMAT_SQL:false}
+        show_sql: ${HIBERNATE_SHOW_SQL:false}
 
-  # Flyway 설정 - JPA 테이블 생성 후 실행
   flyway:
-    enabled: false
+    enabled: ${FLYWAY_ENABLED:true}
     baseline-on-migrate: true
     baseline-version: 0
     locations: classpath:db/migration
-    # 테이블이 없어도 오류 발생하지 않도록
-    validate-on-migrate: false
+    validate-on-migrate: true
 
-# Resilience4j Circuit Breaker 설정
-resilience4j:
-  circuitbreaker:
-    instances:
-      yahooFinance:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        permittedNumberOfCallsInHalfOpenState: 3
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        waitDurationInOpenState: 30s
-        failureRateThreshold: 50
-        eventConsumerBufferSize: 10
-        recordExceptions:
-          - java.io.IOException
-          - java.net.SocketTimeoutException
-          - java.lang.RuntimeException
-  retry:
-    instances:
-      yahooFinance:
-        maxAttempts: 3
-        waitDuration: 1s
-        enableExponentialBackoff: true
-        exponentialBackoffMultiplier: 2
-        retryExceptions:
-          - java.io.IOException
+  h2:
+    console:
+      enabled: ${H2_CONSOLE_ENABLED:false}
+      path: /h2-console
+
+  data:
+    redis:
+      enabled: ${REDIS_ENABLED:false}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT:2000}
+      password: ${REDIS_PASSWORD:}
+
+  cache:
+    type: ${CACHE_TYPE:simple}
+    redis:
+      time-to-live: 600000
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
-# 로깅 설정
 logging:
   level:
-    root: INFO
-    # 성능 로깅 (PerformanceLoggingAspect)
+    root: ${LOG_LEVEL_ROOT:INFO}
     PERFORMANCE: INFO
-    # 느린 쿼리 디버깅 시 DEBUG로 변경
-    # org.hibernate.SQL: DEBUG
-    # org.hibernate.stat: DEBUG
-    com.trading.journal: INFO
+    com.trading.journal: ${LOG_LEVEL_APP:INFO}
