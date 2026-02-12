@@ -754,24 +754,6 @@ function updateGoalStatus(id, status) {
     });
 }
 
-// =============================================================================
-// UTILITY FUNCTIONS
-// =============================================================================
-
-/**
- * Escape HTML special characters to prevent XSS.
- * NOTE: This function is duplicated in plans.js and alerts.js.
- * TODO: Consider moving to a shared utils.js module.
- * @param {string} text - Text to escape
- * @returns {string} Escaped HTML string
- */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 /**
  * Show a Bootstrap toast notification.
  * @param {string} message - Message to display
