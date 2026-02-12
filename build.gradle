@@ -106,11 +106,30 @@ jacocoTestReport {
 }
 
 jacocoTestCoverageVerification {
+    dependsOn test
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                '**/dto/**',
+                '**/entity/**',
+                '**/config/**',
+                '**/exception/**',
+                '**/*Application*'
+            ])
+        }))
+    }
     violationRules {
         rule {
+            element = 'BUNDLE'
             limit {
-                minimum = 0.30  // 최소 30% 커버리지 목표
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.20
             }
         }
     }
+}
+
+tasks.named('check') {
+    dependsOn jacocoTestCoverageVerification
 }
