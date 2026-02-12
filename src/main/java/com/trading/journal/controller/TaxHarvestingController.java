@@ -47,10 +47,9 @@ public class TaxHarvestingController {
     })
     public ResponseEntity<TaxLossHarvestingDto> getAllHarvestingOpportunities() {
         log.info("Fetching all tax-loss harvesting opportunities");
-        // TODO: Implement method to retrieve all accounts and aggregate their opportunities
-        // For now, returning a placeholder - implementation depends on multi-account aggregation
-        throw new UnsupportedOperationException(
-                "Multi-account aggregation not yet implemented. Use account-specific endpoint.");
+        TaxLossHarvestingDto result =
+                taxLossHarvestingService.analyzeAllHarvestingOpportunitiesForCurrentUser();
+        return ResponseEntity.ok(result);
     }
 
     /**

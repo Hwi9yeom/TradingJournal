@@ -2,6 +2,7 @@ package com.trading.journal.service;
 
 import com.trading.journal.entity.StockFundamentals;
 import com.trading.journal.repository.StockFundamentalsRepository;
+import com.trading.journal.repository.StockRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -29,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class FundamentalDataService {
 
     private final StockFundamentalsRepository fundamentalsRepository;
+    private final StockRepository stockRepository;
+    private final StockPriceService stockPriceService;
 
     /**
      * Get fundamental data by symbol.
@@ -105,17 +108,31 @@ public class FundamentalDataService {
         int successCount = 0;
         for (String symbol : symbols) {
             try {
-                // TODO: Integrate with external API to fetch fundamental data
-                // For now, we just update the lastUpdated field for existing entries
                 Optional<StockFundamentals> existing = fundamentalsRepository.findBySymbol(symbol);
-                if (existing.isPresent()) {
-                    StockFundamentals fundamentals = existing.get();
-                    fundamentals.setLastUpdated(LocalDate.now());
-                    fundamentalsRepository.save(fundamentals);
-                    successCount++;
-                } else {
-                    log.warn("Fundamentals not found for symbol: {}", symbol);
+                StockFundamentals fundamentals = existing.orElseGet(StockFundamentals::new);
+
+                fundamentals.setSymbol(symbol);
+                stockRepository
+                        .findBySymbol(symbol)
+                        .ifPresent(
+                                stock -> {
+                                    fundamentals.setCompanyName(stock.getName());
+                                    fundamentals.setSector(stock.getSector());
+                                    fundamentals.setIndustry(stock.getIndustry());
+                                });
+
+                try {
+                    BigDecimal currentPrice = stockPriceService.getCurrentPrice(symbol);
+                    if (currentPrice != null && currentPrice.compareTo(BigDecimal.ZERO) > 0) {
+                        fundamentals.setCurrentPrice(currentPrice);
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to fetch current price for symbol: {}", symbol, e);
                 }
+
+                fundamentals.setLastUpdated(LocalDate.now());
+                fundamentalsRepository.save(fundamentals);
+                successCount++;
             } catch (Exception e) {
                 log.error("Failed to update fundamentals for symbol: {}", symbol, e);
             }

@@ -2,10 +2,9 @@ package com.trading.journal.service;
 
 import com.trading.journal.entity.PriceAlert;
 import com.trading.journal.entity.PriceAlert.PriceAlertCondition;
-import com.trading.journal.entity.Stock;
 import com.trading.journal.repository.PriceAlertRepository;
-import com.trading.journal.repository.StockRepository;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PriceAlertMonitorService {
 
     private final PriceAlertRepository priceAlertRepository;
-    private final StockRepository stockRepository;
+    private final StockPriceService stockPriceService;
     private final AlertBroadcastService alertBroadcastService;
 
     /**
@@ -137,38 +136,19 @@ public class PriceAlertMonitorService {
     /**
      * 현재 가격 조회
      *
-     * <p>TODO: 실제 구현에서는 외부 API (Yahoo Finance, Alpha Vantage 등) 또는 실시간 데이터 소스를 사용해야 합니다. 현재는 Stock
-     * 엔티티에서 캐시된 가격을 반환하거나 랜덤 가격을 생성합니다.
+     * <p>StockPriceService를 통해 현재 가격을 조회합니다.
      *
      * @param symbol 종목 코드
      * @return 현재 가격 (실패 시 null)
      */
     private BigDecimal getCurrentPrice(String symbol) {
         try {
-            // Stock 엔티티에서 종목 조회
-            Stock stock = stockRepository.findBySymbol(symbol).orElse(null);
-
-            if (stock == null) {
-                log.warn("Stock not found for symbol: {}", symbol);
+            BigDecimal currentPrice = stockPriceService.getCurrentPrice(symbol);
+            if (currentPrice == null || currentPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                log.warn("Invalid current price for symbol {}: {}", symbol, currentPrice);
                 return null;
             }
-
-            // TODO: 실제 구현 - 외부 API 호출
-            // 예: yahooFinanceClient.getCurrentPrice(symbol)
-            // 예: alphaVantageClient.getQuote(symbol)
-
-            // 임시: 랜덤 가격 생성 (개발/테스트용)
-            // 실제 배포 시 제거하고 실제 API 호출로 대체
-            BigDecimal basePrice = BigDecimal.valueOf(100.0);
-            double randomFactor = 0.95 + (Math.random() * 0.1); // 95% ~ 105%
-            BigDecimal randomPrice =
-                    basePrice
-                            .multiply(BigDecimal.valueOf(randomFactor))
-                            .setScale(2, BigDecimal.ROUND_HALF_UP);
-
-            log.debug("Generated random price for {}: {}", symbol, randomPrice);
-            return randomPrice;
-
+            return currentPrice;
         } catch (Exception e) {
             log.error("Error getting current price for {}: {}", symbol, e.getMessage(), e);
             return null;
@@ -188,7 +168,7 @@ public class PriceAlertMonitorService {
         }
         return currentPrice
                 .subtract(basePrice)
-                .divide(basePrice, 4, BigDecimal.ROUND_HALF_UP)
+                .divide(basePrice, 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100));
     }
 

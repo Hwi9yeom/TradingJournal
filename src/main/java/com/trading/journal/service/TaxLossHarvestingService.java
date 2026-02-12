@@ -2,9 +2,13 @@ package com.trading.journal.service;
 
 import com.trading.journal.dto.HarvestingOpportunityDto;
 import com.trading.journal.dto.TaxLossHarvestingDto;
+import com.trading.journal.entity.Account;
 import com.trading.journal.entity.Portfolio;
 import com.trading.journal.entity.Transaction;
 import com.trading.journal.entity.TransactionType;
+import com.trading.journal.exception.AccountNotFoundException;
+import com.trading.journal.exception.UnauthorizedAccessException;
+import com.trading.journal.repository.AccountRepository;
 import com.trading.journal.repository.PortfolioRepository;
 import com.trading.journal.repository.TransactionRepository;
 import java.math.BigDecimal;
@@ -27,9 +31,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class TaxLossHarvestingService {
 
+    private final AccountRepository accountRepository;
     private final PortfolioRepository portfolioRepository;
     private final TransactionRepository transactionRepository;
     private final StockPriceService stockPriceService;
+    private final SecurityContextService securityContextService;
 
     // 한국 주식 양도소득세율 (TaxCalculationService와 동일)
     private static final BigDecimal BASIC_DEDUCTION = new BigDecimal("2500000"); // 기본공제 250만원
@@ -42,12 +48,41 @@ public class TaxLossHarvestingService {
     private static final int WASH_SALE_DAYS = 30;
 
     /**
+     * 현재 사용자의 전체 계좌에 대한 Tax-Loss Harvesting 기회 분석
+     *
+     * @return 전체 계좌 통합 세금 절감 기회 리스트
+     */
+    public TaxLossHarvestingDto analyzeAllHarvestingOpportunitiesForCurrentUser() {
+        Long currentUserId = getRequiredCurrentUserId();
+        List<Account> accounts =
+                accountRepository.findByUserIdOrderByIsDefaultDescCreatedAtAsc(currentUserId);
+
+        if (accounts.isEmpty()) {
+            log.info("No accounts found for current user: {}", currentUserId);
+            return buildEmptyResult(null, "계좌 정보가 없습니다.");
+        }
+
+        List<HarvestingOpportunityDto> allOpportunities = new ArrayList<>();
+        for (Account account : accounts) {
+            TaxLossHarvestingDto accountResult =
+                    analyzeTaxLossHarvestingOpportunities(account.getId());
+            if (accountResult.getOpportunities() != null) {
+                allOpportunities.addAll(accountResult.getOpportunities());
+            }
+        }
+
+        return buildResult(
+                null, allOpportunities, String.format("총 %d개 계좌 기준 분석 결과입니다.", accounts.size()));
+    }
+
+    /**
      * 특정 계좌의 Tax-Loss Harvesting 기회 분석
      *
      * @param accountId 계좌 ID
      * @return 세금 절감 기회 리스트
      */
     public TaxLossHarvestingDto analyzeTaxLossHarvestingOpportunities(Long accountId) {
+        validateAccountOwnership(accountId);
         log.info("Analyzing tax-loss harvesting opportunities for account: {}", accountId);
 
         // 1. 계좌의 모든 포지션 조회
@@ -55,7 +90,7 @@ public class TaxLossHarvestingService {
 
         if (portfolios.isEmpty()) {
             log.info("No positions found for account: {}", accountId);
-            return buildEmptyResult(accountId);
+            return buildEmptyResult(accountId, "포지션 정보가 없습니다.");
         }
 
         // 2. 각 포지션에 대해 손실 여부 확인 및 기회 계산
@@ -77,46 +112,7 @@ public class TaxLossHarvestingService {
             }
         }
 
-        // 3. 잠재적 세금 절감액 기준으로 정렬 (높은 순)
-        opportunities.sort(
-                Comparator.comparing(HarvestingOpportunityDto::getPotentialTaxSavings).reversed());
-
-        // 4. Wash Sale 위험 있는 포지션 필터링
-        List<HarvestingOpportunityDto> washSaleRiskPositions =
-                opportunities.stream()
-                        .filter(HarvestingOpportunityDto::getWashSaleRisk)
-                        .collect(Collectors.toList());
-
-        // 5. 요약 정보 계산
-        BigDecimal totalUnrealizedLoss =
-                opportunities.stream()
-                        .map(HarvestingOpportunityDto::getUnrealizedLoss)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalPotentialTaxSavings =
-                opportunities.stream()
-                        .map(HarvestingOpportunityDto::getPotentialTaxSavings)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        String recommendation = generateRecommendation(opportunities, totalPotentialTaxSavings);
-        boolean hasSignificantOpportunities =
-                totalPotentialTaxSavings.compareTo(new BigDecimal("100000")) > 0; // 10만원 이상
-
-        return TaxLossHarvestingDto.builder()
-                .accountId(accountId)
-                .generatedAt(LocalDateTime.now())
-                .totalOpportunities(opportunities.size())
-                .totalUnrealizedLoss(totalUnrealizedLoss)
-                .totalPotentialTaxSavings(totalPotentialTaxSavings)
-                .minimumLossThreshold(MINIMUM_LOSS_THRESHOLD)
-                .basicDeduction(BASIC_DEDUCTION)
-                .taxRate(TAX_RATE.multiply(new BigDecimal("100"))) // 퍼센트로 변환
-                .opportunities(opportunities)
-                .washSaleRiskCount(washSaleRiskPositions.size())
-                .washSaleRiskPositions(washSaleRiskPositions)
-                .recommendation(recommendation)
-                .hasSignificantOpportunities(hasSignificantOpportunities)
-                .build();
+        return buildResult(accountId, opportunities, null);
     }
 
     /**
@@ -292,8 +288,56 @@ public class TaxLossHarvestingService {
                 opportunities.size(), totalPotentialSavings.toPlainString());
     }
 
+    private TaxLossHarvestingDto buildResult(
+            Long accountId,
+            List<HarvestingOpportunityDto> opportunities,
+            String recommendationPrefix) {
+        // 잠재적 세금 절감액 기준으로 정렬 (높은 순)
+        opportunities.sort(
+                Comparator.comparing(HarvestingOpportunityDto::getPotentialTaxSavings).reversed());
+
+        List<HarvestingOpportunityDto> washSaleRiskPositions =
+                opportunities.stream()
+                        .filter(HarvestingOpportunityDto::getWashSaleRisk)
+                        .collect(Collectors.toList());
+
+        BigDecimal totalUnrealizedLoss =
+                opportunities.stream()
+                        .map(HarvestingOpportunityDto::getUnrealizedLoss)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalPotentialTaxSavings =
+                opportunities.stream()
+                        .map(HarvestingOpportunityDto::getPotentialTaxSavings)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        String recommendation = generateRecommendation(opportunities, totalPotentialTaxSavings);
+        if (recommendationPrefix != null && !recommendationPrefix.isBlank()) {
+            recommendation = recommendationPrefix + " " + recommendation;
+        }
+
+        boolean hasSignificantOpportunities =
+                totalPotentialTaxSavings.compareTo(new BigDecimal("100000")) > 0; // 10만원 이상
+
+        return TaxLossHarvestingDto.builder()
+                .accountId(accountId)
+                .generatedAt(LocalDateTime.now())
+                .totalOpportunities(opportunities.size())
+                .totalUnrealizedLoss(totalUnrealizedLoss)
+                .totalPotentialTaxSavings(totalPotentialTaxSavings)
+                .minimumLossThreshold(MINIMUM_LOSS_THRESHOLD)
+                .basicDeduction(BASIC_DEDUCTION)
+                .taxRate(TAX_RATE.multiply(new BigDecimal("100"))) // 퍼센트로 변환
+                .opportunities(opportunities)
+                .washSaleRiskCount(washSaleRiskPositions.size())
+                .washSaleRiskPositions(washSaleRiskPositions)
+                .recommendation(recommendation)
+                .hasSignificantOpportunities(hasSignificantOpportunities)
+                .build();
+    }
+
     /** 빈 결과 생성 (포지션이 없거나 분석 실패 시) */
-    private TaxLossHarvestingDto buildEmptyResult(Long accountId) {
+    private TaxLossHarvestingDto buildEmptyResult(Long accountId, String message) {
         return TaxLossHarvestingDto.builder()
                 .accountId(accountId)
                 .generatedAt(LocalDateTime.now())
@@ -306,9 +350,29 @@ public class TaxLossHarvestingService {
                 .opportunities(new ArrayList<>())
                 .washSaleRiskCount(0)
                 .washSaleRiskPositions(new ArrayList<>())
-                .recommendation("포지션 정보가 없습니다.")
+                .recommendation(message)
                 .hasSignificantOpportunities(false)
                 .build();
+    }
+
+    private Long getRequiredCurrentUserId() {
+        return securityContextService
+                .getCurrentUserId()
+                .orElseThrow(() -> new UnauthorizedAccessException("로그인이 필요합니다."));
+    }
+
+    private void validateAccountOwnership(Long accountId) {
+        Long currentUserId = getRequiredCurrentUserId();
+        String currentUsername = securityContextService.getCurrentUsername().orElse("anonymous");
+
+        Account account =
+                accountRepository
+                        .findById(accountId)
+                        .orElseThrow(() -> new AccountNotFoundException(accountId));
+
+        if (account.getUserId() == null || !account.getUserId().equals(currentUserId)) {
+            throw new UnauthorizedAccessException("Account", accountId, currentUsername);
+        }
     }
 
     // Inner classes for holding intermediate data

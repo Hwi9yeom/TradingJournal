@@ -373,7 +373,7 @@ public class StockScreenerService {
                 .id(fundamentals.getId())
                 .symbol(fundamentals.getSymbol())
                 .companyName(fundamentals.getCompanyName())
-                .exchange(null) // TODO: Add exchange field if needed
+                .exchange(inferExchange(fundamentals.getSymbol()))
                 .sector(fundamentals.getSector() != null ? fundamentals.getSector().name() : null)
                 .industry(fundamentals.getIndustry())
                 .peRatio(fundamentals.getPeRatio())
@@ -389,6 +389,16 @@ public class StockScreenerService {
                                 ? fundamentals.getLastUpdated().atStartOfDay()
                                 : null)
                 .build();
+    }
+
+    private String inferExchange(String symbol) {
+        if (symbol == null || symbol.isBlank()) {
+            return null;
+        }
+        if (symbol.endsWith(".KS") || symbol.endsWith(".KQ")) {
+            return "KRX";
+        }
+        return "US";
     }
 
     /**
