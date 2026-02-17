@@ -1,0 +1,104 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tradingjournal-postgres
+    environment:
+      POSTGRES_DB: tradingjournal
+      POSTGRES_USER: journal
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-journal123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U journal -d tradingjournal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: tradingjournal-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: tradingjournal-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/tradingjournal
+      DB_DRIVER: org.postgresql.Driver
+      DB_USERNAME: journal
+      DB_PASSWORD: ${DB_PASSWORD:-journal123}
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  backup:
+    image: postgres:16-alpine
+    container_name: tradingjournal-backup
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: tradingjournal
+      DB_USER: journal
+      DB_PASSWORD: ${DB_PASSWORD:-journal123}
+      BACKUP_DIR: /backups
+      RETENTION_DAYS: "7"
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Backup service started. Running initial backup..."
+        chmod +x /scripts/backup.sh
+        /scripts/backup.sh
+        echo "Scheduling daily backups at 03:00 KST (18:00 UTC)..."
+        while true; do
+          # Calculate seconds until next 18:00 UTC (03:00 KST)
+          current_hour=$$(date -u +%H)
+          current_min=$$(date -u +%M)
+          current_sec=$$(date -u +%S)
+          target_hour=18
+
+          if [ $$current_hour -ge $$target_hour ]; then
+            # Schedule for tomorrow
+            seconds_until=$$((((24 - $$current_hour + $$target_hour) * 3600) - ($$current_min * 60) - $$current_sec))
+          else
+            # Schedule for today
+            seconds_until=$$(((($$target_hour - $$current_hour) * 3600) - ($$current_min * 60) - $$current_sec))
+          fi
+
+          echo "Next backup in $$seconds_until seconds..."
+          sleep $$seconds_until
+          /scripts/backup.sh
+        done
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,11 @@
+.git
+.gradle
+build
+!build/libs
+*.md
+.idea
+*.iml
+.omc
+.claude
+data/
+backups/

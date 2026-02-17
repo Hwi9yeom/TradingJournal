@@ -1,0 +1,31 @@
+# Local development configuration (H2 in-memory)
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/tradingjournal;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: false
+
+  data:
+    redis:
+      enabled: false
+
+  cache:
+    type: simple
+
+logging:
+  level:
+    com.trading.journal: DEBUG

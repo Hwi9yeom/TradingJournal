@@ -1,5 +1,6 @@
 package com.trading.journal.entity;
 
+import com.trading.journal.security.converter.EncryptedBigDecimalConverter;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -43,12 +44,16 @@ public class Transaction extends BaseEntity {
     @Column(nullable = false)
     private TransactionType type;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedBigDecimalConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private BigDecimal quantity;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedBigDecimalConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private BigDecimal price;
 
+    @Convert(converter = EncryptedBigDecimalConverter.class)
+    @Column(columnDefinition = "TEXT")
     private BigDecimal commission;
 
     @Column(nullable = false)
@@ -57,12 +62,13 @@ public class Transaction extends BaseEntity {
     private String notes;
 
     // FIFO 계산 관련 필드
-    /** 실현 손익 (매도 거래에서만 값이 있음) */
+    /** 실현 손익 (매도 거래에서만 값이 있음) - NOT encrypted (used in AVG queries) */
     @Column(precision = 19, scale = 4)
     private BigDecimal realizedPnl;
 
     /** FIFO 기반 매도 원가 (매도 거래에서 사용된 매수 원가 합계) */
-    @Column(precision = 19, scale = 4)
+    @Convert(converter = EncryptedBigDecimalConverter.class)
+    @Column(columnDefinition = "TEXT")
     private BigDecimal costBasis;
 
     /** 매수 거래의 잔여 수량 (FIFO 소진 추적용) */

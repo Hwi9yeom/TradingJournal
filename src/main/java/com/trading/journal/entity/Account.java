@@ -1,5 +1,6 @@
 package com.trading.journal.entity;
 
+import com.trading.journal.security.converter.EncryptedStringConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,7 +23,8 @@ public class Account extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String name;
 
     @Column(nullable = false)

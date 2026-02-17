@@ -21,6 +21,11 @@ public class AIAssistantController {
 
     private static final Logger log = LoggerFactory.getLogger(AIAssistantController.class);
 
+    private static final String AI_DISCLAIMER =
+            "[면책 조항] 본 정보는 AI가 생성한 참고 자료이며, "
+                    + "투자 조언이 아닙니다. 투자 결정은 본인의 판단과 책임 하에 이루어져야 합니다. "
+                    + "과거 성과가 미래 수익을 보장하지 않습니다.";
+
     private final AITradingAssistantService aiService;
 
     public AIAssistantController(AITradingAssistantService aiService) {
@@ -40,7 +45,11 @@ public class AIAssistantController {
 
         return aiService
                 .analyzePerformance(accountId, startDate, endDate)
-                .map(ResponseEntity::ok)
+                .map(
+                        result ->
+                                ResponseEntity.ok()
+                                        .header("X-AI-Disclaimer", AI_DISCLAIMER)
+                                        .body(result))
                 .onErrorResume(
                         e -> {
                             log.error("성과 분석 API 오류: {}", e.getMessage());
@@ -48,7 +57,9 @@ public class AIAssistantController {
                             errorResponse.setAnalysisType("PERFORMANCE");
                             errorResponse.setSummary("분석 중 오류가 발생했습니다: " + e.getMessage());
                             return Mono.just(
-                                    ResponseEntity.internalServerError().body(errorResponse));
+                                    ResponseEntity.internalServerError()
+                                            .header("X-AI-Disclaimer", AI_DISCLAIMER)
+                                            .body(errorResponse));
                         });
     }
 
@@ -61,7 +72,11 @@ public class AIAssistantController {
 
         return aiService
                 .generateTradeReview(transactionId)
-                .map(ResponseEntity::ok)
+                .map(
+                        result ->
+                                ResponseEntity.ok()
+                                        .header("X-AI-Disclaimer", AI_DISCLAIMER)
+                                        .body(result))
                 .onErrorResume(
                         e -> {
                             log.error("거래 복기 생성 API 오류: {}", e.getMessage());
@@ -69,7 +84,9 @@ public class AIAssistantController {
                             errorResponse.setTransactionId(transactionId);
                             errorResponse.setTradeSummary("복기 생성 중 오류가 발생했습니다: " + e.getMessage());
                             return Mono.just(
-                                    ResponseEntity.internalServerError().body(errorResponse));
+                                    ResponseEntity.internalServerError()
+                                            .header("X-AI-Disclaimer", AI_DISCLAIMER)
+                                            .body(errorResponse));
                         });
     }
 
@@ -82,7 +99,11 @@ public class AIAssistantController {
 
         return aiService
                 .analyzeRiskWarnings(accountId)
-                .map(ResponseEntity::ok)
+                .map(
+                        result ->
+                                ResponseEntity.ok()
+                                        .header("X-AI-Disclaimer", AI_DISCLAIMER)
+                                        .body(result))
                 .onErrorResume(
                         e -> {
                             log.error("리스크 분석 API 오류: {}", e.getMessage());
@@ -90,7 +111,9 @@ public class AIAssistantController {
                             errorResponse.setAnalysisType("RISK");
                             errorResponse.setSummary("리스크 분석 중 오류가 발생했습니다: " + e.getMessage());
                             return Mono.just(
-                                    ResponseEntity.internalServerError().body(errorResponse));
+                                    ResponseEntity.internalServerError()
+                                            .header("X-AI-Disclaimer", AI_DISCLAIMER)
+                                            .body(errorResponse));
                         });
     }
 
@@ -103,7 +126,11 @@ public class AIAssistantController {
 
         return aiService
                 .suggestStrategyOptimization(backtestId)
-                .map(ResponseEntity::ok)
+                .map(
+                        result ->
+                                ResponseEntity.ok()
+                                        .header("X-AI-Disclaimer", AI_DISCLAIMER)
+                                        .body(result))
                 .onErrorResume(
                         e -> {
                             log.error("전략 최적화 API 오류: {}", e.getMessage());
@@ -112,7 +139,9 @@ public class AIAssistantController {
                             errorResponse.setCurrentStrategyAssessment(
                                     "전략 분석 중 오류가 발생했습니다: " + e.getMessage());
                             return Mono.just(
-                                    ResponseEntity.internalServerError().body(errorResponse));
+                                    ResponseEntity.internalServerError()
+                                            .header("X-AI-Disclaimer", AI_DISCLAIMER)
+                                            .body(errorResponse));
                         });
     }
 
@@ -156,7 +185,9 @@ public class AIAssistantController {
                             ChatResponse chatResponse = new ChatResponse();
                             chatResponse.setSessionId(finalSessionId);
                             chatResponse.setMessage(response);
-                            return ResponseEntity.ok(chatResponse);
+                            return ResponseEntity.ok()
+                                    .header("X-AI-Disclaimer", AI_DISCLAIMER)
+                                    .body(chatResponse);
                         })
                 .onErrorResume(
                         e -> {
@@ -166,7 +197,9 @@ public class AIAssistantController {
                             errorResponse.setMessage(
                                     "죄송합니다. 응답 생성 중 오류가 발생했습니다: " + e.getMessage());
                             return Mono.just(
-                                    ResponseEntity.internalServerError().body(errorResponse));
+                                    ResponseEntity.internalServerError()
+                                            .header("X-AI-Disclaimer", AI_DISCLAIMER)
+                                            .body(errorResponse));
                         });
     }
 
@@ -221,6 +254,11 @@ public class AIAssistantController {
     public static class ChatResponse {
         private String sessionId;
         private String message;
+        private String disclaimer;
+
+        public ChatResponse() {
+            this.disclaimer = AI_DISCLAIMER;
+        }
 
         public String getSessionId() {
             return sessionId;
@@ -236,6 +274,14 @@ public class AIAssistantController {
 
         public void setMessage(String message) {
             this.message = message;
+        }
+
+        public String getDisclaimer() {
+            return disclaimer;
+        }
+
+        public void setDisclaimer(String disclaimer) {
+            this.disclaimer = disclaimer;
         }
     }
 }

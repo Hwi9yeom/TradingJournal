@@ -1,5 +1,6 @@
 package com.trading.journal.entity;
 
+import com.trading.journal.security.converter.EncryptedBigDecimalConverter;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import lombok.*;
@@ -36,12 +37,15 @@ public class Portfolio extends BaseEntity {
     @JoinColumn(name = "stock_id", nullable = false)
     private Stock stock;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedBigDecimalConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private BigDecimal quantity;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedBigDecimalConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private BigDecimal averagePrice;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedBigDecimalConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private BigDecimal totalInvestment;
 }

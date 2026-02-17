@@ -25,9 +25,14 @@ public class AISuggestionDto {
 
     private LocalDateTime generatedAt;
     private String rawResponse;
+    private String disclaimer;
 
     public AISuggestionDto() {
         this.generatedAt = LocalDateTime.now();
+        this.disclaimer =
+                "[면책 조항] 본 정보는 AI가 생성한 참고 자료이며, "
+                        + "투자 조언이 아닙니다. 투자 결정은 본인의 판단과 책임 하에 이루어져야 합니다. "
+                        + "과거 성과가 미래 수익을 보장하지 않습니다.";
     }
 
     public void addStrength(String strength) {
@@ -190,5 +195,13 @@ public class AISuggestionDto {
 
     public void setRawResponse(String rawResponse) {
         this.rawResponse = rawResponse;
+    }
+
+    public String getDisclaimer() {
+        return disclaimer;
+    }
+
+    public void setDisclaimer(String disclaimer) {
+        this.disclaimer = disclaimer;
     }
 }
