@@ -3,360 +3,421 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>백테스팅 - 투자 기록 서비스</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <title>백테스팅 - Trading Journal</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/dashboard-glass.css">
     <style>
-        .metric-card {
-            transition: transform 0.2s;
-        }
-        .metric-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .trade-win { background-color: rgba(34, 197, 94, 0.1); }
-        .trade-loss { background-color: rgba(239, 68, 68, 0.1); }
         .strategy-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: var(--transition-base);
+            margin-bottom: var(--space-3);
         }
+
         .strategy-card:hover {
-            border-color: #0d6efd;
+            border-color: var(--glass-border-hover);
+            transform: translateY(-2px);
         }
+
         .strategy-card.selected {
-            border-color: #0d6efd;
-            background-color: rgba(13, 110, 253, 0.1);
+            border-color: var(--gradient-start);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
         }
+
         .param-input {
             width: 100px;
         }
-        #loadingOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: none;
-            justify-content: center;
+
+        .trade-win {
+            background-color: rgba(0, 245, 160, 0.1);
+        }
+
+        .trade-loss {
+            background-color: rgba(255, 107, 107, 0.1);
+        }
+
+        .template-btn {
+            display: inline-flex;
             align-items: center;
-            z-index: 9999;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            font-size: var(--font-size-sm);
+            border-radius: var(--radius-full);
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+
+        .template-btn:hover {
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+        }
+
+        .template-btn.btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); border: none; }
+        .template-btn.btn-success { background: linear-gradient(135deg, #00f5a0, #00c781); border: none; }
+        .template-btn.btn-warning { background: linear-gradient(135deg, #ffd93d, #f39c12); border: none; color: var(--text-inverse); }
+        .template-btn.btn-danger { background: linear-gradient(135deg, #ff6b6b, #ff4757); border: none; }
+        .template-btn.btn-info { background: linear-gradient(135deg, #6bcaff, #3498db); border: none; }
+        .template-btn.btn-secondary { background: var(--glass-bg-hover); }
+
+        .color-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+
+        .color-btn.selected {
+            border-color: var(--text-primary);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .form-range {
+            width: 100%;
+            height: 6px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: var(--radius-full);
+            outline: none;
+        }
+
+        .form-range::-webkit-slider-thumb {
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .input-group-text {
+            background: var(--glass-bg-hover);
+            border: 1px solid var(--glass-border);
+            border-right: none;
+            border-radius: var(--radius-md) 0 0 var(--radius-md);
+            padding: var(--space-3) var(--space-4);
+            color: var(--text-secondary);
+            font-size: var(--font-size-sm);
+        }
+
+        .input-group .form-input {
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+        }
+
+        .sticky-top {
+            position: sticky;
+            top: 0;
+            background: rgba(20, 20, 40, 0.95);
+            z-index: 10;
+        }
+
+        .table-hover tbody tr:hover {
+            background: var(--glass-bg-hover);
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- Background Orbs -->
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar-glass">
         <div class="container">
-            <a class="navbar-brand" href="index.html">투자 기록 서비스</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.html">대시보드</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="patterns.html">패턴분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="reviews.html">거래복기</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="risk.html">리스크관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="sectors.html">섹터분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="correlation.html">상관관계분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="backtest.html">백테스팅</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="ai-assistant.html">AI어시스턴트</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.html">거래관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="accounts.html">계좌관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="logout()">로그아웃</a>
-                    </li>
-                </ul>
-            </div>
+            <a href="index.html" class="navbar-brand">
+                <span class="logo-icon"><i class="bi bi-graph-up-arrow"></i></span>
+                Trading Journal
+            </a>
+            <ul class="navbar-nav">
+                <li><a href="dashboard.html" class="nav-link"><i class="bi bi-speedometer2"></i> 대시보드</a></li>
+                <li><a href="patterns.html" class="nav-link"><i class="bi bi-diagram-3"></i> 패턴분석</a></li>
+                <li><a href="reviews.html" class="nav-link"><i class="bi bi-journal-text"></i> 거래복기</a></li>
+                <li><a href="risk.html" class="nav-link"><i class="bi bi-shield-check"></i> 리스크관리</a></li>
+                <li><a href="sectors.html" class="nav-link"><i class="bi bi-pie-chart"></i> 섹터분석</a></li>
+                <li><a href="correlation.html" class="nav-link"><i class="bi bi-diagram-2"></i> 상관관계</a></li>
+                <li><a href="backtest.html" class="nav-link active"><i class="bi bi-lightning-charge"></i> 백테스팅</a></li>
+                <li><a href="ai-assistant.html" class="nav-link"><i class="bi bi-robot"></i> AI</a></li>
+                <li><a href="index.html" class="nav-link"><i class="bi bi-list-ul"></i> 거래</a></li>
+                <li><a href="accounts.html" class="nav-link"><i class="bi bi-bank"></i> 계좌</a></li>
+                <li><a href="#" class="nav-link" onclick="logout()"><i class="bi bi-box-arrow-right"></i></a></li>
+            </ul>
         </div>
     </nav>
 
-    <!-- 로딩 오버레이 -->
-    <div id="loadingOverlay">
-        <div class="text-center text-white">
-            <div class="spinner-border mb-3" style="width: 3rem; height: 3rem;"></div>
-            <h5>백테스트 실행 중...</h5>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div style="text-align: center;">
+            <div class="spinner" style="margin: 0 auto var(--space-4);"></div>
+            <h5 style="color: var(--text-primary);">백테스트 실행 중...</h5>
         </div>
     </div>
 
-    <div class="container mt-4">
-        <!-- 헤더 -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-lightning-charge text-warning"></i> 백테스팅</h2>
-            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#historyModal">
-                <i class="bi bi-clock-history me-1"></i>히스토리
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Page Header -->
+        <header class="page-header fade-in">
+            <div class="page-title">
+                <h1>백테스팅</h1>
+                <span class="subtitle">전략 성과 검증 및 최적화</span>
+            </div>
+            <button class="btn-glass" onclick="openModal('historyModal')">
+                <i class="bi bi-clock-history"></i> 히스토리
             </button>
-        </div>
+        </header>
 
-        <div class="row">
-            <!-- 설정 패널 -->
-            <div class="col-lg-4">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-gear text-primary"></i> 백테스트 설정</h5>
+        <div style="display: grid; grid-template-columns: 380px 1fr; gap: var(--space-6);">
+            <!-- Settings Panel -->
+            <div>
+                <!-- Backtest Settings -->
+                <div class="glass-card mb-6 fade-in">
+                    <div class="glass-card-header">
+                        <h3><i class="bi bi-gear text-primary"></i> 백테스트 설정</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="glass-card-body">
                         <form id="backtestForm">
-                            <!-- 종목 -->
-                            <div class="mb-3">
+                            <!-- Symbol -->
+                            <div class="form-group">
                                 <label class="form-label">종목 심볼</label>
-                                <input type="text" class="form-control" id="symbol" value="AAPL" required>
+                                <input type="text" class="form-input" id="symbol" value="AAPL" required>
                             </div>
 
-                            <!-- 기간 -->
-                            <div class="row mb-3">
-                                <div class="col-6">
+                            <!-- Date Range -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-5);">
+                                <div class="form-group" style="margin-bottom: 0;">
                                     <label class="form-label">시작일</label>
-                                    <input type="date" class="form-control" id="startDate" required>
+                                    <input type="date" class="form-input" id="startDate" required>
                                 </div>
-                                <div class="col-6">
+                                <div class="form-group" style="margin-bottom: 0;">
                                     <label class="form-label">종료일</label>
-                                    <input type="date" class="form-control" id="endDate" required>
+                                    <input type="date" class="form-input" id="endDate" required>
                                 </div>
                             </div>
 
-                            <!-- 초기 자본금 -->
-                            <div class="mb-3">
+                            <!-- Initial Capital -->
+                            <div class="form-group">
                                 <label class="form-label">초기 자본금</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₩</span>
-                                    <input type="number" class="form-control" id="initialCapital" value="10000000" required>
+                                    <input type="number" class="form-input" id="initialCapital" value="10000000" required>
                                 </div>
                             </div>
 
-                            <!-- 포지션 크기 -->
-                            <div class="mb-3">
+                            <!-- Position Size -->
+                            <div class="form-group">
                                 <label class="form-label">포지션 크기 (%)</label>
                                 <input type="range" class="form-range" id="positionSize" min="10" max="100" value="100">
                                 <small class="text-muted">현재: <span id="positionSizeValue">100</span>%</small>
                             </div>
 
-                            <!-- 수수료 및 슬리피지 -->
-                            <div class="row mb-3">
-                                <div class="col-6">
+                            <!-- Commission and Slippage -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-5);">
+                                <div class="form-group" style="margin-bottom: 0;">
                                     <label class="form-label">수수료 (%)</label>
-                                    <input type="number" class="form-control" id="commission" value="0.015" step="0.001">
+                                    <input type="number" class="form-input" id="commission" value="0.015" step="0.001">
                                 </div>
-                                <div class="col-6">
+                                <div class="form-group" style="margin-bottom: 0;">
                                     <label class="form-label">슬리피지 (%)</label>
-                                    <input type="number" class="form-control" id="slippage" value="0.1" step="0.01">
+                                    <input type="number" class="form-input" id="slippage" value="0.1" step="0.01">
                                 </div>
                             </div>
 
-                            <!-- 손절/익절 -->
-                            <div class="row mb-3">
-                                <div class="col-6">
+                            <!-- Stop Loss / Take Profit -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+                                <div class="form-group" style="margin-bottom: 0;">
                                     <label class="form-label">손절 (%)</label>
-                                    <input type="number" class="form-control" id="stopLoss" placeholder="미설정" step="0.1">
+                                    <input type="number" class="form-input" id="stopLoss" placeholder="미설정" step="0.1">
                                 </div>
-                                <div class="col-6">
+                                <div class="form-group" style="margin-bottom: 0;">
                                     <label class="form-label">익절 (%)</label>
-                                    <input type="number" class="form-control" id="takeProfit" placeholder="미설정" step="0.1">
+                                    <input type="number" class="form-input" id="takeProfit" placeholder="미설정" step="0.1">
                                 </div>
                             </div>
                         </form>
                     </div>
                 </div>
 
-                <!-- 전략 템플릿 -->
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-bookmark-star text-warning"></i> 내 템플릿</h5>
-                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#templateModal">
+                <!-- Strategy Templates -->
+                <div class="glass-card mb-6 fade-in stagger-1">
+                    <div class="glass-card-header">
+                        <h3><i class="bi bi-bookmark-star text-warning"></i> 내 템플릿</h3>
+                        <button class="btn-glass" style="padding: var(--space-2) var(--space-3); font-size: var(--font-size-xs);" onclick="openModal('templateModal')">
                             <i class="bi bi-gear"></i> 관리
                         </button>
                     </div>
-                    <div class="card-body">
-                        <div id="templateList" class="d-flex flex-wrap gap-2">
-                            <!-- 템플릿 버튼들 -->
-                            <div class="text-muted">템플릿이 없습니다.</div>
+                    <div class="glass-card-body">
+                        <div id="templateList" style="display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4);">
+                            <div class="text-muted" style="font-size: var(--font-size-sm);">템플릿이 없습니다.</div>
                         </div>
-                        <hr class="my-3">
-                        <button class="btn btn-outline-success btn-sm w-100" onclick="saveCurrentAsTemplate()">
-                            <i class="bi bi-plus-circle me-1"></i>현재 설정 저장
+                        <button class="btn-glass primary" style="width: 100%; justify-content: center;" onclick="saveCurrentAsTemplate()">
+                            <i class="bi bi-plus-circle"></i> 현재 설정 저장
                         </button>
                     </div>
                 </div>
 
-                <!-- 전략 선택 -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-diagram-3 text-success"></i> 전략 선택</h5>
+                <!-- Strategy Selection -->
+                <div class="glass-card mb-6 fade-in stagger-2">
+                    <div class="glass-card-header">
+                        <h3><i class="bi bi-diagram-3 text-success"></i> 전략 선택</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="glass-card-body">
                         <div id="strategyList">
-                            <!-- 전략 카드들이 여기에 추가됨 -->
+                            <!-- Strategy cards will be added here -->
                         </div>
 
-                        <!-- 전략 파라미터 -->
-                        <div id="strategyParams" class="mt-3" style="display: none;">
-                            <h6 class="border-bottom pb-2">파라미터 설정</h6>
+                        <!-- Strategy Parameters -->
+                        <div id="strategyParams" style="display: none; margin-top: var(--space-4);">
+                            <h6 style="font-size: var(--font-size-sm); font-weight: 600; margin-bottom: var(--space-3); padding-bottom: var(--space-2); border-bottom: 1px solid var(--glass-border);">파라미터 설정</h6>
                             <div id="paramInputs"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 실행 버튼 -->
-                <div class="d-grid gap-2 mb-4">
-                    <button type="button" class="btn btn-primary btn-lg" onclick="runBacktest()">
-                        <i class="bi bi-play-fill me-2"></i>백테스트 실행
+                <!-- Action Buttons -->
+                <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                    <button type="button" class="btn-glass primary" style="justify-content: center; padding: var(--space-4);" onclick="runBacktest()">
+                        <i class="bi bi-play-fill"></i> 백테스트 실행
                     </button>
-                    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#optimizeModal">
-                        <i class="bi bi-gear me-2"></i>파라미터 최적화
+                    <button type="button" class="btn-glass" style="justify-content: center;" onclick="openModal('optimizeModal')">
+                        <i class="bi bi-gear"></i> 파라미터 최적화
                     </button>
                 </div>
             </div>
 
-            <!-- 결과 패널 -->
-            <div class="col-lg-8">
-                <!-- 결과가 없을 때 -->
-                <div id="noResultPanel" class="card">
-                    <div class="card-body text-center py-5">
-                        <i class="bi bi-graph-up-arrow fs-1 text-muted mb-3 d-block"></i>
-                        <h5 class="text-muted">백테스트를 실행하면 결과가 여기에 표시됩니다</h5>
-                        <p class="text-muted">왼쪽 패널에서 전략을 선택하고 설정을 완료한 후 실행 버튼을 클릭하세요.</p>
+            <!-- Results Panel -->
+            <div>
+                <!-- No Result Panel -->
+                <div id="noResultPanel" class="glass-card fade-in">
+                    <div class="glass-card-body">
+                        <div class="empty-state">
+                            <div class="empty-state-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                            <div class="empty-state-title">백테스트를 실행하면 결과가 여기에 표시됩니다</div>
+                            <div class="empty-state-desc">왼쪽 패널에서 전략을 선택하고 설정을 완료한 후 실행 버튼을 클릭하세요.</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- 결과 패널 -->
+                <!-- Result Panel -->
                 <div id="resultPanel" style="display: none;">
-                    <!-- 성과 요약 카드 -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-3">
-                            <div class="card metric-card h-100 text-center">
-                                <div class="card-body">
-                                    <small class="text-muted">총 수익률</small>
-                                    <h3 id="totalReturn" class="mb-0">-</h3>
-                                </div>
-                            </div>
+                    <!-- Performance Summary -->
+                    <div class="metrics-grid mb-6 fade-in">
+                        <div class="metric-card">
+                            <label>총 수익률</label>
+                            <div class="value" id="totalReturn">-</div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card metric-card h-100 text-center">
-                                <div class="card-body">
-                                    <small class="text-muted">CAGR</small>
-                                    <h3 id="cagr" class="mb-0">-</h3>
-                                </div>
-                            </div>
+                        <div class="metric-card">
+                            <label>CAGR</label>
+                            <div class="value" id="cagr">-</div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card metric-card h-100 text-center">
-                                <div class="card-body">
-                                    <small class="text-muted">최대 낙폭</small>
-                                    <h3 id="maxDrawdown" class="text-danger mb-0">-</h3>
-                                </div>
-                            </div>
+                        <div class="metric-card">
+                            <label>최대 낙폭</label>
+                            <div class="value text-negative" id="maxDrawdown">-</div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card metric-card h-100 text-center">
-                                <div class="card-body">
-                                    <small class="text-muted">샤프 비율</small>
-                                    <h3 id="sharpeRatio" class="mb-0">-</h3>
-                                </div>
-                            </div>
+                        <div class="metric-card">
+                            <label>샤프 비율</label>
+                            <div class="value" id="sharpeRatio">-</div>
                         </div>
                     </div>
 
-                    <!-- 자산 곡선 차트 -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="bi bi-graph-up text-primary"></i> 자산 곡선</h5>
+                    <!-- Equity Curve Chart -->
+                    <div class="glass-card mb-6 fade-in stagger-1">
+                        <div class="glass-card-header">
+                            <h3><i class="bi bi-graph-up text-primary"></i> 자산 곡선</h3>
                         </div>
-                        <div class="card-body">
+                        <div class="glass-card-body">
                             <canvas id="equityChart" height="250"></canvas>
                         </div>
                     </div>
 
-                    <!-- 낙폭 차트 -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="bi bi-graph-down text-danger"></i> 낙폭 (Drawdown)</h5>
+                    <!-- Drawdown Chart -->
+                    <div class="glass-card mb-6 fade-in stagger-2">
+                        <div class="glass-card-header">
+                            <h3><i class="bi bi-graph-down text-danger"></i> 낙폭 (Drawdown)</h3>
                         </div>
-                        <div class="card-body">
+                        <div class="glass-card-body">
                             <canvas id="drawdownChart" height="150"></canvas>
                         </div>
                     </div>
 
-                    <!-- 상세 통계 -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header">
-                                    <h6 class="mb-0">수익성 지표</h6>
-                                </div>
-                                <div class="card-body p-0">
-                                    <table class="table table-sm mb-0">
-                                        <tbody id="profitabilityStats">
-                                        </tbody>
-                                    </table>
-                                </div>
+                    <!-- Detailed Statistics -->
+                    <div class="two-col-grid mb-6">
+                        <div class="glass-card fade-in stagger-3">
+                            <div class="glass-card-header">
+                                <h3>수익성 지표</h3>
+                            </div>
+                            <div class="glass-card-body" style="padding: 0;">
+                                <table class="glass-table">
+                                    <tbody id="profitabilityStats">
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header">
-                                    <h6 class="mb-0">거래 통계</h6>
-                                </div>
-                                <div class="card-body p-0">
-                                    <table class="table table-sm mb-0">
-                                        <tbody id="tradeStats">
-                                        </tbody>
-                                    </table>
-                                </div>
+                        <div class="glass-card fade-in stagger-4">
+                            <div class="glass-card-header">
+                                <h3>거래 통계</h3>
+                            </div>
+                            <div class="glass-card-body" style="padding: 0;">
+                                <table class="glass-table">
+                                    <tbody id="tradeStats">
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 월별 성과 -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="bi bi-calendar3 text-info"></i> 월별 성과</h5>
+                    <!-- Monthly Performance -->
+                    <div class="glass-card mb-6 fade-in">
+                        <div class="glass-card-header">
+                            <h3><i class="bi bi-calendar3 text-info"></i> 월별 성과</h3>
                         </div>
-                        <div class="card-body">
+                        <div class="glass-card-body">
                             <canvas id="monthlyChart" height="150"></canvas>
                         </div>
                     </div>
 
-                    <!-- 거래 목록 -->
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0"><i class="bi bi-list-ul text-secondary"></i> 거래 목록</h5>
-                            <span class="badge bg-primary" id="tradeCount">0건</span>
+                    <!-- Trade List -->
+                    <div class="glass-card fade-in">
+                        <div class="glass-card-header">
+                            <h3><i class="bi bi-list-ul text-secondary"></i> 거래 목록</h3>
+                            <span class="risk-badge low" id="tradeCount">0건</span>
                         </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                                <table class="table table-sm table-hover mb-0">
-                                    <thead class="table-light sticky-top">
+                        <div class="glass-card-body" style="padding: 0;">
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                <table class="glass-table table-hover">
+                                    <thead class="sticky-top">
                                         <tr>
                                             <th>#</th>
                                             <th>진입일</th>
                                             <th>청산일</th>
-                                            <th class="text-end">진입가</th>
-                                            <th class="text-end">청산가</th>
-                                            <th class="text-end">손익</th>
-                                            <th class="text-end">수익률</th>
-                                            <th class="text-end">보유일</th>
+                                            <th class="text-right">진입가</th>
+                                            <th class="text-right">청산가</th>
+                                            <th class="text-right">손익</th>
+                                            <th class="text-right">수익률</th>
+                                            <th class="text-right">보유일</th>
                                         </tr>
                                     </thead>
                                     <tbody id="tradeList">
@@ -368,269 +429,311 @@
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
-    <!-- 히스토리 모달 -->
-    <div class="modal fade" id="historyModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">백테스트 히스토리</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>전략</th>
-                                    <th>종목</th>
-                                    <th>기간</th>
-                                    <th class="text-end">수익률</th>
-                                    <th class="text-end">MDD</th>
-                                    <th>실행일</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="historyList">
-                            </tbody>
-                        </table>
-                    </div>
+    <!-- History Modal -->
+    <div class="modal-glass" id="historyModal">
+        <div class="modal-glass-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>백테스트 히스토리</h3>
+                <button class="modal-close" onclick="closeModal('historyModal')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="overflow-x: auto;">
+                    <table class="glass-table">
+                        <thead>
+                            <tr>
+                                <th>전략</th>
+                                <th>종목</th>
+                                <th>기간</th>
+                                <th class="text-right">수익률</th>
+                                <th class="text-right">MDD</th>
+                                <th>실행일</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyList">
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 최적화 모달 -->
-    <div class="modal fade" id="optimizeModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-gear text-success me-2"></i>파라미터 최적화</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i>
-                        파라미터 범위를 설정하면 모든 조합을 테스트하여 최적의 파라미터를 찾습니다.
+    <!-- Optimize Modal -->
+    <div class="modal-glass" id="optimizeModal">
+        <div class="modal-glass-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3><i class="bi bi-gear text-success"></i> 파라미터 최적화</h3>
+                <button class="modal-close" onclick="closeModal('optimizeModal')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert-glass" style="border-left: 3px solid var(--color-info);">
+                    <div class="alert-icon" style="color: var(--color-info);"><i class="bi bi-info-circle"></i></div>
+                    <div class="alert-content">
+                        <div class="alert-message">파라미터 범위를 설정하면 모든 조합을 테스트하여 최적의 파라미터를 찾습니다.</div>
                     </div>
+                </div>
 
-                    <!-- 최적화 목표 -->
-                    <div class="mb-3">
-                        <label class="form-label">최적화 목표</label>
-                        <select class="form-select" id="optimizationTarget">
-                            <option value="TOTAL_RETURN">총 수익률 최대화</option>
-                            <option value="SHARPE_RATIO">샤프 비율 최대화</option>
-                            <option value="PROFIT_FACTOR">손익비 최대화</option>
-                            <option value="MIN_DRAWDOWN">최대낙폭 최소화</option>
-                            <option value="CALMAR_RATIO">칼마 비율 최대화</option>
-                        </select>
-                    </div>
+                <!-- Optimization Target -->
+                <div class="form-group">
+                    <label class="form-label">최적화 목표</label>
+                    <select class="select-glass" id="optimizationTarget" style="width: 100%;">
+                        <option value="TOTAL_RETURN">총 수익률 최대화</option>
+                        <option value="SHARPE_RATIO">샤프 비율 최대화</option>
+                        <option value="PROFIT_FACTOR">손익비 최대화</option>
+                        <option value="MIN_DRAWDOWN">최대낙폭 최소화</option>
+                        <option value="CALMAR_RATIO">칼마 비율 최대화</option>
+                    </select>
+                </div>
 
-                    <!-- 파라미터 범위 설정 -->
-                    <div id="paramRangeInputs">
-                        <p class="text-muted">먼저 전략을 선택하세요.</p>
-                    </div>
+                <!-- Parameter Range Inputs -->
+                <div id="paramRangeInputs">
+                    <p class="text-muted" style="font-size: var(--font-size-sm);">먼저 전략을 선택하세요.</p>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                    <button type="button" class="btn btn-success" onclick="runOptimization()">
-                        <i class="bi bi-search me-1"></i>최적화 실행
-                    </button>
-                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-glass" onclick="closeModal('optimizeModal')">취소</button>
+                <button type="button" class="btn-glass primary" onclick="runOptimization()">
+                    <i class="bi bi-search"></i> 최적화 실행
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- 최적화 결과 모달 -->
-    <div class="modal fade" id="optimizeResultModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-trophy text-warning me-2"></i>최적화 결과</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <!-- 최적 파라미터 -->
-                    <div class="card mb-3">
-                        <div class="card-header bg-success text-white">
-                            <i class="bi bi-star-fill me-2"></i>최적 파라미터
-                        </div>
-                        <div class="card-body">
-                            <div id="bestParams" class="row">
-                                <!-- 최적 파라미터 표시 -->
-                            </div>
-                            <hr>
-                            <div class="row text-center" id="bestStats">
-                                <!-- 최적 결과 통계 -->
-                            </div>
-                        </div>
+    <!-- Optimize Result Modal -->
+    <div class="modal-glass" id="optimizeResultModal">
+        <div class="modal-glass-content" style="max-width: 1200px;">
+            <div class="modal-header">
+                <h3><i class="bi bi-trophy text-warning"></i> 최적화 결과</h3>
+                <button class="modal-close" onclick="closeModal('optimizeResultModal')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Best Parameters -->
+                <div class="glass-card mb-4" style="border-left: 3px solid var(--color-positive);">
+                    <div class="glass-card-header" style="background: rgba(0, 245, 160, 0.1);">
+                        <h3 style="color: var(--color-positive);"><i class="bi bi-star-fill"></i> 최적 파라미터</h3>
                     </div>
-
-                    <!-- 모든 조합 결과 -->
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-table me-2"></i>모든 조합 결과</span>
-                            <span class="badge bg-primary" id="combinationCount">0개 조합</span>
+                    <div class="glass-card-body">
+                        <div id="bestParams" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); margin-bottom: var(--space-4);">
+                            <!-- Best parameters will be shown here -->
                         </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive" style="max-height: 400px;">
-                                <table class="table table-sm table-hover mb-0">
-                                    <thead class="table-light sticky-top">
-                                        <tr>
-                                            <th>#</th>
-                                            <th>파라미터</th>
-                                            <th class="text-end">수익률</th>
-                                            <th class="text-end">MDD</th>
-                                            <th class="text-end">샤프</th>
-                                            <th class="text-end">승률</th>
-                                            <th class="text-end">거래수</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="allResultsList">
-                                    </tbody>
-                                </table>
+                        <div style="border-top: 1px solid var(--glass-border); padding-top: var(--space-4);">
+                            <div id="bestStats" class="stats-row">
+                                <!-- Best stats will be shown here -->
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <small class="text-muted me-auto" id="optimizationTime">실행 시간: -</small>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
-                    <button type="button" class="btn btn-primary" onclick="applyBestParams()">
-                        <i class="bi bi-check-circle me-1"></i>최적 파라미터 적용
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- 템플릿 관리 모달 -->
-    <div class="modal fade" id="templateModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-bookmark-star text-warning me-2"></i>템플릿 관리</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>이름</th>
-                                    <th>전략</th>
-                                    <th class="text-center">기본</th>
-                                    <th class="text-center">사용 횟수</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="templateTableBody">
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted">템플릿이 없습니다.</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <!-- All Results -->
+                <div class="glass-card">
+                    <div class="glass-card-header">
+                        <h3><i class="bi bi-table"></i> 모든 조합 결과</h3>
+                        <span class="risk-badge low" id="combinationCount">0개 조합</span>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 템플릿 저장 모달 -->
-    <div class="modal fade" id="saveTemplateModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-bookmark-plus text-success me-2"></i>템플릿 저장</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">템플릿 이름</label>
-                        <input type="text" class="form-control" id="templateName" placeholder="예: 내 MA 전략">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">설명 (선택)</label>
-                        <textarea class="form-control" id="templateDescription" rows="2" placeholder="템플릿에 대한 설명"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">색상</label>
-                        <div class="d-flex gap-2" id="colorPicker">
-                            <button type="button" class="btn btn-sm btn-primary color-btn selected" data-color="primary"></button>
-                            <button type="button" class="btn btn-sm btn-success color-btn" data-color="success"></button>
-                            <button type="button" class="btn btn-sm btn-warning color-btn" data-color="warning"></button>
-                            <button type="button" class="btn btn-sm btn-danger color-btn" data-color="danger"></button>
-                            <button type="button" class="btn btn-sm btn-info color-btn" data-color="info"></button>
-                            <button type="button" class="btn btn-sm btn-secondary color-btn" data-color="secondary"></button>
+                    <div class="glass-card-body" style="padding: 0;">
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            <table class="glass-table">
+                                <thead class="sticky-top">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>파라미터</th>
+                                        <th class="text-right">수익률</th>
+                                        <th class="text-right">MDD</th>
+                                        <th class="text-right">샤프</th>
+                                        <th class="text-right">승률</th>
+                                        <th class="text-right">거래수</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allResultsList">
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="templateDefault">
-                        <label class="form-check-label" for="templateDefault">기본 템플릿으로 설정</label>
-                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                    <button type="button" class="btn btn-success" onclick="confirmSaveTemplate()">
-                        <i class="bi bi-check-circle me-1"></i>저장
-                    </button>
-                </div>
+            </div>
+            <div class="modal-footer">
+                <small class="text-muted" style="margin-right: auto;" id="optimizationTime">실행 시간: -</small>
+                <button type="button" class="btn-glass" onclick="closeModal('optimizeResultModal')">닫기</button>
+                <button type="button" class="btn-glass primary" onclick="applyBestParams()">
+                    <i class="bi bi-check-circle"></i> 최적 파라미터 적용
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- 템플릿 수정 모달 -->
-    <div class="modal fade" id="editTemplateModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-pencil text-primary me-2"></i>템플릿 수정</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- Template Modal -->
+    <div class="modal-glass" id="templateModal">
+        <div class="modal-glass-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3><i class="bi bi-bookmark-star text-warning"></i> 템플릿 관리</h3>
+                <button class="modal-close" onclick="closeModal('templateModal')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="overflow-x: auto;">
+                    <table class="glass-table">
+                        <thead>
+                            <tr>
+                                <th>이름</th>
+                                <th>전략</th>
+                                <th class="text-center">기본</th>
+                                <th class="text-center">사용 횟수</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="templateTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">템플릿이 없습니다.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="modal-body">
-                    <input type="hidden" id="editTemplateId">
-                    <div class="mb-3">
-                        <label class="form-label">템플릿 이름</label>
-                        <input type="text" class="form-control" id="editTemplateName">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">설명</label>
-                        <textarea class="form-control" id="editTemplateDescription" rows="2"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">색상</label>
-                        <div class="d-flex gap-2" id="editColorPicker">
-                            <button type="button" class="btn btn-sm btn-primary color-btn" data-color="primary"></button>
-                            <button type="button" class="btn btn-sm btn-success color-btn" data-color="success"></button>
-                            <button type="button" class="btn btn-sm btn-warning color-btn" data-color="warning"></button>
-                            <button type="button" class="btn btn-sm btn-danger color-btn" data-color="danger"></button>
-                            <button type="button" class="btn btn-sm btn-info color-btn" data-color="info"></button>
-                            <button type="button" class="btn btn-sm btn-secondary color-btn" data-color="secondary"></button>
-                        </div>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="editTemplateDefault">
-                        <label class="form-check-label" for="editTemplateDefault">기본 템플릿으로 설정</label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                    <button type="button" class="btn btn-primary" onclick="confirmEditTemplate()">
-                        <i class="bi bi-check-circle me-1"></i>저장
-                    </button>
-                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-glass" onclick="closeModal('templateModal')">닫기</button>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Save Template Modal -->
+    <div class="modal-glass" id="saveTemplateModal">
+        <div class="modal-glass-content">
+            <div class="modal-header">
+                <h3><i class="bi bi-bookmark-plus text-success"></i> 템플릿 저장</h3>
+                <button class="modal-close" onclick="closeModal('saveTemplateModal')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">템플릿 이름</label>
+                    <input type="text" class="form-input" id="templateName" placeholder="예: 내 MA 전략">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">설명 (선택)</label>
+                    <textarea class="form-input" id="templateDescription" rows="2" placeholder="템플릿에 대한 설명"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">색상</label>
+                    <div style="display: flex; gap: var(--space-2);" id="colorPicker">
+                        <button type="button" class="color-btn btn-primary selected" data-color="primary" style="background: linear-gradient(135deg, #667eea, #764ba2);"></button>
+                        <button type="button" class="color-btn btn-success" data-color="success" style="background: linear-gradient(135deg, #00f5a0, #00c781);"></button>
+                        <button type="button" class="color-btn btn-warning" data-color="warning" style="background: linear-gradient(135deg, #ffd93d, #f39c12);"></button>
+                        <button type="button" class="color-btn btn-danger" data-color="danger" style="background: linear-gradient(135deg, #ff6b6b, #ff4757);"></button>
+                        <button type="button" class="color-btn btn-info" data-color="info" style="background: linear-gradient(135deg, #6bcaff, #3498db);"></button>
+                        <button type="button" class="color-btn btn-secondary" data-color="secondary" style="background: var(--glass-bg-hover);"></button>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: var(--space-2);">
+                    <input type="checkbox" id="templateDefault" style="width: 18px; height: 18px; cursor: pointer;">
+                    <label for="templateDefault" style="cursor: pointer; font-size: var(--font-size-sm);">기본 템플릿으로 설정</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-glass" onclick="closeModal('saveTemplateModal')">취소</button>
+                <button type="button" class="btn-glass primary" onclick="confirmSaveTemplate()">
+                    <i class="bi bi-check-circle"></i> 저장
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Template Modal -->
+    <div class="modal-glass" id="editTemplateModal">
+        <div class="modal-glass-content">
+            <div class="modal-header">
+                <h3><i class="bi bi-pencil text-primary"></i> 템플릿 수정</h3>
+                <button class="modal-close" onclick="closeModal('editTemplateModal')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editTemplateId">
+                <div class="form-group">
+                    <label class="form-label">템플릿 이름</label>
+                    <input type="text" class="form-input" id="editTemplateName">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">설명</label>
+                    <textarea class="form-input" id="editTemplateDescription" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">색상</label>
+                    <div style="display: flex; gap: var(--space-2);" id="editColorPicker">
+                        <button type="button" class="color-btn btn-primary" data-color="primary" style="background: linear-gradient(135deg, #667eea, #764ba2);"></button>
+                        <button type="button" class="color-btn btn-success" data-color="success" style="background: linear-gradient(135deg, #00f5a0, #00c781);"></button>
+                        <button type="button" class="color-btn btn-warning" data-color="warning" style="background: linear-gradient(135deg, #ffd93d, #f39c12);"></button>
+                        <button type="button" class="color-btn btn-danger" data-color="danger" style="background: linear-gradient(135deg, #ff6b6b, #ff4757);"></button>
+                        <button type="button" class="color-btn btn-info" data-color="info" style="background: linear-gradient(135deg, #6bcaff, #3498db);"></button>
+                        <button type="button" class="color-btn btn-secondary" data-color="secondary" style="background: var(--glass-bg-hover);"></button>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: var(--space-2);">
+                    <input type="checkbox" id="editTemplateDefault" style="width: 18px; height: 18px; cursor: pointer;">
+                    <label for="editTemplateDefault" style="cursor: pointer; font-size: var(--font-size-sm);">기본 템플릿으로 설정</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-glass" onclick="closeModal('editTemplateModal')">취소</button>
+                <button type="button" class="btn-glass primary" onclick="confirmEditTemplate()">
+                    <i class="bi bi-check-circle"></i> 저장
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="utils.js"></script>
     <script src="auth.js"></script>
     <script src="backtest.js"></script>
+    <script>
+        // Modal functions
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('show');
+            }
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('show');
+            }
+        }
+
+        // Position size slider
+        document.getElementById('positionSize').addEventListener('input', function(e) {
+            document.getElementById('positionSizeValue').textContent = e.target.value;
+        });
+
+        // Color picker handlers
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.closest('#colorPicker, #editColorPicker').querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+
+        // Loading overlay
+        document.getElementById('loadingOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.style.display = 'none';
+            }
+        });
+    </script>
 </body>
 </html>

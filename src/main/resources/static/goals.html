@@ -3,26 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>목표 관리 - 투자 기록 서비스</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <title>목표 관리 - Trading Journal</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/dashboard-glass.css">
     <style>
         .progress-ring {
             transform: rotate(-90deg);
         }
         .progress-ring-circle {
             transition: stroke-dashoffset 0.5s ease;
-        }
-        .goal-card {
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .goal-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .status-badge {
-            font-size: 0.75rem;
         }
         .priority-indicator {
             width: 4px;
@@ -31,180 +29,138 @@
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- Background Orbs -->
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+    <!-- Navigation -->
+    <nav class="navbar-glass">
         <div class="container">
-            <a class="navbar-brand" href="index.html">투자 기록 서비스</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.html">대시보드</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="patterns.html">패턴분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="reviews.html">거래복기</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="risk.html">리스크관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="sectors.html">섹터분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="correlation.html">상관관계분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="backtest.html">백테스팅</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="goals.html">목표관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.html">거래관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="logout()">로그아웃</a>
-                    </li>
-                </ul>
-            </div>
+            <a href="index.html" class="navbar-brand">
+                <span class="logo-icon"><i class="bi bi-graph-up-arrow"></i></span>
+                Trading Journal
+            </a>
+            <ul class="navbar-nav">
+                <li><a href="dashboard.html" class="nav-link"><i class="bi bi-speedometer2"></i> 대시보드</a></li>
+                <li><a href="patterns.html" class="nav-link"><i class="bi bi-diagram-3"></i> 패턴분석</a></li>
+                <li><a href="reviews.html" class="nav-link"><i class="bi bi-journal-text"></i> 거래복기</a></li>
+                <li><a href="risk.html" class="nav-link"><i class="bi bi-shield-check"></i> 리스크</a></li>
+                <li><a href="sectors.html" class="nav-link"><i class="bi bi-pie-chart"></i> 섹터</a></li>
+                <li><a href="correlation.html" class="nav-link"><i class="bi bi-bezier2"></i> 상관관계</a></li>
+                <li><a href="backtest.html" class="nav-link"><i class="bi bi-clock-history"></i> 백테스트</a></li>
+                <li><a href="goals.html" class="nav-link active"><i class="bi bi-bullseye"></i> 목표</a></li>
+                <li><a href="index.html" class="nav-link"><i class="bi bi-list-ul"></i> 거래</a></li>
+                <li><a href="#" class="nav-link" onclick="logout()"><i class="bi bi-box-arrow-right"></i></a></li>
+            </ul>
         </div>
     </nav>
 
-    <div class="container mt-4">
-        <!-- 헤더 -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-bullseye text-primary"></i> 목표 관리</h2>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#goalModal" onclick="openCreateModal()">
-                <i class="bi bi-plus-lg me-1"></i>새 목표
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Page Header -->
+        <header class="page-header fade-in">
+            <div class="page-title">
+                <h1><i class="bi bi-bullseye"></i> 목표 관리</h1>
+                <span class="subtitle">투자 목표 설정 및 진행률 추적</span>
+            </div>
+            <button class="btn-glass primary" onclick="openCreateModal()">
+                <i class="bi bi-plus-lg"></i>새 목표
             </button>
-        </div>
+        </header>
 
-        <!-- 요약 카드 -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-2">
-                <div class="card text-center h-100 border-primary">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted mb-1">전체 목표</h6>
-                        <h3 class="mb-0" id="total-goals">0</h3>
-                    </div>
-                </div>
+        <!-- Stats Cards -->
+        <section class="stats-row glass-card mb-8 fade-in stagger-1">
+            <div class="stats-row-item">
+                <label>전체 목표</label>
+                <div class="value" id="total-goals">0</div>
             </div>
-            <div class="col-md-2">
-                <div class="card text-center h-100 border-info">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted mb-1">진행 중</h6>
-                        <h3 class="mb-0 text-info" id="active-goals">0</h3>
-                    </div>
-                </div>
+            <div class="stats-row-item">
+                <label>진행 중</label>
+                <div class="value text-info" id="active-goals">0</div>
             </div>
-            <div class="col-md-2">
-                <div class="card text-center h-100 border-success">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted mb-1">달성</h6>
-                        <h3 class="mb-0 text-success" id="completed-goals">0</h3>
-                    </div>
-                </div>
+            <div class="stats-row-item">
+                <label>달성</label>
+                <div class="value text-positive" id="completed-goals">0</div>
             </div>
-            <div class="col-md-2">
-                <div class="card text-center h-100 border-danger">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted mb-1">미달성</h6>
-                        <h3 class="mb-0 text-danger" id="failed-goals">0</h3>
-                    </div>
-                </div>
+            <div class="stats-row-item">
+                <label>미달성</label>
+                <div class="value text-negative" id="failed-goals">0</div>
             </div>
-            <div class="col-md-2">
-                <div class="card text-center h-100 border-warning">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted mb-1">마감 임박</h6>
-                        <h3 class="mb-0 text-warning" id="upcoming-goals">0</h3>
-                    </div>
-                </div>
+            <div class="stats-row-item">
+                <label>마감 임박</label>
+                <div class="value text-warning" id="upcoming-goals">0</div>
             </div>
-            <div class="col-md-2">
-                <div class="card text-center h-100">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted mb-1">평균 진행률</h6>
-                        <h3 class="mb-0" id="avg-progress">0%</h3>
-                    </div>
-                </div>
+            <div class="stats-row-item">
+                <label>평균 진행률</label>
+                <div class="value" id="avg-progress">0%</div>
             </div>
-        </div>
+        </section>
 
-        <!-- 필터 및 검색 -->
-        <div class="card mb-4">
-            <div class="card-body py-2">
-                <div class="row align-items-center">
-                    <div class="col-md-6">
-                        <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-outline-secondary active" onclick="filterGoals('all')">전체</button>
-                            <button type="button" class="btn btn-outline-info" onclick="filterGoals('ACTIVE')">진행 중</button>
-                            <button type="button" class="btn btn-outline-success" onclick="filterGoals('COMPLETED')">달성</button>
-                            <button type="button" class="btn btn-outline-danger" onclick="filterGoals('FAILED')">미달성</button>
-                        </div>
+        <!-- Filters -->
+        <div class="glass-card mb-8 fade-in stagger-2">
+            <div class="glass-card-body" style="padding: var(--space-4) var(--space-6);">
+                <div style="display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;">
+                    <div class="tab-nav" style="margin-bottom: 0; flex: 1; min-width: 300px;">
+                        <button type="button" class="tab-btn active" onclick="filterGoals('all')">전체</button>
+                        <button type="button" class="tab-btn" onclick="filterGoals('ACTIVE')">진행 중</button>
+                        <button type="button" class="tab-btn" onclick="filterGoals('COMPLETED')">달성</button>
+                        <button type="button" class="tab-btn" onclick="filterGoals('FAILED')">미달성</button>
                     </div>
-                    <div class="col-md-3">
-                        <select class="form-select" id="goalTypeFilter" onchange="filterGoals()">
-                            <option value="">모든 유형</option>
-                            <option value="RETURN_RATE">목표 수익률</option>
-                            <option value="TARGET_AMOUNT">목표 자산</option>
-                            <option value="SAVINGS_AMOUNT">목표 저축</option>
-                            <option value="WIN_RATE">목표 승률</option>
-                            <option value="DIVIDEND_INCOME">배당 수익</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3 text-end">
-                        <button class="btn btn-outline-secondary" onclick="refreshGoals()">
-                            <i class="bi bi-arrow-clockwise me-1"></i>새로고침
-                        </button>
-                    </div>
+                    <select class="select-glass" id="goalTypeFilter" onchange="filterGoals()" style="min-width: 200px;">
+                        <option value="">모든 유형</option>
+                        <option value="RETURN_RATE">목표 수익률</option>
+                        <option value="TARGET_AMOUNT">목표 자산</option>
+                        <option value="SAVINGS_AMOUNT">목표 저축</option>
+                        <option value="WIN_RATE">목표 승률</option>
+                        <option value="DIVIDEND_INCOME">배당 수익</option>
+                    </select>
+                    <button class="btn-glass" onclick="refreshGoals()">
+                        <i class="bi bi-arrow-clockwise"></i>새로고침
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- 목표 목록 -->
-        <div class="row g-4" id="goals-container">
+        <!-- Goals Container -->
+        <div id="goals-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: var(--space-6);">
             <!-- 목표 카드들이 여기에 동적으로 추가됩니다 -->
         </div>
 
-        <!-- 빈 상태 -->
-        <div id="empty-state" class="text-center py-5" style="display: none;">
-            <i class="bi bi-bullseye display-1 text-muted"></i>
-            <h4 class="mt-3 text-muted">아직 설정된 목표가 없습니다</h4>
-            <p class="text-muted">새 목표를 추가하여 투자 여정을 시작하세요!</p>
-            <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#goalModal" onclick="openCreateModal()">
-                <i class="bi bi-plus-lg me-1"></i>첫 목표 만들기
+        <!-- Empty State -->
+        <div id="empty-state" class="empty-state glass-card fade-in" style="display: none;">
+            <i class="bi bi-bullseye empty-state-icon"></i>
+            <h3 class="empty-state-title">아직 설정된 목표가 없습니다</h3>
+            <p class="empty-state-desc">새 목표를 추가하여 투자 여정을 시작하세요!</p>
+            <button class="btn-glass primary" onclick="openCreateModal()">
+                <i class="bi bi-plus-lg"></i>첫 목표 만들기
             </button>
         </div>
-    </div>
+    </main>
 
-    <!-- 목표 생성/수정 모달 -->
-    <div class="modal fade" id="goalModal" tabindex="-1" aria-labelledby="goalModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="goalModalLabel">
-                        <i class="bi bi-bullseye me-2"></i>새 목표 설정
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
+    <!-- Goal Create/Edit Modal -->
+    <div class="modal-glass" id="goalModal">
+        <div class="modal-glass-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 id="goalModalLabel">
+                    <i class="bi bi-bullseye"></i>새 목표 설정
+                </h3>
+                <button type="button" class="modal-close" onclick="closeGoalModal()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="max-height: calc(100vh - 200px); overflow-y: auto;">
                     <form id="goalForm">
                         <input type="hidden" id="goalId">
 
-                        <div class="row">
-                            <div class="col-md-8 mb-3">
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-5); margin-bottom: var(--space-5);">
+                            <div class="form-group" style="margin-bottom: 0;">
                                 <label for="goalName" class="form-label">목표 이름 *</label>
-                                <input type="text" class="form-control" id="goalName" required
+                                <input type="text" class="form-input" id="goalName" required
                                        placeholder="예: 2024년 수익률 20% 달성">
                             </div>
-                            <div class="col-md-4 mb-3">
+                            <div class="form-group" style="margin-bottom: 0;">
                                 <label for="goalType" class="form-label">목표 유형 *</label>
-                                <select class="form-select" id="goalType" required onchange="updateTargetPlaceholder()">
+                                <select class="select-glass" id="goalType" required onchange="updateTargetPlaceholder()">
                                     <option value="">선택</option>
                                     <option value="RETURN_RATE">목표 수익률 (%)</option>
                                     <option value="TARGET_AMOUNT">목표 자산 (원)</option>
@@ -219,110 +175,143 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-bottom: var(--space-5);">
+                            <div class="form-group" style="margin-bottom: 0;">
                                 <label for="targetValue" class="form-label">목표 값 *</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" id="targetValue" step="0.01" required
-                                           placeholder="목표 수치 입력">
-                                    <span class="input-group-text" id="targetUnit">%</span>
+                                <div style="display: flex; gap: var(--space-2);">
+                                    <input type="number" class="form-input" id="targetValue" step="0.01" required
+                                           placeholder="목표 수치 입력" style="flex: 1;">
+                                    <span class="form-input" id="targetUnit" style="flex: 0 0 60px; text-align: center; background: rgba(0, 0, 0, 0.2);">%</span>
                                 </div>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="form-group" style="margin-bottom: 0;">
                                 <label for="startValue" class="form-label">시작 값 (선택)</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" id="startValue" step="0.01"
-                                           placeholder="자동 설정됨">
-                                    <span class="input-group-text" id="startUnit">%</span>
+                                <div style="display: flex; gap: var(--space-2);">
+                                    <input type="number" class="form-input" id="startValue" step="0.01"
+                                           placeholder="자동 설정됨" style="flex: 1;">
+                                    <span class="form-input" id="startUnit" style="flex: 0 0 60px; text-align: center; background: rgba(0, 0, 0, 0.2);">%</span>
                                 </div>
-                                <small class="text-muted">비워두면 현재 포트폴리오 값으로 자동 설정</small>
+                                <small style="color: var(--text-muted); font-size: var(--font-size-xs); margin-top: var(--space-1); display: block;">비워두면 현재 포트폴리오 값으로 자동 설정</small>
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-bottom: var(--space-5);">
+                            <div class="form-group" style="margin-bottom: 0;">
                                 <label for="startDate" class="form-label">시작일 *</label>
-                                <input type="date" class="form-control" id="startDate" required>
+                                <input type="date" class="form-input" id="startDate" required>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="form-group" style="margin-bottom: 0;">
                                 <label for="deadline" class="form-label">마감일 (선택)</label>
-                                <input type="date" class="form-control" id="deadline">
+                                <input type="date" class="form-input" id="deadline">
                             </div>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="form-group">
                             <label for="goalDescription" class="form-label">설명</label>
-                            <textarea class="form-control" id="goalDescription" rows="2"
+                            <textarea class="form-input" id="goalDescription" rows="2"
                                       placeholder="목표에 대한 상세 설명..."></textarea>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-bottom: var(--space-5);">
+                            <div class="form-group" style="margin-bottom: 0;">
                                 <label for="milestoneInterval" class="form-label">마일스톤 알림 간격</label>
-                                <select class="form-select" id="milestoneInterval">
+                                <select class="select-glass" id="milestoneInterval">
                                     <option value="10">10% 마다</option>
                                     <option value="25" selected>25% 마다</option>
                                     <option value="50">50% 마다</option>
                                     <option value="0">알림 없음</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3 d-flex align-items-end">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="notificationEnabled" checked>
-                                    <label class="form-check-label" for="notificationEnabled">
-                                        알림 활성화
-                                    </label>
-                                </div>
+                            <div class="form-group" style="margin-bottom: 0; display: flex; align-items: flex-end;">
+                                <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                                    <input type="checkbox" id="notificationEnabled" checked style="width: 18px; height: 18px; cursor: pointer;">
+                                    <span style="font-size: var(--font-size-sm); color: var(--text-secondary);">알림 활성화</span>
+                                </label>
                             </div>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="form-group">
                             <label for="goalNotes" class="form-label">메모</label>
-                            <textarea class="form-control" id="goalNotes" rows="2"
+                            <textarea class="form-input" id="goalNotes" rows="2"
                                       placeholder="추가 메모..."></textarea>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                    <button type="button" class="btn btn-primary" onclick="saveGoal()">
-                        <i class="bi bi-check-lg me-1"></i>저장
+                    <button type="button" class="btn-glass" onclick="closeGoalModal()">취소</button>
+                    <button type="button" class="btn-glass primary" onclick="saveGoal()">
+                        <i class="bi bi-check-lg"></i>저장
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 목표 상세 모달 -->
-    <div class="modal fade" id="goalDetailModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="goalDetailTitle">목표 상세</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="goalDetailContent">
-                    <!-- 상세 내용이 동적으로 채워집니다 -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-danger" id="btnDeleteGoal">
-                        <i class="bi bi-trash me-1"></i>삭제
-                    </button>
-                    <button type="button" class="btn btn-outline-warning" id="btnPauseGoal">
-                        <i class="bi bi-pause me-1"></i>일시중지
-                    </button>
-                    <button type="button" class="btn btn-primary" id="btnEditGoal">
-                        <i class="bi bi-pencil me-1"></i>수정
-                    </button>
-                </div>
+    <!-- Goal Detail Modal -->
+    <div class="modal-glass" id="goalDetailModal">
+        <div class="modal-glass-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 id="goalDetailTitle">목표 상세</h3>
+                <button type="button" class="modal-close" onclick="closeGoalDetailModal()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="goalDetailContent" style="max-height: calc(100vh - 200px); overflow-y: auto;">
+                <!-- 상세 내용이 동적으로 채워집니다 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-glass" id="btnDeleteGoal" style="color: var(--color-negative);">
+                    <i class="bi bi-trash"></i>삭제
+                </button>
+                <button type="button" class="btn-glass" id="btnPauseGoal" style="color: var(--color-warning);">
+                    <i class="bi bi-pause"></i>일시중지
+                </button>
+                <button type="button" class="btn-glass primary" id="btnEditGoal">
+                    <i class="bi bi-pencil"></i>수정
+                </button>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="utils.js"></script>
     <script src="auth.js"></script>
     <script src="goals.js"></script>
+    <script>
+        // Modal control functions
+        function openCreateModal() {
+            document.getElementById('goalModal').classList.add('show');
+        }
+
+        function closeGoalModal() {
+            document.getElementById('goalModal').classList.remove('show');
+        }
+
+        function closeGoalDetailModal() {
+            document.getElementById('goalDetailModal').classList.remove('show');
+        }
+
+        // Close modal on background click
+        document.getElementById('goalModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeGoalModal();
+            }
+        });
+
+        document.getElementById('goalDetailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeGoalDetailModal();
+            }
+        });
+
+        // Tab filter functionality
+        document.querySelectorAll('.tab-btn').forEach((btn, index) => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
 </body>
 </html>

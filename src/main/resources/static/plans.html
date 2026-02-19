@@ -4,660 +4,492 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>트레이드 플랜 - 투자 기록 서비스</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/dashboard-glass.css">
     <style>
-        :root {
-            --plan-primary: #6366f1;
-            --plan-success: #10b981;
-            --plan-warning: #f59e0b;
-            --plan-danger: #ef4444;
-            --plan-pending: #8b5cf6;
-            --plan-executed: #059669;
-            --plan-cancelled: #6b7280;
-            --plan-expired: #dc2626;
+        /* Page-specific glassmorphism overrides */
+        .plan-stats {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
         }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+        .plan-filter-card {
+            margin-bottom: var(--space-6);
         }
 
-        .content-wrapper {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            min-height: calc(100vh - 56px);
-            border-radius: 0;
+        .filter-buttons {
+            display: flex;
+            gap: var(--space-2);
+            flex-wrap: wrap;
         }
 
-        .page-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 3rem 0 2rem;
-            margin: -1.5rem -1.5rem 2rem;
-            border-radius: 0;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .page-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v6h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-            opacity: 0.4;
-        }
-
-        .page-header h2 {
-            font-family: 'Archivo', sans-serif;
-            font-weight: 700;
-            font-size: 2.5rem;
-            margin: 0;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            position: relative;
-            z-index: 1;
-        }
-
-        .stat-card {
-            border: none;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
-            position: relative;
-        }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--card-color, #667eea), var(--card-color-end, #764ba2));
-            transform: scaleX(0);
-            transform-origin: left;
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .stat-card:hover::before {
-            transform: scaleX(1);
-        }
-
-        .stat-card:hover {
-            transform: translateY(-4px) scale(1.02);
-            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
-        }
-
-        .stat-value {
-            font-family: 'Archivo', sans-serif;
-            font-size: 2rem;
-            font-weight: 700;
-            line-height: 1;
-            background: linear-gradient(135deg, var(--card-color, #667eea), var(--card-color-end, #764ba2));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .stat-label {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 600;
-            color: #64748b;
-            margin-bottom: 0.5rem;
-        }
-
-        .filter-btn-group .btn {
-            border-radius: 8px;
+        .filter-btn {
+            padding: var(--space-2) var(--space-4);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            font-size: var(--font-size-sm);
             font-weight: 500;
-            padding: 0.5rem 1.25rem;
-            transition: all 0.2s ease;
-            border: 2px solid transparent;
+            cursor: pointer;
+            transition: var(--transition-base);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
         }
 
-        .filter-btn-group .btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        .filter-btn:hover {
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
             border-color: transparent;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            color: var(--text-primary);
+            box-shadow: 0 4px 15px var(--color-accent-glow);
         }
 
-        .plan-card {
-            border: none;
-            border-radius: 20px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
+        .plan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: var(--space-5);
+        }
+
+        .plan-card-glass {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-xl);
+            padding: var(--space-5);
+            transition: var(--transition-base);
             position: relative;
-            background: white;
+            overflow: hidden;
         }
 
-        .plan-card::before {
+        .plan-card-glass::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
-            width: 6px;
+            width: 4px;
             height: 100%;
-            background: var(--status-color, #667eea);
+            background: var(--status-color, var(--gradient-start));
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: var(--transition-base);
         }
 
-        .plan-card:hover {
-            transform: translateY(-6px) scale(1.01);
-            box-shadow: 0 16px 48px rgba(0,0,0,0.12);
+        .plan-card-glass:hover {
+            border-color: var(--glass-border-hover);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
         }
 
-        .plan-card:hover::before {
+        .plan-card-glass:hover::before {
             opacity: 1;
         }
 
-        .status-badge {
-            display: inline-flex;
+        .plan-card-header {
+            display: flex;
             align-items: center;
-            gap: 0.375rem;
-            padding: 0.375rem 0.875rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            animation: fadeIn 0.3s ease;
+            justify-content: space-between;
+            margin-bottom: var(--space-4);
         }
-
-        .status-badge::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: currentColor;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.8); }
-            to { opacity: 1; transform: scale(1); }
-        }
-
-        .badge.bg-pending { background: linear-gradient(135deg, #8b5cf6, #a78bfa) !important; }
-        .badge.bg-executed { background: linear-gradient(135deg, #059669, #10b981) !important; }
-        .badge.bg-cancelled { background: linear-gradient(135deg, #6b7280, #9ca3af) !important; }
-        .badge.bg-expired { background: linear-gradient(135deg, #dc2626, #ef4444) !important; }
 
         .plan-symbol {
-            font-family: 'Archivo', sans-serif;
-            font-size: 1.5rem;
+            font-size: var(--font-size-xl);
             font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: var(--text-primary);
         }
 
-        .plan-price-box {
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            border-radius: 12px;
-            padding: 1rem;
-            border: 2px solid #e2e8f0;
-        }
-
-        .rr-ratio {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-            border-radius: 12px;
-            font-weight: 700;
-            color: #92400e;
-        }
-
-        .action-btn {
-            border-radius: 10px;
+        .plan-status-badge {
+            padding: var(--space-1) var(--space-3);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-xs);
             font-weight: 600;
-            padding: 0.5rem 1rem;
-            transition: all 0.2s ease;
-            border: 2px solid transparent;
-        }
-
-        .action-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        .modal-content {
-            border-radius: 20px;
-            border: none;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-
-        .modal-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 20px 20px 0 0;
-            padding: 1.5rem;
-        }
-
-        .modal-title {
-            font-family: 'Archivo', sans-serif;
-            font-weight: 700;
-        }
-
-        .form-label {
-            font-weight: 600;
-            color: #334155;
-            font-size: 0.875rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .form-control, .form-select {
-            border-radius: 10px;
-            border: 2px solid #e2e8f0;
-            padding: 0.625rem 0.875rem;
-            transition: all 0.2s ease;
-        }
-
-        .form-control:focus, .form-select:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .section-divider {
-            border-top: 2px solid #e2e8f0;
-            margin: 1.5rem 0;
-            position: relative;
-        }
-
-        .section-divider::before {
-            content: attr(data-label);
-            position: absolute;
-            top: -0.625rem;
-            left: 1rem;
-            background: white;
-            padding: 0 0.5rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #64748b;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.05em;
         }
 
-        .position-calc-result {
-            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-            border: 2px solid #10b981;
-            border-radius: 12px;
-            padding: 1rem;
-            animation: slideDown 0.3s ease;
+        .plan-status-badge.pending {
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--color-accent);
         }
 
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .plan-status-badge.executed {
+            background: rgba(0, 245, 160, 0.2);
+            color: var(--color-positive);
         }
 
-        .empty-state {
-            padding: 4rem 2rem;
+        .plan-status-badge.cancelled {
+            background: rgba(156, 163, 175, 0.2);
+            color: var(--text-muted);
+        }
+
+        .plan-status-badge.expired {
+            background: rgba(255, 107, 107, 0.2);
+            color: var(--color-negative);
+        }
+
+        .plan-prices {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--space-3);
+            margin: var(--space-4) 0;
+            padding: var(--space-4);
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-md);
+        }
+
+        .plan-price-item {
             text-align: center;
         }
 
-        .empty-icon {
-            font-size: 5rem;
-            opacity: 0.2;
-            margin-bottom: 1.5rem;
-            animation: float 3s ease-in-out infinite;
+        .plan-price-label {
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+            margin-bottom: var(--space-1);
         }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+        .plan-price-value {
+            font-family: var(--font-mono);
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            color: var(--text-primary);
         }
 
-        .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s ease-in-out infinite;
-            border-radius: 8px;
+        .plan-rr-ratio {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            background: rgba(255, 217, 61, 0.15);
+            border: 1px solid rgba(255, 217, 61, 0.3);
+            border-radius: var(--radius-md);
+            color: var(--color-warning);
+            font-weight: 600;
         }
 
-        @keyframes loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
+        .plan-actions {
+            display: flex;
+            gap: var(--space-2);
+            margin-top: var(--space-4);
         }
 
-        .navbar-dark {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+        .plan-action-btn {
+            flex: 1;
+            padding: var(--space-2) var(--space-3);
+            background: var(--glass-bg-hover);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition-base);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+        }
+
+        .plan-action-btn:hover {
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+            transform: translateY(-1px);
+        }
+
+        .plan-action-btn.primary {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
+            border: none;
+        }
+
+        .plan-action-btn.primary:hover {
+            box-shadow: 0 4px 15px var(--color-accent-glow);
+        }
+
+        @media (max-width: 768px) {
+            .plan-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .plan-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="index.html">투자 기록 서비스</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
+    <!-- Navigation injected by navigation-glass.js -->
+
+    <div class="main-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="page-title">
+                <h1><i class="bi bi-journal-check"></i> 트레이드 플랜</h1>
+                <p class="subtitle">체계적인 매매 계획으로 성공적인 투자를 시작하세요</p>
+            </div>
+            <button class="btn-glass primary" onclick="openCreateModal()">
+                <i class="bi bi-plus-lg"></i>
+                새 플랜 작성
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.html">대시보드</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="patterns.html">패턴분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="reviews.html">거래복기</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="risk.html">리스크관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="sectors.html">섹터분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="correlation.html">상관관계분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="backtest.html">백테스팅</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="goals.html">목표관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="plans.html">트레이드플랜</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.html">거래관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="logout()">로그아웃</a>
-                    </li>
-                </ul>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="plan-stats">
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">전체 플랜</span>
+                    <div class="stat-card-icon"><i class="bi bi-file-earmark-text"></i></div>
+                </div>
+                <div class="stat-card-value" id="stat-total">0</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">대기 중</span>
+                    <div class="stat-card-icon"><i class="bi bi-clock-history"></i></div>
+                </div>
+                <div class="stat-card-value text-warning" id="stat-pending">0</div>
+            </div>
+
+            <div class="stat-card positive">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">실행됨</span>
+                    <div class="stat-card-icon"><i class="bi bi-check-circle"></i></div>
+                </div>
+                <div class="stat-card-value text-positive" id="stat-executed">0</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">실행률</span>
+                    <div class="stat-card-icon"><i class="bi bi-percent"></i></div>
+                </div>
+                <div class="stat-card-value" id="stat-execution-rate">0%</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">준수율</span>
+                    <div class="stat-card-icon"><i class="bi bi-check2-square"></i></div>
+                </div>
+                <div class="stat-card-value" id="stat-compliance-rate">0%</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">평균 R</span>
+                    <div class="stat-card-icon"><i class="bi bi-graph-up"></i></div>
+                </div>
+                <div class="stat-card-value" id="stat-avg-r">0.00</div>
             </div>
         </div>
-    </nav>
 
-    <div class="content-wrapper">
-        <div class="container py-4">
-            <!-- 페이지 헤더 -->
-            <div class="page-header">
-                <div class="container">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h2><i class="bi bi-journal-check me-3"></i>트레이드 플랜</h2>
-                            <p class="mb-0 mt-2" style="opacity: 0.9;">체계적인 매매 계획으로 성공적인 투자를 시작하세요</p>
+        <!-- Filter Card -->
+        <div class="glass-card plan-filter-card">
+            <div class="glass-card-body" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-3);">
+                <div class="filter-buttons">
+                    <button class="filter-btn active" onclick="filterPlans('all')">
+                        전체
+                    </button>
+                    <button class="filter-btn" onclick="filterPlans('PENDING')">
+                        <i class="bi bi-clock-history"></i>
+                        대기 중
+                    </button>
+                    <button class="filter-btn" onclick="filterPlans('EXECUTED')">
+                        <i class="bi bi-check-circle"></i>
+                        실행됨
+                    </button>
+                    <button class="filter-btn" onclick="filterPlans('CANCELLED')">
+                        <i class="bi bi-x-circle"></i>
+                        취소됨
+                    </button>
+                    <button class="filter-btn" onclick="filterPlans('EXPIRED')">
+                        <i class="bi bi-hourglass-bottom"></i>
+                        만료됨
+                    </button>
+                </div>
+                <button class="btn-glass" onclick="refreshPlans()">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    새로고침
+                </button>
+            </div>
+        </div>
+
+        <!-- Plans Grid -->
+        <div class="plan-grid" id="plans-container">
+            <!-- Plan cards will be injected here -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <div class="empty-state-icon">
+                <i class="bi bi-journal-text"></i>
+            </div>
+            <h3 class="empty-state-title">아직 작성된 트레이드 플랜이 없습니다</h3>
+            <p class="empty-state-desc">체계적인 매매 계획을 세워보세요</p>
+            <button class="btn-glass primary" onclick="openCreateModal()">
+                <i class="bi bi-plus-lg"></i>
+                첫 플랜 작성하기
+            </button>
+        </div>
+    </div>
+
+    <!-- Plan Creation/Edit Modal -->
+    <div class="modal-glass" id="planModal">
+        <div class="modal-glass-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3 id="planModalLabel">
+                    <i class="bi bi-journal-plus"></i>
+                    새 트레이드 플랜 작성
+                </h3>
+                <button class="modal-close" onclick="closeModal('planModal')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="planForm">
+                    <input type="hidden" id="planId">
+
+                    <h4 style="margin-top: var(--space-6); margin-bottom: var(--space-4); color: var(--text-secondary); font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: 0.05em;">기본 정보</h4>
+
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); margin-bottom: var(--space-5);">
+                        <div class="form-group">
+                            <label for="symbol" class="form-label">종목 코드 *</label>
+                            <input type="text" class="form-input" id="symbol" required placeholder="예: AAPL, 005930">
                         </div>
-                        <button class="btn btn-light btn-lg" data-bs-toggle="modal" data-bs-target="#planModal" onclick="openCreateModal()">
-                            <i class="bi bi-plus-lg me-2"></i>새 플랜 작성
+                        <div class="form-group">
+                            <label for="planType" class="form-label">플랜 유형 *</label>
+                            <select class="select-glass form-input" id="planType" required>
+                                <option value="">선택</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="strategy" class="form-label">전략 *</label>
+                            <select class="select-glass form-input" id="strategy" required>
+                                <option value="">선택</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <h4 style="margin-top: var(--space-6); margin-bottom: var(--space-4); color: var(--text-secondary); font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: 0.05em;">가격 계획</h4>
+
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); margin-bottom: var(--space-5);">
+                        <div class="form-group">
+                            <label for="entryPrice" class="form-label">진입 가격 *</label>
+                            <input type="number" class="form-input" id="entryPrice" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="stopLoss" class="form-label">손절 가격 *</label>
+                            <input type="number" class="form-input" id="stopLoss" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="targetPrice" class="form-label">목표 가격 *</label>
+                            <input type="number" class="form-input" id="targetPrice" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="riskPercent" class="form-label">리스크 % *</label>
+                            <input type="number" class="form-input" id="riskPercent" step="0.1" value="1" required placeholder="1.0">
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: var(--space-5);">
+                        <button type="button" class="btn-glass primary" style="width: 100%;" onclick="calculatePosition()">
+                            <i class="bi bi-calculator"></i>
+                            포지션 사이징 계산
                         </button>
+                        <div id="position-calc-result" style="display: none; margin-top: var(--space-3);"></div>
                     </div>
-                </div>
-            </div>
 
-            <!-- 통계 카드 -->
-            <div class="row g-3 mb-4">
-                <div class="col-md-2">
-                    <div class="card stat-card h-100" style="--card-color: #667eea; --card-color-end: #764ba2;">
-                        <div class="card-body text-center p-3">
-                            <div class="stat-label">전체 플랜</div>
-                            <div class="stat-value" id="stat-total">0</div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); margin-bottom: var(--space-5);">
+                        <div class="form-group">
+                            <label for="plannedQuantity" class="form-label">계획 수량</label>
+                            <input type="number" class="form-input" id="plannedQuantity" step="1" placeholder="자동 계산됨">
+                        </div>
+                        <div class="form-group">
+                            <label for="validUntil" class="form-label">유효 기한</label>
+                            <input type="date" class="form-input" id="validUntil">
                         </div>
                     </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card stat-card h-100" style="--card-color: #8b5cf6; --card-color-end: #a78bfa;">
-                        <div class="card-body text-center p-3">
-                            <div class="stat-label">대기 중</div>
-                            <div class="stat-value text-warning" id="stat-pending">0</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card stat-card h-100" style="--card-color: #059669; --card-color-end: #10b981;">
-                        <div class="card-body text-center p-3">
-                            <div class="stat-label">실행됨</div>
-                            <div class="stat-value text-success" id="stat-executed">0</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card stat-card h-100" style="--card-color: #f59e0b; --card-color-end: #fbbf24;">
-                        <div class="card-body text-center p-3">
-                            <div class="stat-label">실행률</div>
-                            <div class="stat-value" id="stat-execution-rate">0%</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card stat-card h-100" style="--card-color: #06b6d4; --card-color-end: #22d3ee;">
-                        <div class="card-body text-center p-3">
-                            <div class="stat-label">준수율</div>
-                            <div class="stat-value text-info" id="stat-compliance-rate">0%</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card stat-card h-100" style="--card-color: #ec4899; --card-color-end: #f472b6;">
-                        <div class="card-body text-center p-3">
-                            <div class="stat-label">평균 R</div>
-                            <div class="stat-value" id="stat-avg-r">0.00</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- 필터 -->
-            <div class="card mb-4" style="border-radius: 16px; border: none; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
-                <div class="card-body p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="btn-group filter-btn-group" role="group">
-                            <button type="button" class="btn btn-outline-secondary active" onclick="filterPlans('all')">
-                                전체
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="filterPlans('PENDING')">
-                                <i class="bi bi-clock-history me-1"></i>대기 중
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="filterPlans('EXECUTED')">
-                                <i class="bi bi-check-circle me-1"></i>실행됨
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="filterPlans('CANCELLED')">
-                                <i class="bi bi-x-circle me-1"></i>취소됨
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="filterPlans('EXPIRED')">
-                                <i class="bi bi-hourglass-bottom me-1"></i>만료됨
-                            </button>
+                    <h4 style="margin-top: var(--space-6); margin-bottom: var(--space-4); color: var(--text-secondary); font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: 0.05em;">조건 및 기록</h4>
+
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); margin-bottom: var(--space-4);">
+                        <div class="form-group">
+                            <label for="entryConditions" class="form-label">진입 조건</label>
+                            <textarea class="form-input" id="entryConditions" rows="3" placeholder="어떤 조건에서 진입할 것인가?&#10;예: RSI 30 이하, 이동평균선 돌파 시"></textarea>
                         </div>
-                        <button class="btn btn-outline-secondary" onclick="refreshPlans()">
-                            <i class="bi bi-arrow-clockwise me-1"></i>새로고침
-                        </button>
+                        <div class="form-group">
+                            <label for="exitConditions" class="form-label">청산 조건</label>
+                            <textarea class="form-input" id="exitConditions" rows="3" placeholder="어떤 조건에서 청산할 것인가?&#10;예: 목표가 도달, 추세 반전 시그널"></textarea>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <!-- 플랜 목록 -->
-            <div class="row g-4" id="plans-container">
-                <!-- 플랜 카드들이 동적으로 추가됩니다 -->
-            </div>
+                    <div class="form-group">
+                        <label for="marketAnalysis" class="form-label">시장 분석</label>
+                        <textarea class="form-input" id="marketAnalysis" rows="3" placeholder="현재 시장 상황 및 분석 내용"></textarea>
+                    </div>
 
-            <!-- 빈 상태 -->
-            <div id="empty-state" class="empty-state" style="display: none;">
-                <div class="empty-icon">
-                    <i class="bi bi-journal-text"></i>
-                </div>
-                <h4 class="text-muted mb-2">아직 작성된 트레이드 플랜이 없습니다</h4>
-                <p class="text-muted">체계적인 매매 계획을 세워보세요</p>
-                <button class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#planModal" onclick="openCreateModal()">
-                    <i class="bi bi-plus-lg me-2"></i>첫 플랜 작성하기
+                    <div class="form-group">
+                        <label for="notes" class="form-label">메모</label>
+                        <textarea class="form-input" id="notes" rows="2" placeholder="추가 메모사항"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-glass" onclick="closeModal('planModal')">취소</button>
+                <button type="button" class="btn-glass primary" onclick="savePlan()">
+                    <i class="bi bi-check-lg"></i>
+                    저장
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- 플랜 생성/수정 모달 -->
-    <div class="modal fade" id="planModal" tabindex="-1" aria-labelledby="planModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="planModalLabel">
-                        <i class="bi bi-journal-plus me-2"></i>새 트레이드 플랜 작성
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+    <!-- Execute Plan Modal -->
+    <div class="modal-glass" id="executeModal">
+        <div class="modal-glass-content">
+            <div class="modal-header">
+                <h3>
+                    <i class="bi bi-play-circle"></i>
+                    플랜 실행
+                </h3>
+                <button class="modal-close" onclick="closeModal('executeModal')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="actualEntryPrice" class="form-label">실제 진입가 *</label>
+                    <input type="number" class="form-input" id="actualEntryPrice" step="0.01" required>
                 </div>
-                <div class="modal-body">
-                    <form id="planForm">
-                        <input type="hidden" id="planId">
-
-                        <div class="section-divider" data-label="기본 정보"></div>
-
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label for="symbol" class="form-label">종목 코드 *</label>
-                                <input type="text" class="form-control" id="symbol" required placeholder="예: AAPL, 005930">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="planType" class="form-label">플랜 유형 *</label>
-                                <select class="form-select" id="planType" required>
-                                    <option value="">선택</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="strategy" class="form-label">전략 *</label>
-                                <select class="form-select" id="strategy" required>
-                                    <option value="">선택</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="section-divider" data-label="가격 계획"></div>
-
-                        <div class="row">
-                            <div class="col-md-3 mb-3">
-                                <label for="entryPrice" class="form-label">진입 가격 *</label>
-                                <input type="number" class="form-control" id="entryPrice" step="0.01" required placeholder="0.00">
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <label for="stopLoss" class="form-label">손절 가격 *</label>
-                                <input type="number" class="form-control" id="stopLoss" step="0.01" required placeholder="0.00">
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <label for="targetPrice" class="form-label">목표 가격 *</label>
-                                <input type="number" class="form-control" id="targetPrice" step="0.01" required placeholder="0.00">
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <label for="riskPercent" class="form-label">리스크 % *</label>
-                                <input type="number" class="form-control" id="riskPercent" step="0.1" value="1" required placeholder="1.0">
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12 mb-3">
-                                <button type="button" class="btn btn-outline-primary w-100" onclick="calculatePosition()">
-                                    <i class="bi bi-calculator me-2"></i>포지션 사이징 계산
-                                </button>
-                                <div id="position-calc-result" style="display: none;" class="mt-3"></div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="plannedQuantity" class="form-label">계획 수량</label>
-                                <input type="number" class="form-control" id="plannedQuantity" step="1" placeholder="자동 계산됨">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="validUntil" class="form-label">유효 기한</label>
-                                <input type="date" class="form-control" id="validUntil">
-                            </div>
-                        </div>
-
-                        <div class="section-divider" data-label="조건 및 기록"></div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="entryConditions" class="form-label">진입 조건</label>
-                                <textarea class="form-control" id="entryConditions" rows="3" placeholder="어떤 조건에서 진입할 것인가?&#10;예: RSI 30 이하, 이동평균선 돌파 시"></textarea>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="exitConditions" class="form-label">청산 조건</label>
-                                <textarea class="form-control" id="exitConditions" rows="3" placeholder="어떤 조건에서 청산할 것인가?&#10;예: 목표가 도달, 추세 반전 시그널"></textarea>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="marketAnalysis" class="form-label">시장 분석</label>
-                            <textarea class="form-control" id="marketAnalysis" rows="3" placeholder="현재 시장 상황 및 분석 내용"></textarea>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="notes" class="form-label">메모</label>
-                            <textarea class="form-control" id="notes" rows="2" placeholder="추가 메모사항"></textarea>
-                        </div>
-                    </form>
+                <div class="form-group">
+                    <label for="actualQuantity" class="form-label">실제 수량 *</label>
+                    <input type="number" class="form-input" id="actualQuantity" step="1" required>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                    <button type="button" class="btn btn-primary" onclick="savePlan()">
-                        <i class="bi bi-check-lg me-1"></i>저장
-                    </button>
+                <div class="form-group">
+                    <label for="executionNotes" class="form-label">실행 메모</label>
+                    <textarea class="form-input" id="executionNotes" rows="2" placeholder="실행 시 특이사항"></textarea>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-glass" onclick="closeModal('executeModal')">취소</button>
+                <button type="button" class="btn-glass primary" onclick="confirmExecutePlan()">
+                    <i class="bi bi-check-lg"></i>
+                    실행
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- 플랜 실행 모달 -->
-    <div class="modal fade" id="executeModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-play-circle me-2"></i>플랜 실행
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="actualEntryPrice" class="form-label">실제 진입가 *</label>
-                        <input type="number" class="form-control" id="actualEntryPrice" step="0.01" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="actualQuantity" class="form-label">실제 수량 *</label>
-                        <input type="number" class="form-control" id="actualQuantity" step="1" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="executionNotes" class="form-label">실행 메모</label>
-                        <textarea class="form-control" id="executionNotes" rows="2" placeholder="실행 시 특이사항"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                    <button type="button" class="btn btn-success" onclick="confirmExecutePlan()">
-                        <i class="bi bi-check-lg me-1"></i>실행
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="js/navigation-glass.js"></script>
+    <script src="js/glass-utils.js"></script>
     <script src="utils.js"></script>
     <script src="auth.js"></script>
     <script src="plans.js"></script>

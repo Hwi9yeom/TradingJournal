@@ -230,18 +230,15 @@ async function analyzeRisk() {
  */
 function showAnalysisModal(title) {
     document.getElementById('analysisModalTitle').innerHTML =
-        `<i class="bi bi-graph-up me-2"></i>${title} 결과`;
+        `<i class="bi bi-graph-up"></i>${title} 결과`;
     document.getElementById('analysisModalBody').innerHTML = `
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">분석 중...</span>
-            </div>
-            <p class="mt-3 text-muted">${UI_MESSAGES.ANALYZING}</p>
+        <div style="text-align: center; padding: var(--space-10) 0;">
+            <div class="spinner"></div>
+            <p style="margin-top: var(--space-4); color: var(--text-muted);">${UI_MESSAGES.ANALYZING}</p>
         </div>
     `;
 
-    const modal = new bootstrap.Modal(document.getElementById('analysisModal'));
-    modal.show();
+    document.getElementById('analysisModal').classList.add('show');
 }
 
 /**
@@ -251,17 +248,18 @@ function showAnalysisModal(title) {
  */
 function displayAnalysisResult(data, analysisType) {
     const formattedContent = formatAIResponse(data.summary || data.rawResponse);
+    const iconColorClass = analysisType.key === 'performance' ? 'text-positive' : 'text-negative';
 
     document.getElementById('analysisModalBody').innerHTML = `
         <div class="analysis-result">
-            <div class="d-flex align-items-center mb-3">
-                <i class="bi bi-${analysisType.icon} ${analysisType.iconColor} fs-3 me-2"></i>
+            <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+                <i class="bi bi-${analysisType.icon} ${iconColorClass}" style="font-size: var(--font-size-3xl);"></i>
                 <div>
-                    <h6 class="mb-0">${analysisType.title} 완료</h6>
-                    <small class="text-muted">${new Date(data.analyzedAt).toLocaleString()}</small>
+                    <h6 style="margin-bottom: var(--space-1); font-weight: 600;">${analysisType.title} 완료</h6>
+                    <small style="color: var(--text-muted); font-size: var(--font-size-xs);">${new Date(data.analyzedAt).toLocaleString()}</small>
                 </div>
             </div>
-            <div class="bg-light p-3 rounded">
+            <div style="background: rgba(0, 0, 0, 0.3); padding: var(--space-4); border-radius: var(--radius-lg);">
                 ${formattedContent}
             </div>
         </div>
@@ -274,13 +272,16 @@ function displayAnalysisResult(data, analysisType) {
  */
 function displayAnalysisError(message) {
     document.getElementById('analysisModalBody').innerHTML = `
-        <div class="alert alert-danger">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            ${UI_MESSAGES.ANALYSIS_ERROR}: ${escapeHtml(message)}
+        <div class="alert-glass danger">
+            <i class="bi bi-exclamation-triangle alert-icon"></i>
+            <div class="alert-content">
+                <div class="alert-title">${UI_MESSAGES.ANALYSIS_ERROR}</div>
+                <div class="alert-message">${escapeHtml(message)}</div>
+            </div>
         </div>
-        <p class="text-muted">
+        <p style="color: var(--text-muted); margin-top: var(--space-4);">
             Ollama 서버가 실행 중인지 확인해주세요.<br>
-            <code>ollama serve</code> 명령으로 서버를 시작할 수 있습니다.
+            <code style="color: var(--color-warning);">ollama serve</code> 명령으로 서버를 시작할 수 있습니다.
         </p>
     `;
 }
@@ -302,18 +303,18 @@ function addInsightCard(type, title, content) {
         : content;
 
     // Remove empty state message if present
-    if (insightsList.querySelector('.text-center')) {
+    if (insightsList.querySelector('.empty-state')) {
         insightsList.innerHTML = '';
     }
 
     const card = document.createElement('div');
-    card.className = `insight-card ${type} p-3 border-bottom`;
+    card.className = `insight-card ${type}`;
     card.innerHTML = `
-        <div class="d-flex justify-content-between align-items-start mb-2">
-            <h6 class="mb-0">${escapeHtml(title)}</h6>
-            <small class="text-muted">${new Date().toLocaleTimeString()}</small>
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-2);">
+            <h6 style="margin: 0; font-weight: 600; font-size: var(--font-size-sm);">${escapeHtml(title)}</h6>
+            <small style="color: var(--text-muted); font-size: var(--font-size-xs);">${new Date().toLocaleTimeString()}</small>
         </div>
-        <p class="mb-0 small text-muted">${escapeHtml(truncatedContent)}</p>
+        <p style="margin: 0; font-size: var(--font-size-sm); color: var(--text-secondary);">${escapeHtml(truncatedContent)}</p>
     `;
 
     insightsList.insertBefore(card, insightsList.firstChild);
@@ -492,7 +493,7 @@ function updateSendButton(isSending) {
 
     if (isSending) {
         sendBtn.disabled = true;
-        sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        sendBtn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; border-width: 2px;"></div>';
         chatInput.disabled = true;
     } else {
         sendBtn.disabled = false;
@@ -571,8 +572,7 @@ function clearChat() {
  */
 function copyAnalysisToChat() {
     if (chatState.lastAnalysisResult) {
-        const modal = bootstrap.Modal.getInstance(document.getElementById('analysisModal'));
-        modal.hide();
+        document.getElementById('analysisModal').classList.remove('show');
 
         // Add analysis result to chat
         addMessageToChat('assistant', formatAIResponse(

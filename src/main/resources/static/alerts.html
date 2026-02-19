@@ -4,220 +4,418 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>알림 센터 - 투자 기록 서비스</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/dashboard-glass.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         .alert-item {
-            transition: background-color 0.2s;
+            padding: var(--space-4) var(--space-5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            transition: var(--transition-base);
             cursor: pointer;
+            display: flex;
+            gap: var(--space-4);
+            align-items: flex-start;
         }
         .alert-item:hover {
-            background-color: #f8f9fa;
+            background: var(--glass-bg-hover);
         }
         .alert-item.unread {
-            background-color: #e7f1ff;
-            border-left: 4px solid #0d6efd;
+            background: rgba(102, 126, 234, 0.05);
+            border-left: 3px solid var(--gradient-start);
         }
-        .alert-item.unread:hover {
-            background-color: #d6e6ff;
+        .alert-item:last-child {
+            border-bottom: none;
         }
         .alert-icon {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
+            flex-shrink: 0;
         }
-        .priority-critical { background-color: #f8d7da; color: #842029; }
-        .priority-high { background-color: #fff3cd; color: #664d03; }
-        .priority-medium { background-color: #cff4fc; color: #055160; }
-        .priority-low { background-color: #e2e3e5; color: #41464b; }
+        .priority-critical {
+            background: rgba(255, 107, 107, 0.15);
+            color: var(--color-negative);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+        .priority-high {
+            background: rgba(255, 217, 61, 0.15);
+            color: var(--color-warning);
+            border: 1px solid rgba(255, 217, 61, 0.3);
+        }
+        .priority-medium {
+            background: rgba(107, 202, 255, 0.15);
+            color: var(--color-info);
+            border: 1px solid rgba(107, 202, 255, 0.3);
+        }
+        .priority-low {
+            background: var(--glass-bg-hover);
+            color: var(--text-muted);
+            border: 1px solid var(--glass-border);
+        }
+        .alert-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .alert-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-1);
+        }
+        .alert-message {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+            margin-bottom: var(--space-2);
+        }
+        .alert-meta {
+            display: flex;
+            gap: var(--space-4);
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+        }
         .notification-badge {
             position: absolute;
             top: -5px;
             right: -5px;
-            min-width: 18px;
-            height: 18px;
-            font-size: 0.7rem;
+            min-width: 20px;
+            height: 20px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--color-negative), #ff8f8f);
+            color: white;
+            border-radius: var(--radius-full);
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
         }
-        .empty-state {
-            padding: 60px 20px;
+        .tab-nav {
+            display: flex;
+            gap: var(--space-1);
+            background: rgba(0, 0, 0, 0.2);
+            padding: var(--space-1);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-6);
+        }
+        .tab-btn {
+            padding: var(--space-3) var(--space-5);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-base);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: var(--glass-bg-hover);
+        }
+        .tab-btn.active {
+            color: var(--text-primary);
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
+            box-shadow: 0 4px 15px var(--color-accent-glow);
+        }
+        .tab-btn .badge {
+            padding: 2px 8px;
+            border-radius: var(--radius-full);
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-2);
+            list-style: none;
+            padding: 0;
+        }
+        .page-item {
+            display: inline-block;
+        }
+        .page-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
+            padding: var(--space-2) var(--space-3);
+            color: var(--text-secondary);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-base);
+            text-decoration: none;
+        }
+        .page-link:hover {
+            color: var(--text-primary);
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+        }
+        .page-item.active .page-link {
+            color: var(--text-primary);
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
+            border: none;
+        }
+        .page-item.disabled .page-link {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- Background Orbs -->
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar-glass">
         <div class="container">
-            <a class="navbar-brand" href="index.html">투자 기록 서비스</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
+            <a class="navbar-brand" href="index.html">
+                <div class="logo-icon">
+                    <i class="bi bi-graph-up"></i>
+                </div>
+                투자 기록 서비스
+            </a>
+            <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" style="display: none;">
+                <i class="bi bi-list"></i>
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.html">대시보드</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="patterns.html">패턴분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="goals.html">목표관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="alerts.html">
-                            <i class="bi bi-bell"></i> 알림
-                            <span class="badge bg-danger notification-badge" id="nav-unread-count" style="display: none;">0</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.html">거래관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="logout()">로그아웃</a>
-                    </li>
-                </ul>
-            </div>
+            <ul class="navbar-nav" id="navbarNav">
+                <li class="nav-item">
+                    <a class="nav-link" href="dashboard.html">
+                        <i class="bi bi-speedometer2"></i>
+                        대시보드
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="patterns.html">
+                        <i class="bi bi-bar-chart"></i>
+                        패턴분석
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="goals.html">
+                        <i class="bi bi-bullseye"></i>
+                        목표관리
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="alerts.html" style="position: relative;">
+                        <i class="bi bi-bell"></i>
+                        알림
+                        <span class="notification-badge" id="nav-unread-count" style="display: none;">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="index.html">
+                        <i class="bi bi-clipboard-data"></i>
+                        거래관리
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="logout()">
+                        <i class="bi bi-box-arrow-right"></i>
+                        로그아웃
+                    </a>
+                </li>
+            </ul>
         </div>
     </nav>
 
-    <div class="container mt-4">
-        <!-- 헤더 -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-bell text-primary"></i> 알림 센터</h2>
-            <div>
-                <button class="btn btn-outline-secondary me-2" onclick="markAllAsRead()">
-                    <i class="bi bi-check-all me-1"></i>모두 읽음
+    <div class="main-container">
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <div class="page-title">
+                <h1><i class="bi bi-bell"></i> 알림 센터</h1>
+                <p class="subtitle">실시간 투자 알림 및 중요 공지사항을 확인하세요</p>
+            </div>
+            <div style="display: flex; gap: var(--space-3);">
+                <button class="btn-glass" onclick="markAllAsRead()">
+                    <i class="bi bi-check-all"></i>
+                    모두 읽음
                 </button>
-                <button class="btn btn-outline-primary" onclick="loadAlerts()">
-                    <i class="bi bi-arrow-clockwise me-1"></i>새로고침
+                <button class="btn-glass primary" onclick="loadAlerts()">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    새로고침
                 </button>
             </div>
         </div>
 
         <!-- 요약 카드 -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
-                <div class="card text-center h-100 border-primary">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted mb-1">읽지 않음</h6>
-                        <h3 class="mb-0 text-primary" id="unread-count">0</h3>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">읽지 않음</span>
+                    <div class="stat-card-icon" style="background: rgba(102, 126, 234, 0.15); color: var(--gradient-start);">
+                        <i class="bi bi-envelope"></i>
                     </div>
                 </div>
+                <div class="stat-card-value" style="color: var(--gradient-start);" id="unread-count">0</div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-center h-100 border-danger">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted mb-1">긴급</h6>
-                        <h3 class="mb-0 text-danger" id="critical-count">0</h3>
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">긴급</span>
+                    <div class="stat-card-icon" style="background: rgba(255, 107, 107, 0.15); color: var(--color-negative);">
+                        <i class="bi bi-exclamation-triangle"></i>
                     </div>
                 </div>
+                <div class="stat-card-value" style="color: var(--color-negative);" id="critical-count">0</div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-center h-100 border-warning">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted mb-1">높은 우선순위</h6>
-                        <h3 class="mb-0 text-warning" id="high-count">0</h3>
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">높은 우선순위</span>
+                    <div class="stat-card-icon" style="background: rgba(255, 217, 61, 0.15); color: var(--color-warning);">
+                        <i class="bi bi-exclamation-circle"></i>
                     </div>
                 </div>
+                <div class="stat-card-value" style="color: var(--color-warning);" id="high-count">0</div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-center h-100 border-info">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted mb-1">오늘 알림</h6>
-                        <h3 class="mb-0 text-info" id="today-count">0</h3>
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">오늘 알림</span>
+                    <div class="stat-card-icon" style="background: rgba(107, 202, 255, 0.15); color: var(--color-info);">
+                        <i class="bi bi-calendar-day"></i>
                     </div>
                 </div>
+                <div class="stat-card-value" style="color: var(--color-info);" id="today-count">0</div>
             </div>
         </div>
 
         <!-- 긴급 알림 섹션 -->
-        <div id="critical-section" style="display: none;">
-            <div class="card border-danger mb-4">
-                <div class="card-header bg-danger text-white">
-                    <i class="bi bi-exclamation-triangle me-2"></i>긴급 알림
-                </div>
-                <div class="list-group list-group-flush" id="critical-alerts">
-                </div>
+        <div id="critical-section" class="glass-card" style="display: none; margin-bottom: var(--space-6);">
+            <div class="glass-card-header" style="background: rgba(255, 107, 107, 0.1); border-bottom-color: rgba(255, 107, 107, 0.3);">
+                <h3 style="color: var(--color-negative);">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    긴급 알림
+                </h3>
+            </div>
+            <div id="critical-alerts">
+                <!-- 긴급 알림이 동적으로 추가됩니다 -->
             </div>
         </div>
 
         <!-- 필터 탭 -->
-        <ul class="nav nav-tabs mb-3" id="alertTabs">
-            <li class="nav-item">
-                <a class="nav-link active" href="#" onclick="filterAlerts('all')">
-                    전체 <span class="badge bg-secondary" id="tab-all-count">0</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#" onclick="filterAlerts('unread')">
-                    읽지 않음 <span class="badge bg-primary" id="tab-unread-count">0</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#" onclick="filterAlerts('goal')">
-                    목표 관련
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#" onclick="filterAlerts('trade')">
-                    거래/손익
-                </a>
-            </li>
-        </ul>
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="filterAlerts('all')">
+                전체
+                <span class="badge" id="tab-all-count">0</span>
+            </button>
+            <button class="tab-btn" onclick="filterAlerts('unread')">
+                읽지 않음
+                <span class="badge" id="tab-unread-count">0</span>
+            </button>
+            <button class="tab-btn" onclick="filterAlerts('goal')">
+                목표 관련
+            </button>
+            <button class="tab-btn" onclick="filterAlerts('trade')">
+                거래/손익
+            </button>
+        </div>
 
         <!-- 알림 목록 -->
-        <div class="card">
-            <div class="list-group list-group-flush" id="alerts-container">
+        <div class="glass-card">
+            <div id="alerts-container">
                 <!-- 알림이 동적으로 추가됩니다 -->
             </div>
 
             <!-- 빈 상태 -->
-            <div id="empty-state" class="empty-state text-center" style="display: none;">
-                <i class="bi bi-bell-slash display-1 text-muted"></i>
-                <h4 class="mt-3 text-muted">알림이 없습니다</h4>
-                <p class="text-muted">새로운 알림이 오면 여기에 표시됩니다.</p>
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <div class="empty-state-icon">
+                    <i class="bi bi-bell-slash"></i>
+                </div>
+                <h4 class="empty-state-title">알림이 없습니다</h4>
+                <p class="empty-state-desc">새로운 알림이 오면 여기에 표시됩니다.</p>
             </div>
         </div>
 
         <!-- 페이지네이션 -->
-        <nav class="mt-4" id="pagination-container" style="display: none;">
-            <ul class="pagination justify-content-center" id="pagination">
+        <nav style="margin-top: var(--space-6);" id="pagination-container">
+            <ul class="pagination" id="pagination">
             </ul>
         </nav>
     </div>
 
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
     <!-- 알림 상세 모달 -->
-    <div class="modal fade" id="alertDetailModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="alertDetailTitle">알림 상세</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="alertDetailContent">
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" id="btnDismissAlert">
-                        <i class="bi bi-x-lg me-1"></i>무시
-                    </button>
-                    <button type="button" class="btn btn-outline-danger" id="btnDeleteAlert">
-                        <i class="bi bi-trash me-1"></i>삭제
-                    </button>
-                    <button type="button" class="btn btn-primary" id="btnGoToAction">
-                        <i class="bi bi-arrow-right me-1"></i>이동
-                    </button>
-                </div>
+    <div class="modal-glass" id="alertDetailModal">
+        <div class="modal-glass-content">
+            <div class="modal-header">
+                <h3 id="alertDetailTitle">알림 상세</h3>
+                <button class="modal-close" onclick="closeAlertModal()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="alertDetailContent">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-glass" id="btnDismissAlert">
+                    <i class="bi bi-x-lg"></i>
+                    무시
+                </button>
+                <button class="btn-glass" id="btnDeleteAlert" style="border-color: rgba(255, 107, 107, 0.3); color: var(--color-negative);">
+                    <i class="bi bi-trash"></i>
+                    삭제
+                </button>
+                <button class="btn-glass primary" id="btnGoToAction">
+                    <i class="bi bi-arrow-right"></i>
+                    이동
+                </button>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="js/dashboard-glass.js"></script>
     <script src="utils.js"></script>
     <script src="auth.js"></script>
     <script src="alerts.js"></script>
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            document.getElementById('navbarNav').classList.toggle('show');
+        }
+
+        // Close modal helper
+        function closeAlertModal() {
+            document.getElementById('alertDetailModal').classList.remove('show');
+        }
+
+        // Update filter tabs
+        function filterAlerts(filter) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.tab-btn').classList.add('active');
+            // Call existing filter function from alerts.js
+            if (typeof window.filterAlertsOriginal === 'function') {
+                window.filterAlertsOriginal(filter);
+            }
+        }
+
+        // Show mobile menu toggle on small screens
+        function checkScreenSize() {
+            const toggle = document.querySelector('.mobile-menu-toggle');
+            if (window.innerWidth <= 768) {
+                toggle.style.display = 'flex';
+            } else {
+                toggle.style.display = 'none';
+                document.getElementById('navbarNav').classList.remove('show');
+            }
+        }
+        window.addEventListener('resize', checkScreenSize);
+        checkScreenSize();
+    </script>
 </body>
 </html>

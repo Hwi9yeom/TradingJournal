@@ -77,7 +77,7 @@ function loadAccounts() {
         },
         error: function(xhr) {
             console.error('Failed to load accounts:', xhr);
-            showAlert('danger', '계좌 목록을 불러오는데 실패했습니다.');
+            showToast('error', '계좌 목록을 불러오는데 실패했습니다.');
         }
     });
 }
@@ -97,12 +97,39 @@ function loadAccountsSummary() {
             const profitRate = summary.totalProfitLossPercent || 0;
             const profitRateEl = $('#total-profit-rate');
             profitRateEl.text(formatPercent(profitRate));
-            applyValueClass(profitRateEl, profitRate);
+
+            updateProfitRateCardStyling(profitRate);
         },
         error: function(xhr) {
             console.error('Failed to load accounts summary:', xhr);
         }
     });
+}
+
+/**
+ * Update profit rate card styling based on value
+ * @param {number} profitRate - Profit rate percentage (optional, will read from DOM if not provided)
+ */
+function updateProfitRateCardStyling(profitRate) {
+    const card = $('#profit-rate-card');
+    const valueEl = $('#total-profit-rate');
+
+    // Get profitRate from element if not provided
+    if (profitRate === undefined) {
+        const text = valueEl.text().replace('%', '');
+        profitRate = parseFloat(text) || 0;
+    }
+
+    card.removeClass('positive negative');
+    valueEl.removeClass('text-positive text-negative');
+
+    if (profitRate > 0) {
+        card.addClass('positive');
+        valueEl.addClass('text-positive');
+    } else if (profitRate < 0) {
+        card.addClass('negative');
+        valueEl.addClass('text-negative');
+    }
 }
 
 // ============================================================================
@@ -126,6 +153,9 @@ function updateAccountList(accounts) {
         const row = createAccountTableRow(account);
         tbody.append(row);
     });
+
+    // Update profit rate card styling
+    updateProfitRateCardStyling();
 }
 
 /**
@@ -138,20 +168,41 @@ function createAccountTableRow(account) {
     const profitRate = account.profitLossPercent || 0;
 
     row.append(`<td><strong>${escapeHtml(account.name)}</strong></td>`);
-    row.append(`<td><span class="badge ${getAccountTypeBadge(account.accountType)}">${getAccountTypeLabel(account.accountType)}</span></td>`);
+    row.append(`<td>${createAccountTypeBadge(account.accountType)}</td>`);
     row.append(`<td>${escapeHtml(account.description) || '-'}</td>`);
-    row.append(`<td>${formatCurrency(account.totalInvestment || 0)}</td>`);
-    row.append(`<td>${formatCurrency(account.totalCurrentValue || 0)}</td>`);
+    row.append(`<td class="text-right font-mono">${formatCurrency(account.totalInvestment || 0)}</td>`);
+    row.append(`<td class="text-right font-mono">${formatCurrency(account.totalCurrentValue || 0)}</td>`);
 
-    const profitCell = $('<td>');
+    const profitCell = $('<td class="text-right font-mono">');
     profitCell.text(formatPercent(profitRate));
-    applyValueClass(profitCell, profitRate);
+    if (profitRate > 0) {
+        profitCell.addClass('text-positive');
+    } else if (profitRate < 0) {
+        profitCell.addClass('text-negative');
+    }
     row.append(profitCell);
 
-    row.append(`<td>${account.isDefault ? '<i class="bi bi-check-circle-fill text-success"></i>' : ''}</td>`);
+    row.append(`<td>${account.isDefault ? '<i class="bi bi-check-circle-fill" style="color: var(--color-positive);"></i>' : ''}</td>`);
     row.append(createAccountActionButtons(account));
 
     return row;
+}
+
+/**
+ * Create account type badge HTML
+ * @param {string} type - Account type
+ * @returns {string} Badge HTML
+ */
+function createAccountTypeBadge(type) {
+    const label = getAccountTypeLabel(type);
+    const colorMap = {
+        'ISA': 'var(--color-info)',
+        '연금': 'var(--color-warning)',
+        '일반': 'var(--text-muted)',
+        '사용자정의': 'var(--color-accent)'
+    };
+    const color = colorMap[label] || 'var(--text-muted)';
+    return `<span style="padding: var(--space-1) var(--space-3); background: rgba(102, 126, 234, 0.15); color: ${color}; border-radius: var(--radius-full); font-size: var(--font-size-xs); font-weight: 600;">${label}</span>`;
 }
 
 /**
@@ -160,12 +211,12 @@ function createAccountTableRow(account) {
  * @returns {jQuery} jQuery table cell with action buttons
  */
 function createAccountActionButtons(account) {
-    const actions = $('<td>');
-    actions.append(`<button class="btn btn-sm btn-outline-primary me-1" onclick="editAccount(${account.id})"><i class="bi bi-pencil"></i></button>`);
+    const actions = $('<td>').css('display', 'flex').css('gap', 'var(--space-2)');
+    actions.append(`<button class="btn-glass" style="padding: var(--space-2) var(--space-3);" onclick="editAccount(${account.id})" title="수정"><i class="bi bi-pencil"></i></button>`);
 
     if (!account.isDefault) {
-        actions.append(`<button class="btn btn-sm btn-outline-warning me-1" onclick="setDefaultAccount(${account.id})" title="기본 계좌로 설정"><i class="bi bi-star"></i></button>`);
-        actions.append(`<button class="btn btn-sm btn-outline-danger" onclick="deleteAccount(${account.id})"><i class="bi bi-trash"></i></button>`);
+        actions.append(`<button class="btn-glass" style="padding: var(--space-2) var(--space-3);" onclick="setDefaultAccount(${account.id})" title="기본 계좌로 설정"><i class="bi bi-star"></i></button>`);
+        actions.append(`<button class="btn-glass" style="padding: var(--space-2) var(--space-3); color: var(--color-negative);" onclick="deleteAccount(${account.id})" title="삭제"><i class="bi bi-trash"></i></button>`);
     }
 
     return actions;
@@ -180,7 +231,13 @@ function updateAccountPortfolios(accounts) {
     container.empty();
 
     if (accounts.length === 0) {
-        container.append('<div class="col-12 text-center text-muted">계좌가 없습니다.</div>');
+        container.append(`
+            <div class="empty-state">
+                <div class="empty-state-icon"><i class="bi bi-inbox"></i></div>
+                <div class="empty-state-title">계좌 없음</div>
+                <div class="empty-state-desc">등록된 계좌가 없습니다. 위에서 새 계좌를 추가하세요.</div>
+            </div>
+        `);
         return;
     }
 
@@ -197,45 +254,44 @@ function updateAccountPortfolios(accounts) {
  */
 function createAccountPortfolioCard(account) {
     const profitRate = account.profitLossPercent || 0;
-    const profitColor = profitRate >= 0 ? 'success' : 'danger';
+    const profitClass = profitRate > 0 ? 'text-positive' : profitRate < 0 ? 'text-negative' : '';
 
     return `
-        <div class="col-md-4 mb-3">
-            <div class="card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>
+        <div class="glass-card" style="transition: var(--transition-base);">
+            <div class="glass-card-header" style="border-bottom: 1px solid var(--glass-border);">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span style="display: flex; align-items: center; gap: var(--space-2);">
                         <strong>${escapeHtml(account.name)}</strong>
-                        ${account.isDefault ? '<i class="bi bi-star-fill text-warning ms-1"></i>' : ''}
+                        ${account.isDefault ? '<i class="bi bi-star-fill" style="color: var(--color-warning);"></i>' : ''}
                     </span>
-                    <span class="badge ${getAccountTypeBadge(account.accountType)}">${getAccountTypeLabel(account.accountType)}</span>
+                    ${createAccountTypeBadge(account.accountType)}
                 </div>
-                <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-6">
-                            <small class="text-muted">투자금액</small>
-                            <p class="mb-0 fw-bold">${formatCurrency(account.totalInvestment || 0)}</p>
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted">평가금액</small>
-                            <p class="mb-0 fw-bold">${formatCurrency(account.totalCurrentValue || 0)}</p>
-                        </div>
+            </div>
+            <div class="glass-card-body">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4); text-align: center;">
+                    <div>
+                        <div style="font-size: var(--font-size-xs); color: var(--text-muted); margin-bottom: var(--space-1);">투자금액</div>
+                        <div class="font-mono" style="font-weight: 600; font-size: var(--font-size-base);">${formatCurrency(account.totalInvestment || 0)}</div>
                     </div>
-                    <hr>
-                    <div class="text-center">
-                        <small class="text-muted">수익률</small>
-                        <p class="mb-0 h5 text-${profitColor}">${formatPercent(profitRate)}</p>
-                    </div>
-                    <hr>
-                    <div class="d-flex justify-content-between">
-                        <small class="text-muted">보유 종목</small>
-                        <small>${account.holdingsCount || 0}개</small>
+                    <div>
+                        <div style="font-size: var(--font-size-xs); color: var(--text-muted); margin-bottom: var(--space-1);">평가금액</div>
+                        <div class="font-mono" style="font-weight: 600; font-size: var(--font-size-base);">${formatCurrency(account.totalCurrentValue || 0)}</div>
                     </div>
                 </div>
-                <div class="card-footer">
-                    <a href="index.html?accountId=${account.id}" class="btn btn-sm btn-outline-primary w-100">
-                        <i class="bi bi-box-arrow-up-right"></i> 거래내역 보기
-                    </a>
+                <div style="border-top: 1px solid var(--glass-border); padding-top: var(--space-4); margin-bottom: var(--space-4); text-align: center;">
+                    <div style="font-size: var(--font-size-xs); color: var(--text-muted); margin-bottom: var(--space-2);">수익률</div>
+                    <div class="font-mono ${profitClass}" style="font-weight: 600; font-size: var(--font-size-2xl);">${formatPercent(profitRate)}</div>
                 </div>
+                <div style="display: flex; justify-content: space-between; font-size: var(--font-size-sm); color: var(--text-secondary); border-top: 1px solid var(--glass-border); padding-top: var(--space-4);">
+                    <span>보유 종목</span>
+                    <span class="font-mono" style="font-weight: 600;">${account.holdingsCount || 0}개</span>
+                </div>
+            </div>
+            <div class="glass-card-footer">
+                <a href="index.html?accountId=${account.id}" class="btn-glass primary" style="width: 100%; justify-content: center;">
+                    <i class="bi bi-box-arrow-up-right"></i>
+                    거래내역 보기
+                </a>
             </div>
         </div>
     `;
@@ -264,10 +320,10 @@ function createAccount() {
             $('#account-form')[0].reset();
             loadAccounts();
             loadAccountsSummary();
-            showAlert('success', '계좌가 추가되었습니다.');
+            showToast('success', '계좌가 추가되었습니다.');
         },
         error: function(xhr) {
-            showAlert('danger', '계좌 추가 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
+            showToast('error', '계좌 추가 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
         }
     });
 }
@@ -285,10 +341,10 @@ function editAccount(id) {
             $('#edit-account-name').val(account.name);
             $('#edit-account-type').val(account.accountType);
             $('#edit-account-description').val(account.description || '');
-            new bootstrap.Modal($('#editAccountModal')).show();
+            openEditModal();
         },
         error: function(xhr) {
-            showAlert('danger', '계좌 정보를 불러오는데 실패했습니다.');
+            showToast('error', '계좌 정보를 불러오는데 실패했습니다.');
         }
     });
 }
@@ -310,13 +366,13 @@ function updateAccount() {
         contentType: 'application/json',
         data: JSON.stringify(account),
         success: function() {
-            bootstrap.Modal.getInstance($('#editAccountModal')).hide();
+            closeEditModal();
             loadAccounts();
             loadAccountsSummary();
-            showAlert('success', '계좌가 수정되었습니다.');
+            showToast('success', '계좌가 수정되었습니다.');
         },
         error: function(xhr) {
-            showAlert('danger', '계좌 수정 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
+            showToast('error', '계좌 수정 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
         }
     });
 }
@@ -336,10 +392,10 @@ function deleteAccount(id) {
         success: function() {
             loadAccounts();
             loadAccountsSummary();
-            showAlert('success', '계좌가 삭제되었습니다.');
+            showToast('success', '계좌가 삭제되었습니다.');
         },
         error: function(xhr) {
-            showAlert('danger', '계좌 삭제 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
+            showToast('error', '계좌 삭제 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
         }
     });
 }
@@ -354,10 +410,10 @@ function setDefaultAccount(id) {
         method: 'PUT',
         success: function() {
             loadAccounts();
-            showAlert('success', '기본 계좌가 변경되었습니다.');
+            showToast('success', '기본 계좌가 변경되었습니다.');
         },
         error: function(xhr) {
-            showAlert('danger', '기본 계좌 설정 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
+            showToast('error', '기본 계좌 설정 실패: ' + (xhr.responseJSON?.message || '알 수 없는 오류'));
         }
     });
 }
@@ -385,20 +441,36 @@ function getAccountTypeLabel(type) {
 }
 
 /**
- * Display a toast-style alert message
- * @param {('success'|'danger'|'warning'|'info')} type - Alert type
+ * Display a toast-style alert message using glass design
+ * @param {('success'|'error'|'warning'|'info')} type - Toast type
  * @param {string} message - Message to display
  */
-function showAlert(type, message) {
-    const alertHtml = `
-        <div class="alert alert-${type} alert-dismissible fade show position-fixed"
-             style="top: 80px; right: 20px; z-index: 1050; min-width: 300px;" role="alert">
-            ${escapeHtml(message)}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+function showToast(type, message) {
+    // Use glass-utils.js showToast if available
+    if (typeof window.showToast === 'function') {
+        window.showToast(type, message);
+        return;
+    }
+
+    // Fallback implementation
+    const iconMap = {
+        success: 'bi-check-circle-fill',
+        error: 'bi-exclamation-circle-fill',
+        warning: 'bi-exclamation-triangle-fill',
+        info: 'bi-info-circle-fill'
+    };
+
+    const toast = $(`
+        <div class="toast-glass ${type}">
+            <i class="bi ${iconMap[type] || iconMap.info}"></i>
+            <span>${escapeHtml(message)}</span>
         </div>
-    `;
-    $('body').append(alertHtml);
+    `);
+
+    $('#toastContainer').append(toast);
+
     setTimeout(() => {
-        $('.alert').alert('close');
+        toast.css('opacity', '0');
+        setTimeout(() => toast.remove(), 300);
     }, 3000);
 }

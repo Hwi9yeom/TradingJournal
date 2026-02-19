@@ -4,191 +4,252 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>거래 복기 - 투자 기록 서비스</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/dashboard-glass.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
     <style>
-        .review-card { transition: transform 0.2s; }
-        .review-card:hover { transform: translateY(-2px); }
-        .rating-star { cursor: pointer; font-size: 1.5rem; }
-        .rating-star.active { color: #ffc107; }
-        .rating-star:not(.active) { color: #dee2e6; }
-        .tag-badge { cursor: pointer; margin: 2px; }
-        .emotion-select .form-check-input:checked + .form-check-label {
-            background-color: #0d6efd;
-            color: white;
-            border-radius: 4px;
-            padding: 2px 8px;
+        .review-card {
+            transition: all var(--transition-base);
+            cursor: pointer;
+        }
+        .review-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--glass-border-hover);
+        }
+        .rating-star {
+            cursor: pointer;
+            font-size: 1.5rem;
+            transition: var(--transition-fast);
+        }
+        .rating-star.active {
+            color: var(--color-warning);
+            text-shadow: 0 0 10px rgba(255, 217, 61, 0.5);
+        }
+        .rating-star:not(.active) {
+            color: var(--text-muted);
+        }
+        .rating-star:hover {
+            transform: scale(1.1);
+        }
+        .tag-badge {
+            cursor: pointer;
+            margin: var(--space-1);
+            padding: var(--space-1) var(--space-3);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-xs);
+            transition: var(--transition-fast);
+        }
+        .tag-badge:hover {
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+        }
+        .btn-group-glass {
+            display: flex;
+            gap: var(--space-2);
+        }
+        .btn-group-glass input[type="radio"] {
+            display: none;
+        }
+        .btn-group-glass label {
+            padding: var(--space-3) var(--space-5);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-base);
+            flex: 1;
+            text-align: center;
+        }
+        .btn-group-glass label:hover {
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+        }
+        .btn-group-glass input[type="radio"]:checked + label {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
+            border: none;
+            color: var(--text-primary);
+            box-shadow: 0 4px 15px var(--color-accent-glow);
+        }
+        .btn-group-glass input[type="radio"]:checked + label.btn-outline-success {
+            background: linear-gradient(135deg, rgba(0, 245, 160, 0.3), rgba(0, 217, 245, 0.3));
+        }
+        .btn-group-glass input[type="radio"]:checked + label.btn-outline-danger {
+            background: linear-gradient(135deg, rgba(255, 107, 107, 0.3), rgba(255, 143, 143, 0.3));
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- Background Orbs -->
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+
+    <!-- Glassmorphism Navigation -->
+    <nav class="navbar-glass">
         <div class="container">
-            <a class="navbar-brand" href="index.html">투자 기록 서비스</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.html">대시보드</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="patterns.html">패턴분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="reviews.html">거래복기</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="risk.html">리스크관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="sectors.html">섹터분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="correlation.html">상관관계분석</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="backtest.html">백테스팅</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.html">거래관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="accounts.html">계좌관리</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="logout()">로그아웃</a>
-                    </li>
-                </ul>
-            </div>
+            <a class="navbar-brand" href="index.html">
+                <span class="logo-icon">
+                    <i class="bi bi-graph-up"></i>
+                </span>
+                투자 기록 서비스
+            </a>
+            <ul class="navbar-nav">
+                <li><a class="nav-link" href="dashboard.html"><i class="bi bi-speedometer2"></i> 대시보드</a></li>
+                <li><a class="nav-link" href="patterns.html"><i class="bi bi-diagram-3"></i> 패턴분석</a></li>
+                <li><a class="nav-link active" href="reviews.html"><i class="bi bi-journal-text"></i> 거래복기</a></li>
+                <li><a class="nav-link" href="risk.html"><i class="bi bi-shield-check"></i> 리스크관리</a></li>
+                <li><a class="nav-link" href="sectors.html"><i class="bi bi-pie-chart"></i> 섹터분석</a></li>
+                <li><a class="nav-link" href="correlation.html"><i class="bi bi-bezier2"></i> 상관관계분석</a></li>
+                <li><a class="nav-link" href="backtest.html"><i class="bi bi-clock-history"></i> 백테스팅</a></li>
+                <li><a class="nav-link" href="index.html"><i class="bi bi-card-list"></i> 거래관리</a></li>
+                <li><a class="nav-link" href="accounts.html"><i class="bi bi-wallet2"></i> 계좌관리</a></li>
+                <li><a class="nav-link" href="#" onclick="logout()"><i class="bi bi-box-arrow-right"></i> 로그아웃</a></li>
+            </ul>
         </div>
     </nav>
 
-    <div class="container mt-4">
-        <!-- 헤더 -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-journal-text text-primary"></i> 거래 복기</h2>
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="page-title">
+                <h1><i class="bi bi-journal-text"></i> 거래 복기</h1>
+                <p class="subtitle">거래를 돌아보며 배우고 성장하세요</p>
+            </div>
         </div>
 
         <!-- 통계 요약 -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
-                <div class="card text-center h-100">
-                    <div class="card-body">
-                        <h6 class="text-muted">복기 완료</h6>
-                        <h3 id="total-reviews">0</h3>
-                        <small class="text-muted">복기율: <span id="review-rate">0%</span></small>
+        <div class="stats-grid mb-8">
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">복기 완료</span>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-clipboard-check"></i>
                     </div>
+                </div>
+                <div class="stat-card-value" id="total-reviews">0</div>
+                <div class="stat-card-change">복기율: <span id="review-rate">0%</span></div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">평균 평점</span>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-star-fill"></i>
+                    </div>
+                </div>
+                <div class="stat-card-value" id="avg-rating">-</div>
+                <div class="stat-card-change">
+                    <div id="avg-rating-stars"></div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-center h-100">
-                    <div class="card-body">
-                        <h6 class="text-muted">평균 평점</h6>
-                        <h3 id="avg-rating">-</h3>
-                        <div id="avg-rating-stars"></div>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">계획 준수</span>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-check-circle"></i>
                     </div>
                 </div>
+                <div class="stat-card-value" id="plan-followed">-</div>
+                <div class="stat-card-change" id="plan-stats">-</div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-center h-100">
-                    <div class="card-body">
-                        <h6 class="text-muted">계획 준수</h6>
-                        <h3 id="plan-followed">-</h3>
-                        <small class="text-muted" id="plan-stats">-</small>
+
+            <div class="stat-card">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">주요 전략</span>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-bullseye"></i>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-center h-100">
-                    <div class="card-body">
-                        <h6 class="text-muted">주요 전략</h6>
-                        <h3 id="top-strategy">-</h3>
-                        <small class="text-muted" id="strategy-count">-</small>
-                    </div>
-                </div>
+                <div class="stat-card-value" id="top-strategy">-</div>
+                <div class="stat-card-change" id="strategy-count">-</div>
             </div>
         </div>
 
-        <div class="row">
+        <!-- Two Column Layout -->
+        <div class="two-col-grid">
             <!-- 왼쪽: 복기 목록 -->
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">복기 목록</h5>
+            <div>
+                <div class="glass-card">
+                    <div class="glass-card-header">
+                        <h3><i class="bi bi-journal-text"></i> 복기 목록</h3>
                         <div>
-                            <select class="form-select form-select-sm d-inline-block w-auto" id="strategy-filter">
+                            <select class="select-glass" id="strategy-filter">
                                 <option value="">전체 전략</option>
                             </select>
                         </div>
                     </div>
-                    <div class="card-body p-0">
+                    <div class="glass-card-body" style="padding: 0;">
                         <div id="reviews-list">
-                            <div class="text-center py-5 text-muted">
-                                <i class="bi bi-hourglass-split fs-1"></i>
-                                <p>로딩 중...</p>
+                            <div class="empty-state">
+                                <div class="empty-state-icon">
+                                    <i class="bi bi-hourglass-split"></i>
+                                </div>
+                                <div class="empty-state-title">로딩 중...</div>
+                                <div class="empty-state-desc">복기 목록을 불러오고 있습니다.</div>
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer">
+                    <div class="glass-card-footer">
                         <nav id="pagination-nav"></nav>
                     </div>
                 </div>
             </div>
 
             <!-- 오른쪽: 통계 및 교훈 -->
-            <div class="col-md-4">
+            <div>
                 <!-- 전략별 성과 -->
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-bullseye text-success"></i> 전략별 성과</h6>
+                <div class="glass-card mb-6">
+                    <div class="glass-card-header">
+                        <h3><i class="bi bi-bullseye" style="color: var(--color-positive);"></i> 전략별 성과</h3>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>전략</th>
-                                        <th class="text-end">건수</th>
-                                        <th class="text-end">승률</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="strategy-stats-table"></tbody>
-                            </table>
-                        </div>
+                    <div class="glass-card-body" style="padding: 0;">
+                        <table class="glass-table">
+                            <thead>
+                                <tr>
+                                    <th>전략</th>
+                                    <th class="text-right">건수</th>
+                                    <th class="text-right">승률</th>
+                                </tr>
+                            </thead>
+                            <tbody id="strategy-stats-table"></tbody>
+                        </table>
                     </div>
                 </div>
 
                 <!-- 감정별 성과 -->
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-emoji-smile text-warning"></i> 감정별 성과</h6>
+                <div class="glass-card mb-6">
+                    <div class="glass-card-header">
+                        <h3><i class="bi bi-emoji-smile" style="color: var(--color-warning);"></i> 감정별 성과</h3>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>감정</th>
-                                        <th class="text-end">건수</th>
-                                        <th class="text-end">승률</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="emotion-stats-table"></tbody>
-                            </table>
-                        </div>
+                    <div class="glass-card-body" style="padding: 0;">
+                        <table class="glass-table">
+                            <thead>
+                                <tr>
+                                    <th>감정</th>
+                                    <th class="text-right">건수</th>
+                                    <th class="text-right">승률</th>
+                                </tr>
+                            </thead>
+                            <tbody id="emotion-stats-table"></tbody>
+                        </table>
                     </div>
                 </div>
 
                 <!-- 최근 교훈 -->
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-lightbulb text-info"></i> 최근 교훈</h6>
+                <div class="glass-card">
+                    <div class="glass-card-header">
+                        <h3><i class="bi bi-lightbulb" style="color: var(--color-info);"></i> 최근 교훈</h3>
                     </div>
-                    <div class="card-body" id="recent-lessons">
-                        <p class="text-muted text-center">교훈이 없습니다.</p>
+                    <div class="glass-card-body" id="recent-lessons">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i class="bi bi-lightbulb"></i>
+                            </div>
+                            <div class="empty-state-desc">교훈이 없습니다.</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -196,125 +257,144 @@
     </div>
 
     <!-- 복기 작성/수정 모달 -->
-    <div class="modal fade" id="reviewModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="reviewModalTitle">거래 복기 작성</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="review-form">
-                        <input type="hidden" id="review-id">
-                        <input type="hidden" id="transaction-id">
+    <div class="modal-glass" id="reviewModal">
+        <div class="modal-glass-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 id="reviewModalTitle"><i class="bi bi-journal-text"></i> 거래 복기 작성</h3>
+                <button class="modal-close" onclick="closeReviewModal()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="review-form">
+                    <input type="hidden" id="review-id">
+                    <input type="hidden" id="transaction-id">
 
-                        <!-- 거래 정보 (읽기 전용) -->
-                        <div class="card bg-light mb-3">
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <strong id="modal-stock-name">-</strong>
-                                        <small class="text-muted" id="modal-stock-symbol"></small>
-                                    </div>
-                                    <div class="col-md-3 text-end">
-                                        <span id="modal-pnl" class="fw-bold">-</span>
-                                    </div>
-                                    <div class="col-md-3 text-end">
-                                        <span id="modal-pnl-percent">-</span>
-                                    </div>
-                                </div>
+                    <!-- 거래 정보 (읽기 전용) -->
+                    <div class="alert-glass success mb-4">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong id="modal-stock-name" style="font-size: var(--font-size-lg);">-</strong>
+                                <small class="text-muted" id="modal-stock-symbol" style="margin-left: var(--space-2);"></small>
+                            </div>
+                            <div style="text-align: right;">
+                                <div id="modal-pnl" class="font-mono" style="font-size: var(--font-size-xl); font-weight: 600;">-</div>
+                                <div id="modal-pnl-percent" class="text-muted" style="font-size: var(--font-size-sm);">-</div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">거래 전략</label>
-                                <select class="form-select" id="review-strategy" required>
-                                    <option value="">선택...</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">자기 평가</label>
-                                <div class="rating-container" id="rating-container">
-                                    <i class="bi bi-star-fill rating-star" data-value="1"></i>
-                                    <i class="bi bi-star-fill rating-star" data-value="2"></i>
-                                    <i class="bi bi-star-fill rating-star" data-value="3"></i>
-                                    <i class="bi bi-star-fill rating-star" data-value="4"></i>
-                                    <i class="bi bi-star-fill rating-star" data-value="5"></i>
-                                    <input type="hidden" id="review-rating" value="0">
-                                </div>
-                            </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-5);">
+                        <div class="form-group">
+                            <label class="form-label">거래 전략</label>
+                            <select class="select-glass" id="review-strategy" required>
+                                <option value="">선택...</option>
+                            </select>
                         </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">거래 전 감정</label>
-                                <select class="form-select" id="review-emotion-before">
-                                    <option value="">선택...</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">거래 후 감정</label>
-                                <select class="form-select" id="review-emotion-after">
-                                    <option value="">선택...</option>
-                                </select>
+                        <div class="form-group">
+                            <label class="form-label">자기 평가</label>
+                            <div class="rating-container" id="rating-container">
+                                <i class="bi bi-star-fill rating-star" data-value="1"></i>
+                                <i class="bi bi-star-fill rating-star" data-value="2"></i>
+                                <i class="bi bi-star-fill rating-star" data-value="3"></i>
+                                <i class="bi bi-star-fill rating-star" data-value="4"></i>
+                                <i class="bi bi-star-fill rating-star" data-value="5"></i>
+                                <input type="hidden" id="review-rating" value="0">
                             </div>
                         </div>
+                    </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">진입 이유</label>
-                            <textarea class="form-control" id="review-entry-reason" rows="2"
-                                      placeholder="왜 이 종목에 진입했나요?"></textarea>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-5);">
+                        <div class="form-group">
+                            <label class="form-label">거래 전 감정</label>
+                            <select class="select-glass" id="review-emotion-before">
+                                <option value="">선택...</option>
+                            </select>
                         </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">청산 이유</label>
-                            <textarea class="form-control" id="review-exit-reason" rows="2"
-                                      placeholder="왜 청산했나요?"></textarea>
+                        <div class="form-group">
+                            <label class="form-label">거래 후 감정</label>
+                            <select class="select-glass" id="review-emotion-after">
+                                <option value="">선택...</option>
+                            </select>
                         </div>
+                    </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">복기 내용</label>
-                            <textarea class="form-control" id="review-note" rows="3"
-                                      placeholder="거래를 돌아보며 느낀 점을 작성하세요."></textarea>
+                    <div class="form-group">
+                        <label class="form-label">진입 이유</label>
+                        <textarea class="form-input" id="review-entry-reason" rows="2"
+                                  placeholder="왜 이 종목에 진입했나요?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">청산 이유</label>
+                        <textarea class="form-input" id="review-exit-reason" rows="2"
+                                  placeholder="왜 청산했나요?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">복기 내용</label>
+                        <textarea class="form-input" id="review-note" rows="3"
+                                  placeholder="거래를 돌아보며 느낀 점을 작성하세요."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">배운 점 / 교훈</label>
+                        <textarea class="form-input" id="review-lessons" rows="2"
+                                  placeholder="이 거래에서 배운 점은 무엇인가요?"></textarea>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
+                        <div class="form-group">
+                            <label class="form-label">태그 (쉼표로 구분)</label>
+                            <input type="text" class="form-input" id="review-tags"
+                                   placeholder="예: 손절, 추격매수, 실수">
                         </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">배운 점 / 교훈</label>
-                            <textarea class="form-control" id="review-lessons" rows="2"
-                                      placeholder="이 거래에서 배운 점은 무엇인가요?"></textarea>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">태그 (쉼표로 구분)</label>
-                                <input type="text" class="form-control" id="review-tags"
-                                       placeholder="예: 손절, 추격매수, 실수">
+                        <div class="form-group">
+                            <label class="form-label">계획대로 실행?</label>
+                            <div class="btn-group-glass">
+                                <input type="radio" name="followed-plan" id="plan-yes" value="true">
+                                <label class="btn-outline-success" for="plan-yes">예</label>
+                                <input type="radio" name="followed-plan" id="plan-no" value="false">
+                                <label class="btn-outline-danger" for="plan-no">아니오</label>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">계획대로 실행?</label>
-                                <div class="btn-group w-100" role="group">
-                                    <input type="radio" class="btn-check" name="followed-plan" id="plan-yes" value="true">
-                                    <label class="btn btn-outline-success" for="plan-yes">예</label>
-                                    <input type="radio" class="btn-check" name="followed-plan" id="plan-no" value="false">
-                                    <label class="btn btn-outline-danger" for="plan-no">아니오</label>
-                                </div>
-                            </div>
                         </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                    <button type="button" class="btn btn-primary" onclick="saveReview()">저장</button>
-                </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-glass" onclick="closeReviewModal()">취소</button>
+                <button type="button" class="btn-glass primary" onclick="saveReview()">
+                    <i class="bi bi-check-lg"></i> 저장
+                </button>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="js/dashboard-glass.js"></script>
     <script src="utils.js"></script>
     <script src="auth.js"></script>
     <script src="reviews.js"></script>
+    <script>
+        // Modal helper functions
+        function closeReviewModal() {
+            document.getElementById('reviewModal').classList.remove('show');
+        }
+
+        function openReviewModal() {
+            document.getElementById('reviewModal').classList.add('show');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('reviewModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeReviewModal();
+            }
+        });
+    </script>
 </body>
 </html>

@@ -214,12 +214,12 @@ function filterPlansByStatus(status) {
 function filterPlans(status) {
     currentFilter = status;
 
-    // 버튼 활성화 상태 업데이트
-    $('.filter-btn-group .btn').removeClass('active');
+    // Update button active state
+    $('.filter-btn').removeClass('active');
     if (status === 'all') {
-        $('.filter-btn-group .btn:first').addClass('active');
+        $('.filter-btn:first').addClass('active');
     } else {
-        $(`.filter-btn-group .btn[onclick*="${status}"]`).addClass('active');
+        $(`.filter-btn[onclick*="${status}"]`).addClass('active');
     }
 
     renderPlans(filterPlansByStatus(status));
@@ -272,19 +272,15 @@ function createPlanCard(plan) {
     const riskReward = `1:${rrRatio.toFixed(2)}`;
 
     return `
-        <div class="col-md-6 col-xl-4">
-            <div class="card plan-card h-100" style="--status-color: ${statusConfig.color};">
-                <div class="card-body p-4">
-                    ${renderCardHeader(plan, statusConfig)}
-                    ${renderPriceBox(plan)}
-                    ${renderRiskRewardSection(riskReward, plan.plannedQuantity)}
-                    ${renderStrategySection(plan.strategy)}
-                    ${renderValidUntilSection(plan.validUntil)}
-                    ${renderEntryConditionsSection(plan.entryConditions)}
-                    ${renderActionButtons(plan)}
-                </div>
-                ${renderCardFooter(plan.createdAt)}
-            </div>
+        <div class="plan-card-glass" style="--status-color: ${statusConfig.color};">
+            ${renderCardHeader(plan, statusConfig)}
+            ${renderPriceBox(plan)}
+            ${renderRiskRewardSection(riskReward, plan.plannedQuantity)}
+            ${renderStrategySection(plan.strategy)}
+            ${renderValidUntilSection(plan.validUntil)}
+            ${renderEntryConditionsSection(plan.entryConditions)}
+            ${renderActionButtons(plan)}
+            ${renderCardFooter(plan.createdAt)}
         </div>
     `;
 }
@@ -297,9 +293,9 @@ function createPlanCard(plan) {
  */
 function renderCardHeader(plan, statusConfig) {
     return `
-        <div class="d-flex justify-content-between align-items-start mb-3">
+        <div class="plan-card-header">
             <div class="plan-symbol">${escapeHtml(plan.symbol)}</div>
-            <span class="status-badge badge bg-${statusConfig.badgeClass}">${statusConfig.label}</span>
+            <span class="plan-status-badge ${statusConfig.badgeClass}">${statusConfig.label}</span>
         </div>
     `;
 }
@@ -311,20 +307,17 @@ function renderCardHeader(plan, statusConfig) {
  */
 function renderPriceBox(plan) {
     return `
-        <div class="plan-price-box mb-3">
-            <div class="row g-2 small">
-                <div class="col-4 text-center">
-                    <div class="text-muted mb-1">진입</div>
-                    <div class="fw-bold">${formatPrice(plan.entryPrice)}</div>
-                </div>
-                <div class="col-4 text-center">
-                    <div class="text-muted mb-1">손절</div>
-                    <div class="fw-bold text-danger">${formatPrice(plan.stopLoss)}</div>
-                </div>
-                <div class="col-4 text-center">
-                    <div class="text-muted mb-1">목표</div>
-                    <div class="fw-bold text-success">${formatPrice(plan.targetPrice)}</div>
-                </div>
+        <div class="plan-prices">
+            <div class="plan-price-item">
+                <div class="plan-price-label">진입</div>
+                <div class="plan-price-value">${formatPrice(plan.entryPrice)}</div>
+            </div>
+            <div class="plan-price-item">
+                <div class="plan-price-label">손절</div>
+                <div class="plan-price-value text-negative">${formatPrice(plan.stopLoss)}</div>
+            </div>
+            <div class="plan-price-item">
+                <div class="plan-price-value text-positive">${formatPrice(plan.targetPrice)}</div>
             </div>
         </div>
     `;
@@ -338,17 +331,14 @@ function renderPriceBox(plan) {
  */
 function renderRiskRewardSection(riskReward, plannedQuantity) {
     return `
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <small class="text-muted d-block">R:R</small>
-                <span class="rr-ratio">
-                    <i class="bi bi-bullseye"></i>
-                    ${riskReward}
-                </span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: var(--space-4) 0;">
+            <div class="plan-rr-ratio">
+                <i class="bi bi-bullseye"></i>
+                ${riskReward}
             </div>
-            <div class="text-end">
-                <small class="text-muted d-block">수량</small>
-                <div class="fw-bold">${formatNumber(plannedQuantity || 0)}</div>
+            <div style="text-align: right;">
+                <div class="plan-price-label">수량</div>
+                <div class="plan-price-value">${formatNumber(plannedQuantity || 0)}</div>
             </div>
         </div>
     `;
@@ -361,11 +351,12 @@ function renderRiskRewardSection(riskReward, plannedQuantity) {
  */
 function renderStrategySection(strategy) {
     return `
-        <div class="mb-3">
-            <small class="text-muted d-block mb-1">
-                <i class="bi bi-diagram-3 me-1"></i>전략
-            </small>
-            <div class="small">${escapeHtml(strategy || '-')}</div>
+        <div style="margin-bottom: var(--space-3);">
+            <div class="plan-price-label" style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1);">
+                <i class="bi bi-diagram-3"></i>
+                전략
+            </div>
+            <div style="font-size: var(--font-size-sm);">${escapeHtml(strategy || '-')}</div>
         </div>
     `;
 }
@@ -414,7 +405,7 @@ function renderActionButtons(plan) {
     const buttons = getActionButtonsForStatus(plan.status, plan.id);
 
     return `
-        <div class="d-flex gap-2 mt-3 pt-3 border-top">
+        <div class="plan-actions">
             ${buttons}
         </div>
     `;
@@ -430,31 +421,34 @@ function getActionButtonsForStatus(status, id) {
     switch (status) {
         case 'PENDING':
             return `
-                <button class="btn btn-sm btn-success action-btn flex-fill" onclick="openExecuteModal(${id})">
-                    <i class="bi bi-play-fill me-1"></i>실행
+                <button class="plan-action-btn primary" onclick="openExecuteModal(${id})">
+                    <i class="bi bi-play-fill"></i>
+                    실행
                 </button>
-                <button class="btn btn-sm btn-outline-primary action-btn" onclick="openEditModal(${id})">
+                <button class="plan-action-btn" onclick="openEditModal(${id})">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger action-btn" onclick="cancelPlan(${id})">
+                <button class="plan-action-btn" onclick="cancelPlan(${id})">
                     <i class="bi bi-x-lg"></i>
                 </button>
             `;
 
         case 'EXECUTED':
             return `
-                <button class="btn btn-sm btn-outline-info action-btn flex-fill" onclick="viewPlanDetail(${id})">
-                    <i class="bi bi-eye me-1"></i>상세보기
+                <button class="plan-action-btn" onclick="viewPlanDetail(${id})">
+                    <i class="bi bi-eye"></i>
+                    상세보기
                 </button>
             `;
 
         case 'CANCELLED':
         case 'EXPIRED':
             return `
-                <button class="btn btn-sm btn-outline-secondary action-btn flex-fill" onclick="viewPlanDetail(${id})">
-                    <i class="bi bi-eye me-1"></i>상세보기
+                <button class="plan-action-btn" onclick="viewPlanDetail(${id})">
+                    <i class="bi bi-eye"></i>
+                    상세보기
                 </button>
-                <button class="btn btn-sm btn-outline-danger action-btn" onclick="deletePlan(${id})">
+                <button class="plan-action-btn" onclick="deletePlan(${id})">
                     <i class="bi bi-trash"></i>
                 </button>
             `;
@@ -471,8 +465,8 @@ function getActionButtonsForStatus(status, id) {
  */
 function renderCardFooter(createdAt) {
     return `
-        <div class="card-footer bg-light small text-muted">
-            <i class="bi bi-clock me-1"></i>생성: ${formatDateTime(createdAt)}
+        <div style="margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--glass-border); font-size: var(--font-size-xs); color: var(--text-muted);">
+            <i class="bi bi-clock"></i> 생성: ${formatDateTime(createdAt)}
         </div>
     `;
 }
@@ -542,11 +536,12 @@ function getPlanTypeLabel(type) {
  */
 function openCreateModal() {
     currentPlanId = null;
-    $('#planModalLabel').html('<i class="bi bi-journal-plus me-2"></i>새 트레이드 플랜 작성');
+    $('#planModalLabel').html('<i class="bi bi-journal-plus"></i> 새 트레이드 플랜 작성');
     $('#planForm')[0].reset();
     $('#planId').val('');
     $('#position-calc-result').hide();
     $('#riskPercent').val('1');
+    openModal('planModal');
 }
 
 /**
@@ -559,7 +554,7 @@ function openEditModal(id) {
         method: 'GET',
         success: function(plan) {
             currentPlanId = plan.id;
-            $('#planModalLabel').html('<i class="bi bi-pencil me-2"></i>트레이드 플랜 수정');
+            $('#planModalLabel').html('<i class="bi bi-pencil"></i> 트레이드 플랜 수정');
 
             $('#planId').val(plan.id);
             $('#symbol').val(plan.symbol);
@@ -576,11 +571,11 @@ function openEditModal(id) {
             $('#marketAnalysis').val(plan.marketAnalysis || '');
             $('#notes').val(plan.notes || '');
 
-            $('#planModal').modal('show');
+            openModal('planModal');
         },
         error: function(xhr) {
             console.error('플랜 조회 실패:', xhr);
-            ToastNotification.error('플랜 정보를 불러올 수 없습니다.');
+            showGlassToast('플랜 정보를 불러올 수 없습니다.', 'error');
         }
     });
 }
@@ -592,7 +587,7 @@ function openEditModal(id) {
 function openExecuteModal(id) {
     currentPlanId = id;
 
-    // 플랜 정보 가져와서 기본값 설정
+    // Load plan info and set default values
     $.ajax({
         url: `/api/plans/${id}`,
         method: 'GET',
@@ -600,11 +595,11 @@ function openExecuteModal(id) {
             $('#actualEntryPrice').val(plan.entryPrice);
             $('#actualQuantity').val(plan.plannedQuantity || '');
             $('#executionNotes').val('');
-            $('#executeModal').modal('show');
+            openModal('executeModal');
         },
         error: function(xhr) {
             console.error('플랜 조회 실패:', xhr);
-            ToastNotification.error('플랜 정보를 불러올 수 없습니다.');
+            showGlassToast('플랜 정보를 불러올 수 없습니다.', 'error');
         }
     });
 }

@@ -4,268 +4,241 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>거래 패턴 분석 - Trading Journal</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        body {
-            background-color: #f8f9fa;
-        }
-        .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
-        }
-        .card-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 12px 12px 0 0 !important;
-            font-weight: 600;
-        }
-        .streak-positive {
-            color: #28a745;
-            font-weight: bold;
-        }
-        .streak-negative {
-            color: #dc3545;
-            font-weight: bold;
-        }
-        .stat-card {
-            text-align: center;
-            padding: 20px;
-        }
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 700;
-        }
-        .stat-label {
-            font-size: 0.9rem;
-            color: #6c757d;
-        }
-        .heatmap-cell {
-            padding: 10px;
-            text-align: center;
-            border-radius: 8px;
-            margin: 2px;
-        }
-        .heatmap-positive {
-            background-color: rgba(40, 167, 69, 0.2);
-        }
-        .heatmap-negative {
-            background-color: rgba(220, 53, 69, 0.2);
-        }
-        .heatmap-neutral {
-            background-color: rgba(108, 117, 125, 0.1);
-        }
-        .streak-timeline {
-            display: flex;
-            gap: 4px;
-            flex-wrap: wrap;
-            padding: 10px;
-        }
-        .streak-block {
-            width: 40px;
-            height: 40px;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: white;
-        }
-        .streak-win {
-            background-color: #28a745;
-        }
-        .streak-loss {
-            background-color: #dc3545;
-        }
-        .progress-label {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 4px;
-            font-size: 0.85rem;
-        }
-    </style>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/dashboard-glass.css">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="index.html">
-                <i class="bi bi-journal-richtext me-2"></i>Trading Journal
+    <!-- Background Orbs -->
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar-glass">
+        <div class="container">
+            <a href="index.html" class="navbar-brand">
+                <span class="logo-icon"><i class="bi bi-graph-up-arrow"></i></span>
+                Trading Journal
             </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="dashboard.html">대시보드</a>
-                <a class="nav-link active" href="patterns.html">패턴 분석</a>
-                <a class="nav-link" href="correlation.html">상관관계분석</a>
-                <a class="nav-link" href="ai-assistant.html">AI어시스턴트</a>
-                <a class="nav-link" href="index.html">홈</a>
-            </div>
+            <ul class="navbar-nav">
+                <li><a href="dashboard.html" class="nav-link"><i class="bi bi-speedometer2"></i> 대시보드</a></li>
+                <li><a href="patterns.html" class="nav-link active"><i class="bi bi-diagram-3"></i> 패턴분석</a></li>
+                <li><a href="reviews.html" class="nav-link"><i class="bi bi-journal-text"></i> 거래복기</a></li>
+                <li><a href="risk.html" class="nav-link"><i class="bi bi-shield-check"></i> 리스크</a></li>
+                <li><a href="sectors.html" class="nav-link"><i class="bi bi-pie-chart"></i> 섹터</a></li>
+                <li><a href="backtest.html" class="nav-link"><i class="bi bi-clock-history"></i> 백테스트</a></li>
+                <li><a href="ai-assistant.html" class="nav-link"><i class="bi bi-robot"></i> AI</a></li>
+                <li><a href="index.html" class="nav-link"><i class="bi bi-list-ul"></i> 거래</a></li>
+                <li><a href="#" class="nav-link" onclick="logout()"><i class="bi bi-box-arrow-right"></i></a></li>
+            </ul>
         </div>
     </nav>
 
-    <div class="container py-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-bar-chart-steps me-2"></i>거래 패턴 분석</h2>
-            <div class="d-flex gap-2">
-                <input type="date" class="form-control" id="startDate">
-                <input type="date" class="form-control" id="endDate">
-                <button class="btn btn-primary" id="btnAnalyze">
-                    <i class="bi bi-search me-1"></i>분석
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Page Header -->
+        <header class="page-header fade-in">
+            <div class="page-title">
+                <h1>거래 패턴 분석</h1>
+                <span class="subtitle">성과 패턴 및 트렌드 분석</span>
+            </div>
+            <div style="display: flex; gap: var(--space-3); align-items: center;">
+                <input type="date" class="form-input" id="startDate" style="width: auto;">
+                <input type="date" class="form-input" id="endDate" style="width: auto;">
+                <button class="btn-glass primary" id="btnAnalyze">
+                    <i class="bi bi-search"></i>분석
                 </button>
             </div>
-        </div>
+        </header>
 
-        <!-- 요약 카드 -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="stat-value" id="totalTrades">-</div>
-                    <div class="stat-label">총 거래 수</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="stat-value" id="currentStreak">-</div>
-                    <div class="stat-label">현재 스트릭</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="stat-value streak-positive" id="maxWinStreak">-</div>
-                    <div class="stat-label">최대 연승</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="stat-value streak-negative" id="maxLossStreak">-</div>
-                    <div class="stat-label">최대 연패</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <!-- 연승/연패 타임라인 -->
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-lightning me-2"></i>연승/연패 타임라인
+        <!-- Stats Cards -->
+        <section class="stats-grid">
+            <div class="stat-card fade-in stagger-1">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">총 거래 수</span>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-graph-up"></i>
                     </div>
-                    <div class="card-body">
-                        <div class="streak-timeline" id="streakTimeline">
-                            <div class="text-muted">데이터를 불러오는 중...</div>
+                </div>
+                <div class="stat-card-value" id="totalTrades">-</div>
+                <div class="stat-card-change">
+                    <i class="bi bi-bar-chart"></i>
+                    전체 거래
+                </div>
+            </div>
+            <div class="stat-card fade-in stagger-2">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">현재 스트릭</span>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-lightning"></i>
+                    </div>
+                </div>
+                <div class="stat-card-value" id="currentStreak">-</div>
+                <div class="stat-card-change">
+                    <i class="bi bi-arrow-repeat"></i>
+                    연속 패턴
+                </div>
+            </div>
+            <div class="stat-card fade-in stagger-3 positive">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">최대 연승</span>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-trophy"></i>
+                    </div>
+                </div>
+                <div class="stat-card-value" id="maxWinStreak">-</div>
+                <div class="stat-card-change positive">
+                    <i class="bi bi-arrow-up-circle"></i>
+                    승리 기록
+                </div>
+            </div>
+            <div class="stat-card fade-in stagger-4 negative">
+                <div class="stat-card-header">
+                    <span class="stat-card-label">최대 연패</span>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                </div>
+                <div class="stat-card-value" id="maxLossStreak">-</div>
+                <div class="stat-card-change negative">
+                    <i class="bi bi-arrow-down-circle"></i>
+                    패배 기록
+                </div>
+            </div>
+        </section>
+
+        <!-- Streak and Day Performance -->
+        <section class="two-col-grid mb-8">
+            <!-- 연승/연패 타임라인 -->
+            <div class="glass-card fade-in">
+                <div class="glass-card-header">
+                    <h3><i class="bi bi-lightning"></i> 연승/연패 타임라인</h3>
+                </div>
+                <div class="glass-card-body">
+                    <div class="streak-timeline" id="streakTimeline" style="display: flex; gap: 4px; flex-wrap: wrap; padding: 10px; min-height: 200px;">
+                        <div style="color: var(--text-muted); width: 100%; text-align: center; padding: var(--space-8);">데이터를 불러오는 중...</div>
+                    </div>
+                    <div class="legend-row" style="margin-top: var(--space-4);">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: var(--color-positive);"></div>
+                            <span>연승</span>
                         </div>
-                        <div class="mt-3 d-flex gap-3">
-                            <small><span class="badge bg-success">녹색</span> 연승</small>
-                            <small><span class="badge bg-danger">빨강</span> 연패</small>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: var(--color-negative);"></div>
+                            <span>연패</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- 요일별 성과 -->
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-calendar-week me-2"></i>요일별 성과
-                    </div>
-                    <div class="card-body">
-                        <canvas id="dayOfWeekChart" height="200"></canvas>
+            <div class="glass-card fade-in">
+                <div class="glass-card-header">
+                    <h3><i class="bi bi-calendar-week"></i> 요일별 성과</h3>
+                </div>
+                <div class="glass-card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="dayOfWeekChart"></canvas>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="row">
+        <!-- Monthly and Holding Period -->
+        <section class="charts-grid mb-8">
             <!-- 월별 계절성 -->
-            <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-calendar3 me-2"></i>월별 계절성
-                    </div>
-                    <div class="card-body">
-                        <canvas id="monthlyChart" height="150"></canvas>
+            <div class="glass-card fade-in">
+                <div class="glass-card-header">
+                    <h3><i class="bi bi-calendar3"></i> 월별 계절성</h3>
+                </div>
+                <div class="glass-card-body">
+                    <div class="chart-container" style="height: 300px;">
+                        <canvas id="monthlyChart"></canvas>
                     </div>
                 </div>
             </div>
 
             <!-- 보유 기간 분석 -->
-            <div class="col-lg-4">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-clock-history me-2"></i>보유 기간 분석
-                    </div>
-                    <div class="card-body">
-                        <div id="holdingPeriodStats">
-                            <div class="mb-3">
-                                <div class="progress-label">
-                                    <span>평균 보유 기간</span>
-                                    <span id="avgHoldingDays">- 일</span>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <div class="progress-label">
-                                    <span>수익 거래 평균</span>
-                                    <span id="avgWinHoldingDays" class="text-success">- 일</span>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <div class="progress-label">
-                                    <span>손실 거래 평균</span>
-                                    <span id="avgLossHoldingDays" class="text-danger">- 일</span>
-                                </div>
-                            </div>
+            <div class="glass-card fade-in">
+                <div class="glass-card-header">
+                    <h3><i class="bi bi-clock-history"></i> 보유 기간 분석</h3>
+                </div>
+                <div class="glass-card-body">
+                    <div id="holdingPeriodStats" style="margin-bottom: var(--space-5);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); padding: var(--space-3); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md);">
+                            <span style="font-size: var(--font-size-sm); color: var(--text-muted);">평균 보유 기간</span>
+                            <span id="avgHoldingDays" class="font-mono" style="font-weight: 600;">- 일</span>
                         </div>
-                        <hr>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); padding: var(--space-3); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md);">
+                            <span style="font-size: var(--font-size-sm); color: var(--text-muted);">수익 거래 평균</span>
+                            <span id="avgWinHoldingDays" class="font-mono text-positive" style="font-weight: 600;">- 일</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); padding: var(--space-3); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md);">
+                            <span style="font-size: var(--font-size-sm); color: var(--text-muted);">손실 거래 평균</span>
+                            <span id="avgLossHoldingDays" class="font-mono text-negative" style="font-weight: 600;">- 일</span>
+                        </div>
+                    </div>
+                    <div style="border-top: 1px solid var(--glass-border); padding-top: var(--space-4);">
                         <canvas id="holdingPeriodChart" height="200"></canvas>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="row">
+        <!-- Trade Size Analysis -->
+        <section class="two-col-grid mb-8">
             <!-- 거래 규모 분석 -->
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-cash-stack me-2"></i>거래 규모 분석
-                    </div>
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-6">
-                                <small class="text-muted">평균 거래금액</small>
-                                <div class="fw-bold" id="avgTradeAmount">-</div>
-                            </div>
-                            <div class="col-6">
-                                <small class="text-muted">표준편차</small>
-                                <div class="fw-bold" id="stdDeviation">-</div>
-                            </div>
+            <div class="glass-card fade-in">
+                <div class="glass-card-header">
+                    <h3><i class="bi bi-cash-stack"></i> 거래 규모 분석</h3>
+                </div>
+                <div class="glass-card-body">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); margin-bottom: var(--space-5);">
+                        <div style="text-align: center; padding: var(--space-4); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md);">
+                            <div style="font-size: var(--font-size-xs); color: var(--text-muted); margin-bottom: var(--space-2);">평균 거래금액</div>
+                            <div id="avgTradeAmount" class="font-mono" style="font-size: var(--font-size-xl); font-weight: 600;">-</div>
                         </div>
-                        <canvas id="tradeSizeChart" height="200"></canvas>
+                        <div style="text-align: center; padding: var(--space-4); background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md);">
+                            <div style="font-size: var(--font-size-xs); color: var(--text-muted); margin-bottom: var(--space-2);">표준편차</div>
+                            <div id="stdDeviation" class="font-mono" style="font-size: var(--font-size-xl); font-weight: 600;">-</div>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="tradeSizeChart"></canvas>
                     </div>
                 </div>
             </div>
 
             <!-- 거래 규모별 승률 -->
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-trophy me-2"></i>거래 규모별 성과
-                    </div>
-                    <div class="card-body">
-                        <div id="tradeSizePerformance">
-                            <div class="text-muted">데이터를 불러오는 중...</div>
+            <div class="glass-card fade-in">
+                <div class="glass-card-header">
+                    <h3><i class="bi bi-trophy"></i> 거래 규모별 성과</h3>
+                </div>
+                <div class="glass-card-body">
+                    <div id="tradeSizePerformance" style="min-height: 300px; display: flex; align-items: center; justify-content: center;">
+                        <div style="color: var(--text-muted); text-align: center;">
+                            <i class="bi bi-hourglass-split" style="font-size: 2rem; display: block; margin-bottom: var(--space-3); opacity: 0.5;"></i>
+                            데이터를 불러오는 중...
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="patterns.js"></script>
 </body>
 </html>

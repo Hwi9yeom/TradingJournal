@@ -42,8 +42,8 @@ const WIN_RATE_THRESHOLD = 50;
  * @constant {Object}
  */
 const REVIEW_CARD_CLASSES = {
-    WIN: 'border-start border-success border-3',
-    LOSS: 'border-start border-danger border-3'
+    WIN: 'positive',
+    LOSS: 'negative'
 };
 
 /**
@@ -51,8 +51,8 @@ const REVIEW_CARD_CLASSES = {
  * @constant {Object}
  */
 const BADGES = {
-    PLAN_FOLLOWED: { class: 'bg-success', text: '계획준수' },
-    PLAN_DEVIATED: { class: 'bg-warning text-dark', text: '계획이탈' }
+    PLAN_FOLLOWED: { style: 'background: rgba(0, 245, 160, 0.2); color: var(--color-positive); border: 1px solid rgba(0, 245, 160, 0.3);', text: '계획준수' },
+    PLAN_DEVIATED: { style: 'background: rgba(255, 217, 61, 0.2); color: var(--color-warning); border: 1px solid rgba(255, 217, 61, 0.3);', text: '계획이탈' }
 };
 
 // ============================================================================
@@ -69,9 +69,7 @@ const reviewsState = {
     /** @type {Array} Available emotion options */
     emotions: [],
     /** @type {number} Current page index (0-based) */
-    currentPage: 0,
-    /** @type {bootstrap.Modal|null} Bootstrap modal instance */
-    reviewModal: null
+    currentPage: 0
 };
 
 // ============================================================================
@@ -86,8 +84,6 @@ $(document).ready(function() {
     if (!checkAuth()) {
         return;
     }
-
-    reviewsState.reviewModal = new bootstrap.Modal(document.getElementById('reviewModal'));
 
     // Load initial data
     loadStrategies();
@@ -280,7 +276,7 @@ function displayReviews(reviews) {
         return;
     }
 
-    let html = '<div class="list-group list-group-flush">';
+    let html = '<div style="padding: var(--space-4);">';
     reviews.forEach(review => {
         html += buildReviewCardHtml(review);
     });
@@ -299,28 +295,29 @@ function displayPagination(data) {
         return;
     }
 
-    let html = '<ul class="pagination pagination-sm justify-content-center mb-0">';
+    let html = '<div style="display: flex; justify-content: center; gap: var(--space-2); align-items: center;">';
 
     // Previous button
-    html += `<li class="page-item ${data.first ? 'disabled' : ''}">
-        <a class="page-link" href="#" onclick="loadReviews(${data.number - 1}); return false;">이전</a>
-    </li>`;
+    const prevDisabled = data.first ? 'opacity: 0.5; pointer-events: none;' : '';
+    html += `<button class="btn-glass" style="${prevDisabled}" onclick="loadReviews(${data.number - 1}); return false;">
+        <i class="bi bi-chevron-left"></i> 이전
+    </button>`;
 
     // Page numbers (show up to 5 pages around current)
     for (let i = 0; i < data.totalPages; i++) {
         if (i === data.number || Math.abs(i - data.number) < 3) {
-            html += `<li class="page-item ${i === data.number ? 'active' : ''}">
-                <a class="page-link" href="#" onclick="loadReviews(${i}); return false;">${i + 1}</a>
-            </li>`;
+            const activeClass = i === data.number ? 'btn-glass primary' : 'btn-glass';
+            html += `<button class="${activeClass}" onclick="loadReviews(${i}); return false;">${i + 1}</button>`;
         }
     }
 
     // Next button
-    html += `<li class="page-item ${data.last ? 'disabled' : ''}">
-        <a class="page-link" href="#" onclick="loadReviews(${data.number + 1}); return false;">다음</a>
-    </li>`;
+    const nextDisabled = data.last ? 'opacity: 0.5; pointer-events: none;' : '';
+    html += `<button class="btn-glass" style="${nextDisabled}" onclick="loadReviews(${data.number + 1}); return false;">
+        다음 <i class="bi bi-chevron-right"></i>
+    </button>`;
 
-    html += '</ul>';
+    html += '</div>';
     $('#pagination-nav').html(html);
 }
 
@@ -343,15 +340,16 @@ function openReviewModal(transactionId, reviewId) {
 
     if (reviewId) {
         // Edit existing review
-        $('#reviewModalTitle').text('거래 복기 수정');
+        $('#reviewModalTitle').html('<i class="bi bi-journal-text"></i> 거래 복기 수정');
         loadReviewData(reviewId);
     } else {
         // Create new review
-        $('#reviewModalTitle').text('거래 복기 작성');
+        $('#reviewModalTitle').html('<i class="bi bi-journal-text"></i> 거래 복기 작성');
         loadTransactionInfo(transactionId);
     }
 
-    reviewsState.reviewModal.show();
+    // Show glassmorphism modal
+    document.getElementById('reviewModal').classList.add('show');
 }
 
 /**
@@ -544,33 +542,35 @@ function generateStarsHtml(rating) {
  */
 function buildReviewCardHtml(review) {
     const isWin = parseFloat(review.realizedPnl || 0) > 0;
-    const pnlClass = isWin ? CSS_CLASSES.SUCCESS : CSS_CLASSES.DANGER;
+    const pnlClass = isWin ? 'text-positive' : 'text-negative';
     const borderClass = isWin ? REVIEW_CARD_CLASSES.WIN : REVIEW_CARD_CLASSES.LOSS;
 
     const starsHtml = generateStarsHtml(review.ratingScore || 0);
     const badgesHtml = buildReviewBadgesHtml(review);
     const lessonsHtml = review.lessonsLearned
-        ? `<div class="mt-2 small text-muted"><i class="bi bi-lightbulb"></i> ${escapeHtml(truncateText(review.lessonsLearned, 50))}</div>`
+        ? `<div style="margin-top: var(--space-3); font-size: var(--font-size-sm); color: var(--text-muted);"><i class="bi bi-lightbulb"></i> ${escapeHtml(truncateText(review.lessonsLearned, 50))}</div>`
         : '';
 
     return `
-        <div class="list-group-item review-card ${borderClass}" onclick="openReviewModal(${review.transactionId}, ${review.id})">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <h6 class="mb-1">${escapeHtml(review.stockName || '-')}</h6>
-                    <small class="text-muted">${escapeHtml(review.stockSymbol || '')} | ${formatDate(review.transactionDate)}</small>
+        <div class="glass-card review-card" style="margin-bottom: var(--space-4); cursor: pointer;" onclick="openReviewModal(${review.transactionId}, ${review.id})">
+            <div class="glass-card-body">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-3);">
+                    <div>
+                        <h4 style="margin-bottom: var(--space-1); font-size: var(--font-size-lg);">${escapeHtml(review.stockName || '-')}</h4>
+                        <small class="text-muted">${escapeHtml(review.stockSymbol || '')} | ${formatDate(review.transactionDate)}</small>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="${pnlClass} font-mono" style="font-size: var(--font-size-xl); font-weight: 600;">${formatCurrency(review.realizedPnl || 0)}</div>
+                        <small class="${pnlClass} font-mono">${formatPercent(review.profitPercent)}</small>
+                    </div>
                 </div>
-                <div class="text-end">
-                    <div class="${pnlClass} fw-bold">${formatCurrency(review.realizedPnl || 0)}</div>
-                    <small class="${pnlClass}">${formatPercent(review.profitPercent)}</small>
+                <div style="margin-bottom: var(--space-3);">${badgesHtml}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>${starsHtml}</div>
+                    <small class="text-muted">${formatDate(review.reviewedAt)}</small>
                 </div>
+                ${lessonsHtml}
             </div>
-            <div class="mt-2">${badgesHtml}</div>
-            <div class="mt-2 d-flex justify-content-between align-items-center">
-                <div>${starsHtml}</div>
-                <small class="text-muted">${formatDate(review.reviewedAt)}</small>
-            </div>
-            ${lessonsHtml}
         </div>
     `;
 }
@@ -584,16 +584,16 @@ function buildReviewBadgesHtml(review) {
     let html = '';
 
     if (review.strategyLabel) {
-        html += `<span class="badge bg-primary me-1">${escapeHtml(review.strategyLabel)}</span>`;
+        html += `<span class="tag-badge" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)); color: var(--text-primary);">${escapeHtml(review.strategyLabel)}</span>`;
     }
     if (review.emotionBeforeLabel) {
-        html += `<span class="badge bg-secondary me-1">${escapeHtml(review.emotionBeforeLabel)}</span>`;
+        html += `<span class="tag-badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-secondary);">${escapeHtml(review.emotionBeforeLabel)}</span>`;
     }
     if (review.followedPlan === true) {
-        html += `<span class="badge ${BADGES.PLAN_FOLLOWED.class}">${BADGES.PLAN_FOLLOWED.text}</span>`;
+        html += `<span class="tag-badge" style="${BADGES.PLAN_FOLLOWED.style}">${BADGES.PLAN_FOLLOWED.text}</span>`;
     }
     if (review.followedPlan === false) {
-        html += `<span class="badge ${BADGES.PLAN_DEVIATED.class}">${BADGES.PLAN_DEVIATED.text}</span>`;
+        html += `<span class="tag-badge" style="${BADGES.PLAN_DEVIATED.style}">${BADGES.PLAN_DEVIATED.text}</span>`;
     }
 
     return html;
@@ -608,12 +608,12 @@ function buildStrategyStatsTable(strategyStats) {
     let tableHtml = '';
     for (const [key, value] of Object.entries(strategyStats)) {
         const winRate = parseFloat(value.winRate);
-        const winRateClass = winRate >= WIN_RATE_THRESHOLD ? CSS_CLASSES.SUCCESS : CSS_CLASSES.DANGER;
+        const winRateClass = winRate >= WIN_RATE_THRESHOLD ? 'text-positive' : 'text-negative';
         tableHtml += `
             <tr>
                 <td>${escapeHtml(value.strategyLabel)}</td>
-                <td class="text-end">${value.count}</td>
-                <td class="text-end ${winRateClass}">${winRate.toFixed(1)}%</td>
+                <td class="text-right">${value.count}</td>
+                <td class="text-right ${winRateClass} font-mono">${winRate.toFixed(1)}%</td>
             </tr>
         `;
     }
@@ -629,12 +629,12 @@ function buildEmotionStatsTable(emotionStats) {
     let tableHtml = '';
     for (const [key, value] of Object.entries(emotionStats)) {
         const winRate = parseFloat(value.winRate);
-        const winRateClass = winRate >= WIN_RATE_THRESHOLD ? CSS_CLASSES.SUCCESS : CSS_CLASSES.DANGER;
+        const winRateClass = winRate >= WIN_RATE_THRESHOLD ? 'text-positive' : 'text-negative';
         tableHtml += `
             <tr>
                 <td>${escapeHtml(value.emotionLabel)}</td>
-                <td class="text-end">${value.count}</td>
-                <td class="text-end ${winRateClass}">${winRate.toFixed(1)}%</td>
+                <td class="text-right">${value.count}</td>
+                <td class="text-right ${winRateClass} font-mono">${winRate.toFixed(1)}%</td>
             </tr>
         `;
     }
@@ -649,14 +649,15 @@ function buildEmotionStatsTable(emotionStats) {
 function buildRecentLessonsHtml(lessons) {
     let html = '';
     lessons.forEach(lesson => {
-        const icon = lesson.win ? 'bi-check-circle text-success' : 'bi-x-circle text-danger';
+        const iconClass = lesson.win ? 'bi-check-circle' : 'bi-x-circle';
+        const iconColor = lesson.win ? 'var(--color-positive)' : 'var(--color-negative)';
         html += `
-            <div class="border-bottom pb-2 mb-2">
-                <div class="d-flex justify-content-between">
+            <div style="border-bottom: 1px solid var(--glass-border); padding-bottom: var(--space-3); margin-bottom: var(--space-3);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2);">
                     <small class="text-muted">${escapeHtml(lesson.stockName)}</small>
-                    <i class="bi ${icon}"></i>
+                    <i class="bi ${iconClass}" style="color: ${iconColor};"></i>
                 </div>
-                <p class="mb-0 small">${escapeHtml(lesson.lessonsLearned)}</p>
+                <p style="margin: 0; font-size: var(--font-size-sm); color: var(--text-secondary);">${escapeHtml(lesson.lessonsLearned)}</p>
             </div>
         `;
     });
@@ -669,10 +670,12 @@ function buildRecentLessonsHtml(lessons) {
  */
 function createEmptyReviewsHtml() {
     return `
-        <div class="text-center py-5 text-muted">
-            <i class="bi bi-journal-x fs-1"></i>
-            <p class="mt-2">아직 작성된 복기가 없습니다.</p>
-            <p class="small">거래 관리에서 매도 거래를 선택하여 복기를 작성해보세요.</p>
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="bi bi-journal-x"></i>
+            </div>
+            <div class="empty-state-title">아직 작성된 복기가 없습니다</div>
+            <div class="empty-state-desc">거래 관리에서 매도 거래를 선택하여 복기를 작성해보세요.</div>
         </div>
     `;
 }

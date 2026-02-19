@@ -4,425 +4,423 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>트레이딩 일지 - Trading Journal</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/dashboard-glass.css">
     <style>
-        body {
-            background-color: #f8f9fa;
-        }
-        .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
-        }
-        .card-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 12px 12px 0 0 !important;
-            font-weight: 600;
-        }
-        .card-header.morning {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        .card-header.evening {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-        .card-header.plan {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        }
-        .card-header.review {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-        }
-        .card-header.summary {
-            background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
-        }
+        /* Journal-specific styles extending glassmorphism */
 
-        /* 날짜 네비게이션 */
+        /* Date Navigation */
         .date-nav {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 20px;
-        }
-        .date-nav .btn {
-            padding: 8px 16px;
+            gap: var(--space-5);
         }
         .current-date {
-            font-size: 1.5rem;
+            font-size: var(--font-size-2xl);
             font-weight: 700;
-            color: #333;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
         }
         .day-of-week {
-            font-size: 1rem;
-            color: #6c757d;
-            margin-left: 8px;
+            font-size: var(--font-size-base);
+            color: var(--text-muted);
+            margin-left: var(--space-2);
         }
 
-        /* 감정 선택 */
+        /* Emotion Selector */
         .emotion-selector {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: var(--space-2);
         }
         .emotion-btn {
-            padding: 8px 16px;
-            border: 2px solid #dee2e6;
-            border-radius: 20px;
-            background: white;
+            padding: var(--space-2) var(--space-4);
+            border: 2px solid var(--glass-border);
+            border-radius: var(--radius-full);
+            background: var(--glass-bg);
+            color: var(--text-primary);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: var(--transition-base);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
         }
         .emotion-btn:hover {
-            border-color: #667eea;
-            background: #f8f9ff;
+            border-color: var(--gradient-start);
+            background: var(--glass-bg-hover);
+            transform: translateY(-2px);
         }
         .emotion-btn.selected {
-            border-color: #667eea;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: var(--gradient-start);
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
             color: white;
+            box-shadow: 0 4px 15px var(--color-accent-glow);
         }
 
-        /* 점수 선택 */
+        /* Score Selector */
         .score-selector {
             display: flex;
-            gap: 8px;
+            gap: var(--space-2);
+            justify-content: center;
         }
         .score-btn {
-            width: 40px;
-            height: 40px;
-            border: 2px solid #dee2e6;
+            width: 45px;
+            height: 45px;
+            border: 2px solid var(--glass-border);
             border-radius: 50%;
-            background: white;
+            background: var(--glass-bg);
+            color: var(--text-primary);
             cursor: pointer;
             font-weight: 700;
-            transition: all 0.2s;
+            font-family: var(--font-mono);
+            transition: var(--transition-base);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .score-btn:hover {
-            border-color: #667eea;
-            background: #f8f9ff;
+            border-color: var(--gradient-start);
+            background: var(--glass-bg-hover);
+            transform: scale(1.1);
         }
         .score-btn.selected {
-            border-color: #667eea;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: var(--gradient-start);
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
             color: white;
+            box-shadow: 0 4px 15px var(--color-accent-glow);
         }
 
-        /* 텍스트영역 */
+        /* Text Area */
         .journal-textarea {
             min-height: 120px;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
             resize: vertical;
         }
-        .journal-textarea:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        }
 
-        /* 거래 요약 */
+        /* Trade Summary */
         .trade-summary {
-            display: flex;
-            justify-content: space-around;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--space-3);
             text-align: center;
         }
         .summary-item {
-            padding: 15px 20px;
+            padding: var(--space-4);
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-md);
         }
         .summary-value {
-            font-size: 1.5rem;
+            font-size: var(--font-size-2xl);
             font-weight: 700;
+            font-family: var(--font-mono);
+            color: var(--text-primary);
         }
         .summary-label {
-            font-size: 0.85rem;
-            color: #6c757d;
-        }
-        .positive { color: #28a745; }
-        .negative { color: #dc3545; }
-
-        /* 캘린더 모달 */
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
-        }
-        .calendar-day {
-            aspect-ratio: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-        .calendar-day:hover {
-            background: #f0f0f0;
-        }
-        .calendar-day.has-journal {
-            background: #e8f5e9;
-            border: 2px solid #4caf50;
-        }
-        .calendar-day.selected {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .calendar-day.today {
-            border: 2px solid #667eea;
-        }
-        .calendar-day.other-month {
-            color: #ccc;
-        }
-        .calendar-header {
-            font-weight: 600;
-            color: #6c757d;
-            font-size: 0.8rem;
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: var(--space-1);
         }
 
-        /* 태그 입력 */
+        /* Tag Input */
         .tag-input-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            padding: 8px;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            background: white;
+            gap: var(--space-2);
+            padding: var(--space-3);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            background: var(--glass-bg);
+            min-height: 45px;
         }
         .tag {
             display: inline-flex;
             align-items: center;
-            padding: 4px 12px;
-            background: #e9ecef;
-            border-radius: 16px;
-            font-size: 0.85rem;
+            padding: var(--space-1) var(--space-3);
+            background: rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-xs);
+            color: var(--text-primary);
         }
         .tag .remove {
-            margin-left: 6px;
+            margin-left: var(--space-2);
             cursor: pointer;
-            color: #6c757d;
+            color: var(--text-secondary);
+            transition: var(--transition-fast);
         }
         .tag .remove:hover {
-            color: #dc3545;
+            color: var(--color-negative);
         }
         .tag-input {
             border: none;
             outline: none;
+            background: transparent;
+            color: var(--text-primary);
             flex: 1;
             min-width: 100px;
+            font-family: var(--font-display);
+        }
+        .tag-input::placeholder {
+            color: var(--text-muted);
         }
 
-        /* 버튼 스타일 */
-        .btn-save {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            color: white;
-            padding: 12px 32px;
-            font-weight: 600;
+        /* Card Header Variants */
+        .card-header-morning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         }
-        .btn-save:hover {
-            background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
-            color: white;
+        .card-header-evening {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         }
-        .btn-delete {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
-            border: none;
-            color: white;
+        .card-header-plan {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .card-header-review {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        .card-header-summary {
+            background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+        }
+        .card-header-lesson {
+            background: linear-gradient(135deg, #f5af19 0%, #f12711 100%);
+        }
+        .card-header-tomorrow {
+            background: linear-gradient(135deg, #00c6fb 0%, #005bea 100%);
         }
 
-        /* 통계 탭 */
-        .stats-card {
-            text-align: center;
-            padding: 20px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        /* Glass Card with Gradient Header */
+        .glass-card-gradient .glass-card-header {
+            color: white;
+            border: none;
         }
+
+        /* Stats Cards */
         .stats-value {
-            font-size: 2rem;
+            font-size: var(--font-size-3xl);
             font-weight: 700;
+            font-family: var(--font-mono);
         }
         .stats-label {
-            font-size: 0.9rem;
-            color: #6c757d;
+            font-size: var(--font-size-sm);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
-        /* 알림 */
-        .toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
+        /* Calendar specific overrides */
+        .calendar-day.has-journal {
+            background: rgba(0, 245, 160, 0.15);
+            border-color: var(--color-positive);
+        }
+        .calendar-day.has-journal::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--color-positive);
+            box-shadow: 0 0 8px var(--color-positive-glow);
+        }
+        .calendar-day.selected {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid)) !important;
+            color: white !important;
+        }
+        .calendar-day.other-month {
+            opacity: 0.3;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .date-nav {
+                flex-direction: column;
+                gap: var(--space-3);
+            }
+            .trade-summary {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid">
+    <!-- Background Orbs -->
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar-glass">
+        <div class="container">
             <a class="navbar-brand" href="index.html">
-                <i class="bi bi-journal-richtext me-2"></i>Trading Journal
+                <div class="logo-icon">
+                    <i class="bi bi-journal-richtext"></i>
+                </div>
+                <span>Trading Journal</span>
             </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="index.html">투자기록</a>
-                <a class="nav-link" href="dashboard.html">대시보드</a>
-                <a class="nav-link" href="statistics.html">통계분석</a>
-                <a class="nav-link active" href="journal.html">일지</a>
-                <a class="nav-link" href="patterns.html">패턴</a>
-                <a class="nav-link" href="backtest.html">백테스트</a>
-                <a class="nav-link" href="risk.html">리스크</a>
-            </div>
+            <ul class="navbar-nav">
+                <li><a class="nav-link" href="index.html">
+                    <i class="bi bi-house-door"></i>투자기록
+                </a></li>
+                <li><a class="nav-link" href="dashboard.html">
+                    <i class="bi bi-speedometer2"></i>대시보드
+                </a></li>
+                <li><a class="nav-link" href="statistics.html">
+                    <i class="bi bi-bar-chart"></i>통계분석
+                </a></li>
+                <li><a class="nav-link active" href="journal.html">
+                    <i class="bi bi-journal-text"></i>일지
+                </a></li>
+                <li><a class="nav-link" href="patterns.html">
+                    <i class="bi bi-grid-3x3-gap"></i>패턴
+                </a></li>
+                <li><a class="nav-link" href="backtest.html">
+                    <i class="bi bi-arrow-repeat"></i>백테스트
+                </a></li>
+                <li><a class="nav-link" href="risk.html">
+                    <i class="bi bi-shield-check"></i>리스크
+                </a></li>
+            </ul>
         </div>
     </nav>
 
-    <div class="container-fluid py-4">
-        <!-- 날짜 네비게이션 -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="date-nav">
-                                <button class="btn btn-outline-secondary" id="prev-day">
-                                    <i class="bi bi-chevron-left"></i> 이전
-                                </button>
-                                <div>
-                                    <span class="current-date" id="current-date">2025-01-18</span>
-                                    <span class="day-of-week" id="day-of-week">(토요일)</span>
-                                </div>
-                                <button class="btn btn-outline-secondary" id="next-day">
-                                    다음 <i class="bi bi-chevron-right"></i>
-                                </button>
-                            </div>
-                            <div>
-                                <button class="btn btn-outline-primary me-2" id="today-btn">
-                                    <i class="bi bi-calendar-check me-1"></i>오늘
-                                </button>
-                                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#calendarModal">
-                                    <i class="bi bi-calendar3 me-1"></i>달력
-                                </button>
-                            </div>
+    <div class="main-container">
+        <!-- Date Navigation -->
+        <div class="glass-card mb-6">
+            <div class="glass-card-body">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-4);">
+                    <div class="date-nav">
+                        <button class="btn-glass" id="prev-day">
+                            <i class="bi bi-chevron-left"></i> 이전
+                        </button>
+                        <div>
+                            <span class="current-date" id="current-date">2025-01-18</span>
+                            <span class="day-of-week" id="day-of-week">(토요일)</span>
                         </div>
+                        <button class="btn-glass" id="next-day">
+                            다음 <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                    <div style="display: flex; gap: var(--space-2);">
+                        <button class="btn-glass primary" id="today-btn">
+                            <i class="bi bi-calendar-check"></i>오늘
+                        </button>
+                        <button class="btn-glass" onclick="openCalendarModal()">
+                            <i class="bi bi-calendar3"></i>달력
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 탭 네비게이션 -->
-        <ul class="nav nav-tabs mb-4" id="journalTabs">
-            <li class="nav-item">
-                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-write">
-                    <i class="bi bi-pencil me-1"></i>일지 작성
-                </button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-stats">
-                    <i class="bi bi-graph-up me-1"></i>일지 통계
-                </button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history">
-                    <i class="bi bi-clock-history me-1"></i>최근 일지
-                </button>
-            </li>
-        </ul>
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('write')">
+                <i class="bi bi-pencil"></i> 일지 작성
+            </button>
+            <button class="tab-btn" onclick="switchTab('stats')">
+                <i class="bi bi-graph-up"></i> 일지 통계
+            </button>
+            <button class="tab-btn" onclick="switchTab('history')">
+                <i class="bi bi-clock-history"></i> 최근 일지
+            </button>
+        </div>
 
         <div class="tab-content">
-            <!-- 일지 작성 탭 -->
-            <div class="tab-pane fade show active" id="tab-write">
-                <div class="row">
-                    <!-- 왼쪽 컬럼 -->
-                    <div class="col-md-8">
-                        <!-- 시장 개요 -->
-                        <div class="card">
-                            <div class="card-header">
-                                <i class="bi bi-graph-up-arrow me-2"></i>시장 개요
+            <!-- Write Tab -->
+            <div class="tab-pane active" id="tab-write">
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-6);">
+                    <!-- Left Column -->
+                    <div>
+                        <!-- Market Overview -->
+                        <div class="glass-card glass-card-gradient mb-6">
+                            <div class="glass-card-header">
+                                <h3><i class="bi bi-graph-up-arrow"></i>시장 개요</h3>
                             </div>
-                            <div class="card-body">
-                                <textarea class="form-control journal-textarea" id="market-overview"
+                            <div class="glass-card-body">
+                                <textarea class="form-input journal-textarea" id="market-overview"
                                     placeholder="오늘의 시장 상황을 기록하세요. (예: 코스피 상승, 미국 선물 강세, 특이사항 등)"></textarea>
                             </div>
                         </div>
 
-                        <!-- 오늘의 거래 계획 -->
-                        <div class="card">
-                            <div class="card-header plan">
-                                <i class="bi bi-list-check me-2"></i>오늘의 거래 계획
+                        <!-- Trading Plan -->
+                        <div class="glass-card glass-card-gradient mb-6">
+                            <div class="glass-card-header card-header-plan">
+                                <h3><i class="bi bi-list-check"></i>오늘의 거래 계획</h3>
                             </div>
-                            <div class="card-body">
-                                <textarea class="form-control journal-textarea" id="trading-plan"
+                            <div class="glass-card-body">
+                                <textarea class="form-input journal-textarea" id="trading-plan"
                                     placeholder="오늘의 거래 계획을 기록하세요. (예: 관심 종목, 진입 조건, 손절/익절 전략 등)"></textarea>
                             </div>
                         </div>
 
-                        <!-- 실행 리뷰 -->
-                        <div class="card">
-                            <div class="card-header review">
-                                <i class="bi bi-check2-square me-2"></i>실행 리뷰
+                        <!-- Execution Review -->
+                        <div class="glass-card glass-card-gradient mb-6">
+                            <div class="glass-card-header card-header-review">
+                                <h3><i class="bi bi-check2-square"></i>실행 리뷰</h3>
                             </div>
-                            <div class="card-body">
-                                <textarea class="form-control journal-textarea" id="execution-review"
+                            <div class="glass-card-body">
+                                <textarea class="form-input journal-textarea" id="execution-review"
                                     placeholder="계획대로 실행했는지 리뷰하세요. (예: 계획 준수 여부, 즉흥적 거래, 감정적 결정 등)"></textarea>
                             </div>
                         </div>
 
-                        <!-- 오늘의 교훈 -->
-                        <div class="card">
-                            <div class="card-header" style="background: linear-gradient(135deg, #f5af19 0%, #f12711 100%);">
-                                <i class="bi bi-lightbulb me-2"></i>오늘의 교훈
+                        <!-- Lessons Learned -->
+                        <div class="glass-card glass-card-gradient mb-6">
+                            <div class="glass-card-header card-header-lesson">
+                                <h3><i class="bi bi-lightbulb"></i>오늘의 교훈</h3>
                             </div>
-                            <div class="card-body">
-                                <textarea class="form-control journal-textarea" id="lessons-learned"
+                            <div class="glass-card-body">
+                                <textarea class="form-input journal-textarea" id="lessons-learned"
                                     placeholder="오늘 거래에서 배운 점을 기록하세요."></textarea>
                             </div>
                         </div>
 
-                        <!-- 내일 계획 -->
-                        <div class="card">
-                            <div class="card-header" style="background: linear-gradient(135deg, #00c6fb 0%, #005bea 100%);">
-                                <i class="bi bi-calendar-plus me-2"></i>내일 계획
+                        <!-- Tomorrow Plan -->
+                        <div class="glass-card glass-card-gradient mb-6">
+                            <div class="glass-card-header card-header-tomorrow">
+                                <h3><i class="bi bi-calendar-plus"></i>내일 계획</h3>
                             </div>
-                            <div class="card-body">
-                                <textarea class="form-control journal-textarea" id="tomorrow-plan"
+                            <div class="glass-card-body">
+                                <textarea class="form-input journal-textarea" id="tomorrow-plan"
                                     placeholder="내일의 거래 계획이나 관심 종목을 미리 기록하세요."></textarea>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 오른쪽 컬럼 -->
-                    <div class="col-md-4">
-                        <!-- 오전 감정 상태 -->
-                        <div class="card">
-                            <div class="card-header morning">
-                                <i class="bi bi-sunrise me-2"></i>오전 감정 상태
+                    <!-- Right Column -->
+                    <div>
+                        <!-- Morning Emotion -->
+                        <div class="glass-card glass-card-gradient mb-6">
+                            <div class="glass-card-header card-header-morning">
+                                <h3><i class="bi bi-sunrise"></i>오전 감정 상태</h3>
                             </div>
-                            <div class="card-body">
+                            <div class="glass-card-body">
                                 <div class="emotion-selector" id="morning-emotion">
-                                    <!-- 동적으로 생성 -->
+                                    <!-- Dynamically generated -->
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 오후 감정 상태 -->
-                        <div class="card">
-                            <div class="card-header evening">
-                                <i class="bi bi-sunset me-2"></i>오후 감정 상태
+                        <!-- Evening Emotion -->
+                        <div class="glass-card glass-card-gradient mb-6">
+                            <div class="glass-card-header card-header-evening">
+                                <h3><i class="bi bi-sunset"></i>오후 감정 상태</h3>
                             </div>
-                            <div class="card-body">
+                            <div class="glass-card-body">
                                 <div class="emotion-selector" id="evening-emotion">
-                                    <!-- 동적으로 생성 -->
+                                    <!-- Dynamically generated -->
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 점수 -->
-                        <div class="card">
-                            <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                                <i class="bi bi-star me-2"></i>오늘의 점수
+                        <!-- Scores -->
+                        <div class="glass-card glass-card-gradient mb-6">
+                            <div class="glass-card-header">
+                                <h3><i class="bi bi-star"></i>오늘의 점수</h3>
                             </div>
-                            <div class="card-body">
-                                <div class="mb-4">
-                                    <label class="form-label fw-bold">집중도</label>
+                            <div class="glass-card-body">
+                                <div class="mb-5">
+                                    <label class="form-label" style="font-weight: 600; margin-bottom: var(--space-3);">집중도</label>
                                     <div class="score-selector" id="focus-score">
                                         <button class="score-btn" data-score="1">1</button>
                                         <button class="score-btn" data-score="2">2</button>
@@ -432,7 +430,7 @@
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="form-label fw-bold">규율 준수</label>
+                                    <label class="form-label" style="font-weight: 600; margin-bottom: var(--space-3);">규율 준수</label>
                                     <div class="score-selector" id="discipline-score">
                                         <button class="score-btn" data-score="1">1</button>
                                         <button class="score-btn" data-score="2">2</button>
@@ -444,25 +442,25 @@
                             </div>
                         </div>
 
-                        <!-- 태그 -->
-                        <div class="card">
-                            <div class="card-header" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);">
-                                <i class="bi bi-tags me-2"></i>태그
+                        <!-- Tags -->
+                        <div class="glass-card glass-card-gradient mb-6">
+                            <div class="glass-card-header card-header-summary">
+                                <h3><i class="bi bi-tags"></i>태그</h3>
                             </div>
-                            <div class="card-body">
+                            <div class="glass-card-body">
                                 <div class="tag-input-container" id="tags-container">
                                     <input type="text" class="tag-input" id="tag-input" placeholder="태그 입력 후 Enter">
                                 </div>
-                                <small class="text-muted mt-2 d-block">Enter를 눌러 태그를 추가하세요</small>
+                                <small class="text-muted" style="display: block; margin-top: var(--space-2);">Enter를 눌러 태그를 추가하세요</small>
                             </div>
                         </div>
 
-                        <!-- 오늘의 거래 요약 -->
-                        <div class="card">
-                            <div class="card-header summary">
-                                <i class="bi bi-clipboard-data me-2"></i>오늘의 거래 요약
+                        <!-- Today's Trade Summary -->
+                        <div class="glass-card glass-card-gradient mb-6">
+                            <div class="glass-card-header card-header-summary">
+                                <h3><i class="bi bi-clipboard-data"></i>오늘의 거래 요약</h3>
                             </div>
-                            <div class="card-body">
+                            <div class="glass-card-body">
                                 <div class="trade-summary">
                                     <div class="summary-item">
                                         <div class="summary-value" id="trade-count">-</div>
@@ -480,96 +478,94 @@
                             </div>
                         </div>
 
-                        <!-- 저장/삭제 버튼 -->
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-save btn-lg" id="save-btn">
-                                <i class="bi bi-check-circle me-2"></i>저장
+                        <!-- Save/Delete Buttons -->
+                        <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                            <button class="btn-glass primary" id="save-btn" style="padding: var(--space-4) var(--space-6); font-size: var(--font-size-base);">
+                                <i class="bi bi-check-circle"></i>저장
                             </button>
-                            <button class="btn btn-outline-danger" id="delete-btn" style="display: none;">
-                                <i class="bi bi-trash me-2"></i>삭제
+                            <button class="btn-glass" id="delete-btn" style="display: none; border-color: var(--color-negative); color: var(--color-negative);">
+                                <i class="bi bi-trash"></i>삭제
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 일지 통계 탭 -->
-            <div class="tab-pane fade" id="tab-stats">
-                <div class="row mb-4">
-                    <div class="col-md-3">
-                        <div class="stats-card">
-                            <div class="stats-value" id="stats-total-journals">-</div>
-                            <div class="stats-label">총 일지 수</div>
+            <!-- Stats Tab -->
+            <div class="tab-pane" id="tab-stats">
+                <div class="stats-grid mb-6">
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-card-label">총 일지 수</span>
+                            <div class="stat-card-icon"><i class="bi bi-journal-text"></i></div>
+                        </div>
+                        <div class="stat-card-value" id="stats-total-journals">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-card-label">평균 집중도</span>
+                            <div class="stat-card-icon"><i class="bi bi-bullseye"></i></div>
+                        </div>
+                        <div class="stat-card-value" id="stats-avg-focus">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-card-label">평균 규율 준수</span>
+                            <div class="stat-card-icon"><i class="bi bi-shield-check"></i></div>
+                        </div>
+                        <div class="stat-card-value" id="stats-avg-discipline">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <span class="stat-card-label">연속 작성일</span>
+                            <div class="stat-card-icon"><i class="bi bi-fire"></i></div>
+                        </div>
+                        <div class="stat-card-value" id="stats-streak">-</div>
+                    </div>
+                </div>
+
+                <div class="two-col-grid mb-6">
+                    <!-- Morning Emotion Distribution -->
+                    <div class="glass-card glass-card-gradient">
+                        <div class="glass-card-header card-header-morning">
+                            <h3><i class="bi bi-emoji-smile"></i>오전 감정 분포</h3>
+                        </div>
+                        <div class="glass-card-body" id="morning-emotion-stats">
+                            <div class="text-center text-muted" style="padding: var(--space-8);">통계 데이터를 불러오는 중...</div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="stats-card">
-                            <div class="stats-value" id="stats-avg-focus">-</div>
-                            <div class="stats-label">평균 집중도</div>
+
+                    <!-- Evening Emotion Distribution -->
+                    <div class="glass-card glass-card-gradient">
+                        <div class="glass-card-header card-header-evening">
+                            <h3><i class="bi bi-emoji-smile"></i>오후 감정 분포</h3>
                         </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stats-card">
-                            <div class="stats-value" id="stats-avg-discipline">-</div>
-                            <div class="stats-label">평균 규율 준수</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stats-card">
-                            <div class="stats-value" id="stats-streak">-</div>
-                            <div class="stats-label">연속 작성일</div>
+                        <div class="glass-card-body" id="evening-emotion-stats">
+                            <div class="text-center text-muted" style="padding: var(--space-8);">통계 데이터를 불러오는 중...</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="row">
-                    <!-- 감정 분포 -->
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header morning">
-                                <i class="bi bi-emoji-smile me-2"></i>오전 감정 분포
-                            </div>
-                            <div class="card-body" id="morning-emotion-stats">
-                                <div class="text-center text-muted py-4">통계 데이터를 불러오는 중...</div>
-                            </div>
-                        </div>
+                <!-- Recent Lessons -->
+                <div class="glass-card glass-card-gradient">
+                    <div class="glass-card-header card-header-lesson">
+                        <h3><i class="bi bi-lightbulb"></i>최근 교훈</h3>
                     </div>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header evening">
-                                <i class="bi bi-emoji-smile me-2"></i>오후 감정 분포
-                            </div>
-                            <div class="card-body" id="evening-emotion-stats">
-                                <div class="text-center text-muted py-4">통계 데이터를 불러오는 중...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <!-- 최근 교훈 -->
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header" style="background: linear-gradient(135deg, #f5af19 0%, #f12711 100%);">
-                                <i class="bi bi-lightbulb me-2"></i>최근 교훈
-                            </div>
-                            <div class="card-body" id="recent-lessons">
-                                <div class="text-center text-muted py-4">데이터를 불러오는 중...</div>
-                            </div>
-                        </div>
+                    <div class="glass-card-body" id="recent-lessons">
+                        <div class="text-center text-muted" style="padding: var(--space-8);">데이터를 불러오는 중...</div>
                     </div>
                 </div>
             </div>
 
-            <!-- 최근 일지 탭 -->
-            <div class="tab-pane fade" id="tab-history">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-clock-history me-2"></i>최근 30일 일지
+            <!-- History Tab -->
+            <div class="tab-pane" id="tab-history">
+                <div class="glass-card">
+                    <div class="glass-card-header">
+                        <h3><i class="bi bi-clock-history"></i>최근 30일 일지</h3>
                     </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
+                    <div class="glass-card-body">
+                        <div style="overflow-x: auto;">
+                            <table class="glass-table">
                                 <thead>
                                     <tr>
                                         <th>날짜</th>
@@ -584,7 +580,7 @@
                                 </thead>
                                 <tbody id="journal-history">
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted py-4">데이터를 불러오는 중...</td>
+                                        <td colspan="8" class="text-center text-muted" style="padding: var(--space-8);">데이터를 불러오는 중...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -595,58 +591,74 @@
         </div>
     </div>
 
-    <!-- 달력 모달 -->
-    <div class="modal fade" id="calendarModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-calendar3 me-2"></i>날짜 선택
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- Calendar Modal -->
+    <div class="modal-glass" id="calendarModal">
+        <div class="modal-glass-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="bi bi-calendar3"></i>날짜 선택</h3>
+                <button class="modal-close" onclick="closeCalendarModal()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+                    <button class="btn-glass" id="cal-prev-month">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span style="font-weight: 600; font-size: var(--font-size-lg);" id="cal-month-year">2025년 1월</span>
+                    <button class="btn-glass" id="cal-next-month">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
                 </div>
-                <div class="modal-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <button class="btn btn-outline-secondary btn-sm" id="cal-prev-month">
-                            <i class="bi bi-chevron-left"></i>
-                        </button>
-                        <span class="fw-bold" id="cal-month-year">2025년 1월</span>
-                        <button class="btn btn-outline-secondary btn-sm" id="cal-next-month">
-                            <i class="bi bi-chevron-right"></i>
-                        </button>
-                    </div>
-                    <div class="calendar-grid mb-2">
-                        <div class="calendar-header">일</div>
-                        <div class="calendar-header">월</div>
-                        <div class="calendar-header">화</div>
-                        <div class="calendar-header">수</div>
-                        <div class="calendar-header">목</div>
-                        <div class="calendar-header">금</div>
-                        <div class="calendar-header">토</div>
-                    </div>
-                    <div class="calendar-grid" id="calendar-days">
-                        <!-- 동적으로 생성 -->
-                    </div>
+                <div class="calendar-grid" style="margin-bottom: var(--space-3);">
+                    <div style="text-align: center; font-weight: 600; color: var(--text-muted); font-size: var(--font-size-xs); padding: var(--space-2);">일</div>
+                    <div style="text-align: center; font-weight: 600; color: var(--text-muted); font-size: var(--font-size-xs); padding: var(--space-2);">월</div>
+                    <div style="text-align: center; font-weight: 600; color: var(--text-muted); font-size: var(--font-size-xs); padding: var(--space-2);">화</div>
+                    <div style="text-align: center; font-weight: 600; color: var(--text-muted); font-size: var(--font-size-xs); padding: var(--space-2);">수</div>
+                    <div style="text-align: center; font-weight: 600; color: var(--text-muted); font-size: var(--font-size-xs); padding: var(--space-2);">목</div>
+                    <div style="text-align: center; font-weight: 600; color: var(--text-muted); font-size: var(--font-size-xs); padding: var(--space-2);">금</div>
+                    <div style="text-align: center; font-weight: 600; color: var(--text-muted); font-size: var(--font-size-xs); padding: var(--space-2);">토</div>
+                </div>
+                <div class="calendar-grid" id="calendar-days">
+                    <!-- Dynamically generated -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Toast -->
-    <div class="toast-container">
-        <div class="toast" id="notification-toast" role="alert">
-            <div class="toast-header">
-                <i class="bi bi-bell me-2"></i>
-                <strong class="me-auto">알림</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
-            </div>
-            <div class="toast-body" id="toast-message"></div>
-        </div>
-    </div>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="js/dashboard-glass.js"></script>
     <script src="auth.js"></script>
+    <script>
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+
+            event.target.closest('.tab-btn').classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        // Calendar modal functions
+        function openCalendarModal() {
+            document.getElementById('calendarModal').classList.add('show');
+        }
+
+        function closeCalendarModal() {
+            document.getElementById('calendarModal').classList.remove('show');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('calendarModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCalendarModal();
+            }
+        });
+    </script>
     <script src="journal.js"></script>
 </body>
 </html>
