@@ -482,18 +482,18 @@ function initializeEventHandlers() {
         $(this).addClass('selected');
     });
 
-    // 히스토리 모달 열릴 때 로드
-    $('#historyModal').on('show.bs.modal', function() {
+    // 히스토리 모달 열기 시 로드
+    $(document).on('click', 'button[onclick="openModal(\'historyModal\')"]', function() {
         loadHistory();
     });
 
-    // 최적화 모달이 열릴 때 파라미터 범위 입력 UI 생성
-    $('#optimizeModal').on('show.bs.modal', function() {
+    // 최적화 모달 열기 시 파라미터 범위 입력 UI 생성
+    $(document).on('click', 'button[onclick="openModal(\'optimizeModal\')"]', function() {
         renderParamRangeInputs();
     });
 
-    // 템플릿 관리 모달이 열릴 때
-    $('#templateModal').on('show.bs.modal', function() {
+    // 템플릿 관리 모달 열기 시 테이블 갱신
+    $(document).on('click', 'button[onclick="openModal(\'templateModal\')"]', function() {
         loadTemplateTable();
     });
 }
@@ -827,7 +827,7 @@ function loadResult(id) {
         success: function(data) {
             backtestState.currentResult = data;
             displayResult(data);
-            bootstrap.Modal.getInstance(document.getElementById('historyModal')).hide();
+            closeModal('historyModal');
         }
     });
 }
@@ -962,7 +962,7 @@ function runOptimization() {
     var request = collectOptimizationRequest(ranges);
 
     // 모달 닫기
-    bootstrap.Modal.getInstance(document.getElementById('optimizeModal')).hide();
+    closeModal('optimizeModal');
 
     showLoading('파라미터 최적화 중...');
 
@@ -977,8 +977,7 @@ function runOptimization() {
             hideLoading();
 
             // 결과 모달 표시
-            var resultModal = new bootstrap.Modal(document.getElementById('optimizeResultModal'));
-            resultModal.show();
+            openModal('optimizeResultModal');
         },
         error: function(xhr) {
             console.error('최적화 실패:', xhr);
@@ -1068,7 +1067,7 @@ function applyBestParams() {
     }
 
     // 결과 모달 닫기
-    bootstrap.Modal.getInstance(document.getElementById('optimizeResultModal')).hide();
+    closeModal('optimizeResultModal');
 
     // 최적 결과로 메인 결과 패널 업데이트
     if (backtestState.optimizationResult.bestResult) {
@@ -1196,8 +1195,7 @@ function saveCurrentAsTemplate() {
     $('#colorPicker .color-btn[data-color="primary"]').addClass('selected');
 
     // 모달 표시
-    var modal = new bootstrap.Modal(document.getElementById('saveTemplateModal'));
-    modal.show();
+    openModal('saveTemplateModal');
 }
 
 /**
@@ -1219,7 +1217,7 @@ function confirmSaveTemplate() {
         contentType: 'application/json',
         data: JSON.stringify(request),
         success: function(data) {
-            bootstrap.Modal.getInstance(document.getElementById('saveTemplateModal')).hide();
+            closeModal('saveTemplateModal');
             loadTemplates();
             alert('템플릿이 저장되었습니다.');
         },
@@ -1310,11 +1308,10 @@ function editTemplate(id) {
             }
 
             // 템플릿 관리 모달 닫기
-            bootstrap.Modal.getInstance(document.getElementById('templateModal')).hide();
+            closeModal('templateModal');
 
             // 수정 모달 표시
-            var modal = new bootstrap.Modal(document.getElementById('editTemplateModal'));
-            modal.show();
+            openModal('editTemplateModal');
         },
         error: function(xhr) {
             console.error('템플릿 로드 실패:', xhr);
@@ -1361,12 +1358,11 @@ function confirmEditTemplate() {
                 contentType: 'application/json',
                 data: JSON.stringify(request),
                 success: function(data) {
-                    bootstrap.Modal.getInstance(document.getElementById('editTemplateModal')).hide();
+                    closeModal('editTemplateModal');
                     loadTemplates();
 
                     // 관리 모달 다시 열기
-                    var modal = new bootstrap.Modal(document.getElementById('templateModal'));
-                    modal.show();
+                    openModal('templateModal');
                     loadTemplateTable();
                 },
                 error: function(xhr) {

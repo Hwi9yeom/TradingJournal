@@ -230,7 +230,7 @@ function setupEventHandlers() {
         calculatePositionSize();
     });
 
-    $('#settingsModal').on('show.bs.modal', function() {
+    $(document).on('click', 'button[onclick="openGlassModal(\'settingsModal\')"]', function() {
         populateSettingsForm();
     });
 }
@@ -720,7 +720,7 @@ function saveSettings() {
         data: JSON.stringify(settings),
         success: function(data) {
             state.riskSettings = data;
-            $('#settingsModal').modal('hide');
+            closeGlassModal('settingsModal');
             loadDashboard();
             alert('설정이 저장되었습니다.');
         },

@@ -744,7 +744,7 @@ function savePlan() {
         data: JSON.stringify(planData),
         success: function(result) {
             LoadingOverlay.hide();
-            $('#planModal').modal('hide');
+            closeModal('planModal');
             loadPlans();
             loadStatistics();
             ToastNotification.success(isEdit ? '플랜이 수정되었습니다.' : '새 플랜이 생성되었습니다.');
@@ -785,7 +785,7 @@ function confirmExecutePlan() {
         data: JSON.stringify(executeData),
         success: function(result) {
             LoadingOverlay.hide();
-            $('#executeModal').modal('hide');
+            closeModal('executeModal');
             loadPlans();
             loadStatistics();
             ToastNotification.success('플랜이 실행되었습니다. 거래가 생성되었습니다.');
@@ -881,16 +881,17 @@ function showPlanDetailModal(plan) {
     const rrRatio = calculateRRRatio(plan);
 
     const modalHtml = `
-        <div class="modal fade" id="planDetailModal" tabindex="-1">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">
-                            <i class="bi bi-journal-text me-2"></i>${escapeHtml(plan.symbol)} 플랜 상세
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
+        <div class="modal-glass" id="planDetailModal">
+            <div class="modal-glass-content" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h3>
+                        <i class="bi bi-journal-text"></i> ${escapeHtml(plan.symbol)} 플랜 상세
+                    </h3>
+                    <button type="button" class="modal-close" onclick="closePlanDetailModal()">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
                         ${renderDetailStatusRow(statusConfig, plan.strategy)}
                         ${renderDetailPriceRow(plan)}
                         ${renderDetailQuantityRow(plan.plannedQuantity, rrRatio)}
@@ -899,26 +900,42 @@ function showPlanDetailModal(plan) {
                         ${renderDetailTextSection('시장 분석', plan.marketAnalysis)}
                         ${renderDetailTextSection('메모', plan.notes)}
                         ${renderDetailTimestamps(plan.createdAt, plan.updatedAt)}
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
-                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-glass" onclick="closePlanDetailModal()">닫기</button>
                 </div>
             </div>
         </div>
     `;
 
-    // 기존 모달 제거
     $('#planDetailModal').remove();
-
-    // 새 모달 추가 및 표시
     $('body').append(modalHtml);
-    $('#planDetailModal').modal('show');
 
-    // 모달 닫힐 때 DOM에서 제거
-    $('#planDetailModal').on('hidden.bs.modal', function() {
-        $(this).remove();
+    const modalElement = document.getElementById('planDetailModal');
+    modalElement.addEventListener('click', function(e) {
+        if (e.target === modalElement) {
+            closePlanDetailModal();
+        }
     });
+
+    openModal('planDetailModal');
+}
+
+/**
+ * Close dynamically generated plan detail modal
+ */
+function closePlanDetailModal() {
+    const modal = document.getElementById('planDetailModal');
+    if (!modal) {
+        return;
+    }
+
+    closeModal('planDetailModal');
+    setTimeout(() => {
+        if (modal.parentNode) {
+            modal.remove();
+        }
+    }, 300);
 }
 
 /**

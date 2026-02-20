@@ -335,12 +335,12 @@
                     document.body.removeChild(link);
 
                     closeGlassModal('loadingModal');
-                    showToast('파일이 다운로드되었습니다.', 'success');
+                    showGlassToast('파일이 다운로드되었습니다.', 'success');
                 })
                 .catch(error => {
                     console.error('다운로드 오류:', error);
                     closeGlassModal('loadingModal');
-                    showToast('다운로드에 실패했습니다.', 'error');
+                    showGlassToast('다운로드에 실패했습니다.', 'error');
                 });
         }
 
@@ -361,7 +361,7 @@
             return `${names[type] || type}_${date}.${extension}`;
         }
 
-        // showToast function is provided by glass-utils.js
+        // showGlassToast function is provided by glass-utils.js
     </script>
 </body>
 </html>

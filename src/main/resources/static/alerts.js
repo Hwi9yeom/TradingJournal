@@ -384,7 +384,7 @@ function showAlertDetail(id) {
                 markAsRead(id, false);
             }
 
-            $('#alertDetailModal').modal('show');
+            document.getElementById('alertDetailModal').classList.add('show');
         },
         error: function(xhr) {
             console.error('상세 조회 실패:', xhr);
@@ -527,7 +527,7 @@ function dismissAlert(id) {
         url: `/api/alerts/${id}/dismiss`,
         method: 'PATCH',
         success: function() {
-            $('#alertDetailModal').modal('hide');
+            document.getElementById('alertDetailModal').classList.remove('show');
             loadAlerts(alertState.page);
             loadAlertSummary();
             ToastNotification.info('알림이 무시되었습니다.');
@@ -549,7 +549,7 @@ function deleteAlert(id) {
         url: `/api/alerts/${id}`,
         method: 'DELETE',
         success: function() {
-            $('#alertDetailModal').modal('hide');
+            document.getElementById('alertDetailModal').classList.remove('show');
             loadAlerts(alertState.page);
             loadAlertSummary();
             ToastNotification.success('알림이 삭제되었습니다.');

@@ -467,7 +467,7 @@ function saveReview() {
         contentType: 'application/json',
         data: JSON.stringify(data),
         success: function() {
-            reviewsState.reviewModal.hide();
+            document.getElementById('reviewModal').classList.remove('show');
             loadReviews(reviewsState.currentPage);
             loadStatistics();
             ToastNotification.success(reviewId ? '복기가 수정되었습니다.' : '복기가 저장되었습니다.');

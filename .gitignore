@@ -45,6 +45,11 @@ TECH_STACK_COMPARISON.md
 ### Logs ###
 logs/
 
+### Local Database ###
+data/*.mv.db
+data/*.trace.db
+data/*.lock.db
+
 ### Secrets & Local Config ###
 application-local.properties
 **/application-local.properties

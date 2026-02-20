@@ -646,6 +646,10 @@
         // Calendar modal functions
         function openCalendarModal() {
             document.getElementById('calendarModal').classList.add('show');
+            if (typeof journalState !== 'undefined' && typeof renderCalendar === 'function') {
+                journalState.calendarDate = new Date(journalState.currentDate);
+                renderCalendar();
+            }
         }
 
         function closeCalendarModal() {

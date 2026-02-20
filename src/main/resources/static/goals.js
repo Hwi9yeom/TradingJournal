@@ -469,6 +469,7 @@ function openCreateModal() {
     $('#goalId').val('');
     $('#startDate').val(new Date().toISOString().split('T')[0]);
     updateTargetPlaceholder();
+    document.getElementById('goalModal').classList.add('show');
 }
 
 /**
@@ -518,7 +519,7 @@ function saveGoal() {
         contentType: 'application/json',
         data: JSON.stringify(goalData),
         success: function(result) {
-            $('#goalModal').modal('hide');
+            document.getElementById('goalModal').classList.remove('show');
             loadGoals();
             loadGoalSummary();
             showToast(isEdit ? '목표가 수정되었습니다.' : '새 목표가 생성되었습니다.', 'success');
@@ -551,7 +552,7 @@ function openEditModal(goal) {
     $('#notificationEnabled').prop('checked', goal.notificationEnabled !== false);
     $('#goalNotes').val(goal.notes || '');
 
-    $('#goalModal').modal('show');
+    document.getElementById('goalModal').classList.add('show');
 }
 
 // =============================================================================
@@ -569,7 +570,7 @@ function showGoalDetail(id) {
         success: function(goal) {
             currentGoalId = goal.id;
             renderGoalDetail(goal);
-            $('#goalDetailModal').modal('show');
+            document.getElementById('goalDetailModal').classList.add('show');
         },
         error: function(xhr) {
             console.error('상세 조회 실패:', xhr);
@@ -702,7 +703,7 @@ function setupDetailButtons(goal) {
         .toggle(!isFinalized);
 
     $('#btnEditGoal').off('click').on('click', function() {
-        $('#goalDetailModal').modal('hide');
+        document.getElementById('goalDetailModal').classList.remove('show');
         openEditModal(goal);
     });
 }
@@ -720,7 +721,7 @@ function deleteGoal(id) {
         url: `/api/goals/${id}`,
         method: 'DELETE',
         success: function() {
-            $('#goalDetailModal').modal('hide');
+            document.getElementById('goalDetailModal').classList.remove('show');
             loadGoals();
             loadGoalSummary();
             showToast('목표가 삭제되었습니다.', 'success');
@@ -742,7 +743,7 @@ function updateGoalStatus(id, status) {
         url: `/api/goals/${id}/status?status=${status}`,
         method: 'PATCH',
         success: function() {
-            $('#goalDetailModal').modal('hide');
+            document.getElementById('goalDetailModal').classList.remove('show');
             loadGoals();
             loadGoalSummary();
             showToast('목표 상태가 변경되었습니다.', 'success');
@@ -755,27 +756,22 @@ function updateGoalStatus(id, status) {
 }
 
 /**
- * Show a Bootstrap toast notification.
+ * Show a toast notification.
  * @param {string} message - Message to display
- * @param {string} type - Bootstrap color type (success, danger, warning, info)
+ * @param {string} type - Toast type (success, danger, warning, info)
  */
 function showToast(message, type) {
-    const toastHtml = `
-        <div class="toast align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3" role="alert">
-            <div class="d-flex">
-                <div class="toast-body">${message}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        </div>
-    `;
+    const mappedType = type === 'danger' ? 'error' : type;
 
-    const toast = $(toastHtml);
-    $('body').append(toast);
+    if (typeof ToastNotification !== 'undefined') {
+        ToastNotification.show(message, mappedType);
+        return;
+    }
 
-    const bsToast = new bootstrap.Toast(toast[0], { delay: 3000 });
-    bsToast.show();
+    if (typeof showGlassToast === 'function') {
+        showGlassToast(message, mappedType);
+        return;
+    }
 
-    toast.on('hidden.bs.toast', function() {
-        $(this).remove();
-    });
+    alert(message);
 }

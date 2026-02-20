@@ -169,20 +169,18 @@ function initEventListeners() {
     $('#cal-prev-month').click(() => changeCalendarMonth(-1));
     $('#cal-next-month').click(() => changeCalendarMonth(1));
 
-    // 탭 변경
-    $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
-        const target = $(e.target).attr('data-bs-target');
-        if (target === '#tab-stats') {
-            loadStatistics();
-        } else if (target === '#tab-history') {
-            loadHistory();
-        }
-    });
+    // 탭 변경 (glass tab UI)
+    $(document).on('click', '.tab-btn', function() {
+        setTimeout(() => {
+            const activePane = document.querySelector('.tab-pane.active');
+            if (!activePane) return;
 
-    // 달력 모달 열릴 때
-    $('#calendarModal').on('show.bs.modal', function() {
-        journalState.calendarDate = new Date(journalState.currentDate);
-        renderCalendar();
+            if (activePane.id === 'tab-stats') {
+                loadStatistics();
+            } else if (activePane.id === 'tab-history') {
+                loadHistory();
+            }
+        }, 0);
     });
 }
 
@@ -242,10 +240,16 @@ function goToDate(dateStr) {
     loadJournalForDate(journalState.currentDate);
 
     // 탭 변경
-    $('button[data-bs-target="#tab-write"]').tab('show');
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    if (tabButtons.length > 0) {
+        tabButtons[0].classList.add('active');
+    }
+    document.getElementById('tab-write')?.classList.add('active');
 
     // 모달 닫기
-    $('#calendarModal').modal('hide');
+    document.getElementById('calendarModal')?.classList.remove('show');
 }
 
 // ============================================================================
@@ -795,23 +799,40 @@ function formatJournalCurrency(value) {
 /**
  * 토스트 메시지를 표시합니다.
  * @param {string} message - 표시할 메시지
- * @param {('success'|'error')} type - 메시지 타입
+ * @param {('success'|'error'|'warning'|'info')} type - 메시지 타입
  * @returns {void}
  */
 function showToast(message, type) {
-    const toast = $('#notification-toast');
-    const toastBody = $('#toast-message');
-
-    toastBody.text(message);
-
-    if (type === 'success') {
-        toast.removeClass('bg-danger').addClass('bg-success text-white');
-    } else if (type === 'error') {
-        toast.removeClass('bg-success').addClass('bg-danger text-white');
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
     }
 
-    const bsToast = new bootstrap.Toast(toast[0]);
-    bsToast.show();
+    const typeClass = type === 'error' ? 'error' : type;
+    const iconMap = {
+        success: 'bi-check-circle-fill',
+        error: 'bi-x-circle-fill',
+        warning: 'bi-exclamation-triangle-fill',
+        info: 'bi-info-circle-fill'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `toast-glass ${typeClass}`;
+    toast.innerHTML = `
+        <i class="bi ${iconMap[typeClass] || iconMap.info}"></i>
+        <span>${escapeHtml(message)}</span>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 /**
