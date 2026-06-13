@@ -66,6 +66,38 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("SELECT t FROM Transaction t WHERE t.account IS NULL")
     List<Transaction> findByAccountIsNull();
 
+    // ===== 유저 스코프 쿼리 (목록 조회 접근제어) =====
+
+    @Query(
+            "SELECT t FROM Transaction t LEFT JOIN FETCH t.stock LEFT JOIN FETCH t.account "
+                    + "WHERE (t.account IS NULL OR t.account.userId = :userId) "
+                    + "ORDER BY t.transactionDate DESC")
+    Page<Transaction> findByUserId(@Param("userId") Long userId, Pageable pageable);
+
+    @Query(
+            "SELECT t FROM Transaction t LEFT JOIN FETCH t.stock LEFT JOIN FETCH t.account "
+                    + "WHERE (t.account IS NULL OR t.account.userId = :userId) "
+                    + "ORDER BY t.transactionDate DESC")
+    List<Transaction> findAllWithStockByUserId(@Param("userId") Long userId);
+
+    @Query(
+            "SELECT t FROM Transaction t JOIN FETCH t.stock LEFT JOIN FETCH t.account "
+                    + "WHERE t.stock.symbol = :symbol "
+                    + "AND (t.account IS NULL OR t.account.userId = :userId) "
+                    + "ORDER BY t.transactionDate DESC")
+    List<Transaction> findBySymbolWithStockAndUserId(
+            @Param("symbol") String symbol, @Param("userId") Long userId);
+
+    @Query(
+            "SELECT t FROM Transaction t JOIN FETCH t.stock LEFT JOIN FETCH t.account "
+                    + "WHERE t.transactionDate BETWEEN :startDate AND :endDate "
+                    + "AND (t.account IS NULL OR t.account.userId = :userId) "
+                    + "ORDER BY t.transactionDate DESC")
+    List<Transaction> findByDateRangeAndUserId(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("userId") Long userId);
+
     // ===== FIFO 계산용 쿼리 =====
 
     /** FIFO용: 잔여 수량이 있는 매수 거래 조회 (날짜 오름차순) 매도 날짜 이전의 매수 거래만 조회 */
