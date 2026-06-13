@@ -43,7 +43,7 @@ public class RedisConfig {
     private static final String CACHE_BACKTEST_COMPARISON = "backtest_comparison";
     private static final String CACHE_BACKTEST_RESULT = "backtest_result";
     private static final String CACHE_TRADING_STATS = "tradingStats";
-    private static final String CACHE_GOALS = "goals";
+    private static final String CACHE_GOALS = "goalSummary";
     private static final String CACHE_TRADING_PSYCHOLOGY = "tradingPsychology";
     private static final String CACHE_TILT_STATUS = "tiltStatus";
     private static final String CACHE_PSYCHOLOGICAL_SCORE = "psychologicalScore";

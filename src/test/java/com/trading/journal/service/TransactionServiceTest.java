@@ -29,6 +29,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class TransactionServiceTest {
@@ -195,7 +199,7 @@ class TransactionServiceTest {
     void getAllTransactions() {
         // Given
         List<Transaction> transactions = Arrays.asList(mockTransaction);
-        when(transactionRepository.findAllWithStock()).thenReturn(transactions);
+        when(transactionRepository.findAllWithStockByUserId(100L)).thenReturn(transactions);
 
         // When
         List<TransactionDto> result = transactionService.getAllTransactions();
@@ -203,7 +207,7 @@ class TransactionServiceTest {
         // Then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStockSymbol()).isEqualTo("AAPL");
-        verify(transactionRepository).findAllWithStock();
+        verify(transactionRepository).findAllWithStockByUserId(100L);
     }
 
     @Test
@@ -211,7 +215,8 @@ class TransactionServiceTest {
     void getTransactionsBySymbol() {
         // Given
         List<Transaction> transactions = Arrays.asList(mockTransaction);
-        when(transactionRepository.findBySymbolWithStock("AAPL")).thenReturn(transactions);
+        when(transactionRepository.findBySymbolWithStockAndUserId("AAPL", 100L))
+                .thenReturn(transactions);
 
         // When
         List<TransactionDto> result = transactionService.getTransactionsBySymbol("AAPL");
@@ -219,7 +224,7 @@ class TransactionServiceTest {
         // Then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStockSymbol()).isEqualTo("AAPL");
-        verify(transactionRepository).findBySymbolWithStock("AAPL");
+        verify(transactionRepository).findBySymbolWithStockAndUserId("AAPL", 100L);
     }
 
     @Test
@@ -305,7 +310,8 @@ class TransactionServiceTest {
         LocalDateTime startDate = LocalDateTime.now().minusDays(7);
         LocalDateTime endDate = LocalDateTime.now();
         List<Transaction> transactions = Arrays.asList(mockTransaction);
-        when(transactionRepository.findByDateRange(startDate, endDate)).thenReturn(transactions);
+        when(transactionRepository.findByDateRangeAndUserId(startDate, endDate, 100L))
+                .thenReturn(transactions);
 
         // When
         List<TransactionDto> result =
@@ -314,7 +320,7 @@ class TransactionServiceTest {
         // Then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStockSymbol()).isEqualTo("AAPL");
-        verify(transactionRepository).findByDateRange(startDate, endDate);
+        verify(transactionRepository).findByDateRangeAndUserId(startDate, endDate, 100L);
     }
 
     @Test
@@ -322,6 +328,7 @@ class TransactionServiceTest {
     void getTransactionsByAccount() {
         // Given
         List<Transaction> transactions = Arrays.asList(mockTransaction);
+        when(accountService.getAccountEntity(1L)).thenReturn(mockAccount);
         when(transactionRepository.findByAccountIdWithStock(1L)).thenReturn(transactions);
 
         // When
@@ -332,5 +339,79 @@ class TransactionServiceTest {
         assertThat(result.get(0).getStockSymbol()).isEqualTo("AAPL");
         assertThat(result.get(0).getAccountId()).isEqualTo(1L);
         verify(transactionRepository).findByAccountIdWithStock(1L);
+    }
+
+    @Test
+    @DisplayName("getAllTransactions(리스트)는 현재 유저 ID로 스코프 쿼리를 호출한다")
+    void getAllTransactionsList_scopesToCurrentUser() {
+        when(transactionRepository.findAllWithStockByUserId(100L))
+                .thenReturn(List.of(mockTransaction));
+
+        List<TransactionDto> result = transactionService.getAllTransactions();
+
+        assertThat(result).hasSize(1);
+        verify(transactionRepository).findAllWithStockByUserId(100L);
+        verify(transactionRepository, never()).findAllWithStock();
+    }
+
+    @Test
+    @DisplayName("getAllTransactions(페이징)는 현재 유저 ID로 스코프 쿼리를 호출한다")
+    void getAllTransactionsPaged_scopesToCurrentUser() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(transactionRepository.findByUserId(100L, pageable))
+                .thenReturn(new PageImpl<>(List.of(mockTransaction)));
+
+        Page<TransactionDto> result = transactionService.getAllTransactions(pageable);
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        verify(transactionRepository).findByUserId(100L, pageable);
+    }
+
+    @Test
+    @DisplayName("getTransactionsBySymbol은 현재 유저 ID로 스코프 쿼리를 호출한다")
+    void getTransactionsBySymbol_scopesToCurrentUser() {
+        when(transactionRepository.findBySymbolWithStockAndUserId("AAPL", 100L))
+                .thenReturn(List.of(mockTransaction));
+
+        List<TransactionDto> result = transactionService.getTransactionsBySymbol("AAPL");
+
+        assertThat(result).hasSize(1);
+        verify(transactionRepository).findBySymbolWithStockAndUserId("AAPL", 100L);
+    }
+
+    @Test
+    @DisplayName("getTransactionsByDateRange은 현재 유저 ID로 스코프 쿼리를 호출한다")
+    void getTransactionsByDateRange_scopesToCurrentUser() {
+        LocalDateTime start = LocalDateTime.now().minusDays(7);
+        LocalDateTime end = LocalDateTime.now();
+        when(transactionRepository.findByDateRangeAndUserId(start, end, 100L))
+                .thenReturn(List.of(mockTransaction));
+
+        List<TransactionDto> result = transactionService.getTransactionsByDateRange(start, end);
+
+        assertThat(result).hasSize(1);
+        verify(transactionRepository).findByDateRangeAndUserId(start, end, 100L);
+    }
+
+    @Test
+    @DisplayName("미인증 상태에서 목록 조회 시 UnauthorizedAccessException")
+    void getAllTransactionsList_unauthenticated_throws() {
+        when(securityContextService.getCurrentUserId()).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> transactionService.getAllTransactions())
+                .isInstanceOf(com.trading.journal.exception.UnauthorizedAccessException.class);
+    }
+
+    @Test
+    @DisplayName("getTransactionsByAccount은 계좌 소유권을 검증한다")
+    void getTransactionsByAccount_validatesOwnership() {
+        when(accountService.getAccountEntity(1L)).thenReturn(mockAccount);
+        when(transactionRepository.findByAccountIdWithStock(1L))
+                .thenReturn(List.of(mockTransaction));
+
+        List<TransactionDto> result = transactionService.getTransactionsByAccount(1L);
+
+        assertThat(result).hasSize(1);
+        verify(accountService).getAccountEntity(1L);
     }
 }

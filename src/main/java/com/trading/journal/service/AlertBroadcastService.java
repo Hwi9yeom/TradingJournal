@@ -31,7 +31,7 @@ public class AlertBroadcastService {
             Map<String, Object> message = createPriceAlertMessage(alert);
             String json = objectMapper.writeValueAsString(message);
 
-            sessionRegistry.broadcast(json);
+            sessionRegistry.sendToUser(alert.getUserId(), json);
 
             log.info(
                     "Price alert broadcast - Symbol: {}, Type: {}, Price: {}",

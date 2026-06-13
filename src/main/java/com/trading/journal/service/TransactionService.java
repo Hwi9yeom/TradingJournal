@@ -96,23 +96,27 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public Page<TransactionDto> getAllTransactions(Pageable pageable) {
-        return transactionRepository.findAll(pageable).map(this::convertToDto);
+        Long userId = requireCurrentUserId();
+        return transactionRepository.findByUserId(userId, pageable).map(this::convertToDto);
     }
 
     @Transactional(readOnly = true)
     public List<TransactionDto> getAllTransactions() {
-        return transactionRepository.findAllWithStock().stream()
+        Long userId = requireCurrentUserId();
+        return transactionRepository.findAllWithStockByUserId(userId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public Page<TransactionDto> getTransactionsByAccount(Long accountId, Pageable pageable) {
+        accountService.getAccountEntity(accountId); // 소유권 검증
         return transactionRepository.findByAccountId(accountId, pageable).map(this::convertToDto);
     }
 
     @Transactional(readOnly = true)
     public List<TransactionDto> getTransactionsByAccount(Long accountId) {
+        accountService.getAccountEntity(accountId); // 소유권 검증
         return transactionRepository.findByAccountIdWithStock(accountId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -120,6 +124,7 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public List<TransactionDto> getTransactionsByAccountAndSymbol(Long accountId, String symbol) {
+        accountService.getAccountEntity(accountId); // 소유권 검증
         return transactionRepository.findByAccountIdAndSymbol(accountId, symbol).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -127,7 +132,8 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public List<TransactionDto> getTransactionsBySymbol(String symbol) {
-        return transactionRepository.findBySymbolWithStock(symbol).stream()
+        Long userId = requireCurrentUserId();
+        return transactionRepository.findBySymbolWithStockAndUserId(symbol, userId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -135,7 +141,8 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public List<TransactionDto> getTransactionsByDateRange(
             LocalDateTime startDate, LocalDateTime endDate) {
-        return transactionRepository.findByDateRange(startDate, endDate).stream()
+        Long userId = requireCurrentUserId();
+        return transactionRepository.findByDateRangeAndUserId(startDate, endDate, userId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -143,6 +150,7 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public List<TransactionDto> getTransactionsByAccountAndDateRange(
             Long accountId, LocalDateTime startDate, LocalDateTime endDate) {
+        accountService.getAccountEntity(accountId); // 소유권 검증
         return transactionRepository
                 .findByAccountIdAndDateRange(accountId, startDate, endDate)
                 .stream()
@@ -408,6 +416,20 @@ public class TransactionService {
             return null;
         }
         return realizedPnl.divide(initialRisk, 4, RoundingMode.HALF_UP);
+    }
+
+    /** 현재 인증된 유저 ID 반환. 미인증이면 예외. */
+    private Long requireCurrentUserId() {
+        return securityContextService
+                .getCurrentUserId()
+                .orElseThrow(
+                        () ->
+                                new UnauthorizedAccessException(
+                                        "Transaction",
+                                        null,
+                                        securityContextService
+                                                .getCurrentUsername()
+                                                .orElse("anonymous")));
     }
 
     /**
