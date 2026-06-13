@@ -42,6 +42,30 @@ public class WebSocketSessionRegistry {
                         });
     }
 
+    /** 특정 유저의 열린 세션에만 메시지를 전송한다. */
+    public void sendToUser(Long userId, String message) {
+        if (userId == null) {
+            return;
+        }
+        TextMessage textMessage = new TextMessage(message);
+        sessions.values().stream()
+                .filter(session -> userId.equals(session.getAttributes().get("userId")))
+                .forEach(
+                        session -> {
+                            try {
+                                if (session.isOpen()) {
+                                    session.sendMessage(textMessage);
+                                }
+                            } catch (IOException e) {
+                                log.error(
+                                        "Error sending message to user {} session {}: {}",
+                                        userId,
+                                        session.getId(),
+                                        e.getMessage());
+                            }
+                        });
+    }
+
     public int getActiveSessionCount() {
         return sessions.size();
     }
