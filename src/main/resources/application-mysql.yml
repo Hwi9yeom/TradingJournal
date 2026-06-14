@@ -1,0 +1,36 @@
+# =============================================================================
+# application-mysql.yml
+# -----------------------------------------------------------------------------
+# Dedicated profile for connecting to a local/standalone MySQL 8.0 instance.
+# Activate explicitly with: --spring.profiles.active=mysql
+#
+# This profile inherits everything else (server, logging, Redis, cache, ...)
+# from application.yml and only overrides the datasource / JPA / Flyway / H2
+# settings that differ for MySQL. Flyway is DISABLED here: the schema is owned
+# entirely by src/main/resources/db/mysql/schema-mysql.sql (single source of
+# truth). Hibernate runs in `validate` mode so any schema/entity drift fails
+# loudly at startup.
+#
+# Default/test/prod profiles are unaffected.
+# =============================================================================
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/tradingjournal?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${DB_USERNAME:tradingjournal}
+    password: ${DB_PASSWORD:}
+
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  flyway:
+    enabled: false
+
+  h2:
+    console:
+      enabled: false

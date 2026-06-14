@@ -39,6 +39,7 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
     implementation 'com.h2database:h2'
     implementation 'org.postgresql:postgresql'
+    runtimeOnly 'com.mysql:mysql-connector-j'
     implementation 'org.projectlombok:lombok'
     implementation 'com.yahoofinance-api:YahooFinanceAPI:3.17.0'
     implementation 'com.opencsv:opencsv:5.7.1'

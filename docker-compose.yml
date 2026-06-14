@@ -17,6 +17,32 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Local MySQL 8.0 for the `mysql` Spring profile.
+  # schema-mysql.sql is mounted into /docker-entrypoint-initdb.d/ and applied
+  # automatically on first container start (when the data volume is empty).
+  # Run app against it with: SPRING_PROFILES_ACTIVE=mysql
+  #   DB_URL=jdbc:mysql://localhost:3306/tradingjournal DB_USERNAME=tradingjournal DB_PASSWORD=...
+  mysql:
+    image: mysql:8.0
+    container_name: tradingjournal-mysql
+    environment:
+      MYSQL_DATABASE: tradingjournal
+      MYSQL_USER: ${MYSQL_USERNAME:-tradingjournal}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-journal123}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./src/main/resources/db/mysql/schema-mysql.sql:/docker-entrypoint-initdb.d/schema-mysql.sql:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     container_name: tradingjournal-redis
@@ -102,3 +128,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  mysql_data:
