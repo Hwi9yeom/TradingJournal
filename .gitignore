@@ -42,6 +42,11 @@ TECH_STACK_COMPARISON.md
 ### Claude Code ###
 .claude/
 
+### Tooling Artifacts ###
+.understand-anything/
+.omc/
+.gjc/
+
 ### Logs ###
 logs/
 
