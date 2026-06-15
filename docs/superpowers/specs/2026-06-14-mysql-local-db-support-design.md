@@ -1,7 +1,7 @@
 # MySQL 로컬 DB 연결 지원 — 설계 문서
 
 **작성일**: 2026-06-14
-**상태**: 사용자 승인 (구현 진행)
+**상태**: 구현 완료 (`./gradlew check` 통과, 라이브 MySQL 스모크는 문서화된 수동 단계로 보류)
 
 ## 배경
 
@@ -95,8 +95,9 @@ trade_plans, trade_reviews, trading_journals, transactions, users
 - 운영 프로필을 MySQL로 전환
 
 ## 성공 기준
-- [ ] `schema-mysql.sql`이 27개 테이블 전체 CREATE + 인덱스 + FK + stress_scenario 시드 포함
-- [ ] `MysqlSchemaCoverageTest` 통과 (모든 @Table 커버)
-- [ ] Hibernate MySQL DDL 대조에서 누락/타입 불일치 0건
-- [ ] `application-mysql.yml`, `build.gradle`, `docker-compose.yml` 추가로 `--spring.profiles.active=mysql` 부팅 경로 구성
-- [ ] 기존 H2/Postgres/테스트 동작 무변경 (`./gradlew check`에서 신규 회귀 없음)
+- [x] `schema-mysql.sql`이 27개 테이블 전체 CREATE + 인덱스 + FK + stress_scenario 시드(5행) 포함
+- [x] `MysqlSchemaCoverageTest` 통과 (모든 @Table 커버) — 2026-06-15 재실행 검증
+- [x] Hibernate MySQL DDL 대조에서 누락/타입 불일치 0건 (파일이 MySQLDialect schema-generation 산출물 기반으로 reconcile)
+- [x] `application-mysql.yml`, `build.gradle`, `docker-compose.yml` 추가로 `--spring.profiles.active=mysql` 부팅 경로 구성
+- [x] 기존 H2/Postgres/테스트 동작 무변경 (`./gradlew check` BUILD SUCCESSFUL, 신규 회귀 없음)
+- [ ] (보류) 라이브 MySQL `ddl-auto=validate` 스모크 — MySQL 가용 시 수동 절차 (스펙 "검증은 나중 정책")
