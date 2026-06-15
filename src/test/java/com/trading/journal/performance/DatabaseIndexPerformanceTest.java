@@ -14,7 +14,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
-/** Performance test to measure the impact of database index optimizations */
+/**
+ * Verifies the correctness of index-backed query paths (filtering, range bounds, ordering).
+ *
+ * <p>Execution time is logged for visibility only and is intentionally NOT asserted: absolute
+ * wall-clock thresholds on a single in-memory query are non-deterministic (JIT warmup, GC, host
+ * load) and produce flaky failures. Assertions check observable query semantics instead.
+ */
 @DataJpaTest
 @ActiveProfiles("test")
 public class DatabaseIndexPerformanceTest {
@@ -56,8 +62,16 @@ public class DatabaseIndexPerformanceTest {
 
         long executionTime = TimeUnit.NANOSECONDS.toMillis(endTime - startTime);
 
-        assertFalse(transactions.isEmpty());
-        assertTrue(executionTime < 100, "Query should complete in under 100ms with indexes");
+        assertEquals(
+                1000, transactions.size(), "all 1000 transactions for the stock must be returned");
+        for (int i = 1; i < transactions.size(); i++) {
+            assertFalse(
+                    transactions
+                            .get(i - 1)
+                            .getTransactionDate()
+                            .isBefore(transactions.get(i).getTransactionDate()),
+                    "transactions must be ordered by transactionDate descending");
+        }
         System.out.println("Transaction query execution time: " + executionTime + "ms");
     }
 
@@ -92,10 +106,23 @@ public class DatabaseIndexPerformanceTest {
 
         long executionTime = TimeUnit.NANOSECONDS.toMillis(endTime - startTime);
 
-        assertFalse(dividends.isEmpty());
-        assertTrue(
-                executionTime < 50,
-                "Dividend date range query should complete in under 50ms with indexes");
+        assertFalse(dividends.isEmpty(), "dividends within the last year must be returned");
+        for (Dividend dividend : dividends) {
+            assertFalse(
+                    dividend.getPaymentDate().isBefore(startDate),
+                    "result paymentDate must be on/after the range start");
+            assertFalse(
+                    dividend.getPaymentDate().isAfter(endDate),
+                    "result paymentDate must be on/before the range end");
+        }
+        for (int i = 1; i < dividends.size(); i++) {
+            assertFalse(
+                    dividends
+                            .get(i - 1)
+                            .getPaymentDate()
+                            .isBefore(dividends.get(i).getPaymentDate()),
+                    "dividends must be ordered by paymentDate descending");
+        }
         System.out.println("Dividend date range query execution time: " + executionTime + "ms");
     }
 
@@ -139,10 +166,19 @@ public class DatabaseIndexPerformanceTest {
 
         long executionTime = TimeUnit.NANOSECONDS.toMillis(endTime - startTime);
 
-        assertFalse(importantDisclosures.isEmpty());
-        assertTrue(
-                executionTime < 75,
-                "Complex disclosure query should complete in under 75ms with indexes");
+        // 300 disclosures created, 30 important (i % 10 == 0), all for a portfolio stock.
+        assertEquals(
+                30,
+                importantDisclosures.size(),
+                "only the 30 important disclosures for portfolio stocks must be returned");
+        for (int i = 1; i < importantDisclosures.size(); i++) {
+            assertFalse(
+                    importantDisclosures
+                            .get(i - 1)
+                            .getReceivedDate()
+                            .isBefore(importantDisclosures.get(i).getReceivedDate()),
+                    "disclosures must be ordered by receivedDate descending");
+        }
         System.out.println("Complex disclosure query execution time: " + executionTime + "ms");
     }
 
@@ -160,10 +196,8 @@ public class DatabaseIndexPerformanceTest {
 
         long executionTime = TimeUnit.NANOSECONDS.toMillis(endTime - startTime);
 
-        assertTrue(result.isPresent());
-        assertTrue(
-                executionTime < 25,
-                "Stock symbol lookup should complete in under 25ms with indexes");
+        assertTrue(result.isPresent(), "STOCK500 must be found by symbol");
+        assertEquals("STOCK500", result.get().getSymbol(), "lookup must return the matching stock");
         System.out.println("Stock symbol lookup execution time: " + executionTime + "ms");
     }
 
