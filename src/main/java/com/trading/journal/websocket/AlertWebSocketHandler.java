@@ -1,5 +1,6 @@
 package com.trading.journal.websocket;
 
+import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -39,5 +40,19 @@ public class AlertWebSocketHandler extends TextWebSocketHandler {
                 "WebSocket transport error for session {}: {}",
                 session.getId(),
                 exception.getMessage());
+        // Proactively close and deregister: afterConnectionClosed may not fire on an
+        // abrupt transport failure, which would otherwise leak the session in the registry.
+        try {
+            if (session.isOpen()) {
+                session.close(CloseStatus.SERVER_ERROR);
+            }
+        } catch (IOException e) {
+            log.warn(
+                    "Failed to close errored WebSocket session {}: {}",
+                    session.getId(),
+                    e.getMessage());
+        } finally {
+            sessionRegistry.removeSession(session.getId());
+        }
     }
 }

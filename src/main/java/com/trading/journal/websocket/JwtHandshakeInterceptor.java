@@ -34,8 +34,13 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
                         .getQueryParams()
                         .getFirst("token");
 
-        if (token == null || token.isBlank() || !jwtTokenProvider.validateToken(token)) {
-            log.warn("WebSocket handshake rejected: missing or invalid token");
+        if (token == null
+                || token.isBlank()
+                || !jwtTokenProvider.validateToken(token)
+                || !jwtTokenProvider.isAccessToken(token)) {
+            // Reject missing/invalid/expired tokens AND refresh tokens (only access tokens
+            // may open a WebSocket); fail before any user lookup.
+            log.warn("WebSocket handshake rejected: missing or invalid access token");
             return false;
         }
 

@@ -36,7 +36,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 log.debug("Request URI: {}, JWT present: {}", uri, jwt != null);
             }
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+            // Only access tokens authenticate API requests; refresh tokens are rejected so a
+            // leaked/long-lived refresh token cannot be replayed against /api/**.
+            if (StringUtils.hasText(jwt)
+                    && tokenProvider.validateToken(jwt)
+                    && tokenProvider.isAccessToken(jwt)) {
                 String username = tokenProvider.getUsernameFromToken(jwt);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 

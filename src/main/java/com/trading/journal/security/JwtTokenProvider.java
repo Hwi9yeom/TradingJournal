@@ -27,6 +27,12 @@ public class JwtTokenProvider {
 
     private static final int MIN_SECRET_LENGTH = 32; // 256 bits for HMAC-SHA256
 
+    /** Custom claim distinguishing access tokens from refresh tokens. */
+    public static final String CLAIM_TOKEN_TYPE = "type";
+
+    public static final String TOKEN_TYPE_ACCESS = "access";
+    public static final String TOKEN_TYPE_REFRESH = "refresh";
+
     @PostConstruct
     public void validateConfiguration() {
         // SECURITY: Validate JWT secret is properly configured
@@ -54,24 +60,25 @@ public class JwtTokenProvider {
 
     public String generateAccessToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        return generateToken(userDetails.getUsername(), jwtExpiration);
+        return generateToken(userDetails.getUsername(), jwtExpiration, TOKEN_TYPE_ACCESS);
     }
 
     public String generateRefreshToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        return generateToken(userDetails.getUsername(), refreshExpiration);
+        return generateToken(userDetails.getUsername(), refreshExpiration, TOKEN_TYPE_REFRESH);
     }
 
     public String generateAccessToken(String username) {
-        return generateToken(username, jwtExpiration);
+        return generateToken(username, jwtExpiration, TOKEN_TYPE_ACCESS);
     }
 
-    private String generateToken(String username, long expiration) {
+    private String generateToken(String username, long expiration, String tokenType) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
 
         return Jwts.builder()
                 .subject(username)
+                .claim(CLAIM_TOKEN_TYPE, tokenType)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
@@ -86,6 +93,26 @@ public class JwtTokenProvider {
                         .parseSignedClaims(token)
                         .getPayload();
         return claims.getSubject();
+    }
+
+    /**
+     * Returns true only if the token is signature-valid, unexpired, AND carries {@code
+     * type=access}. Refresh tokens (and any token issued without an explicit access type) return
+     * false, so a refresh token cannot be used to authenticate an API request or WebSocket
+     * handshake.
+     */
+    public boolean isAccessToken(String token) {
+        try {
+            Claims claims =
+                    Jwts.parser()
+                            .verifyWith(getSigningKey())
+                            .build()
+                            .parseSignedClaims(token)
+                            .getPayload();
+            return TOKEN_TYPE_ACCESS.equals(claims.get(CLAIM_TOKEN_TYPE, String.class));
+        } catch (JwtException | IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     public boolean validateToken(String token) {

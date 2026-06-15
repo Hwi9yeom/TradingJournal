@@ -42,6 +42,7 @@ class JwtHandshakeInterceptorTest {
     @DisplayName("유효한 토큰이면 핸드셰이크를 허용하고 userId를 바인딩한다")
     void validToken_allowsAndBindsUserId() throws Exception {
         when(jwtTokenProvider.validateToken("good")).thenReturn(true);
+        when(jwtTokenProvider.isAccessToken("good")).thenReturn(true);
         when(jwtTokenProvider.getUsernameFromToken("good")).thenReturn("alice");
         User user = User.builder().id(42L).username("alice").build();
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
@@ -53,6 +54,27 @@ class JwtHandshakeInterceptorTest {
 
         assertThat(result).isTrue();
         assertThat(attributes.get("userId")).isEqualTo(42L);
+    }
+
+    @Test
+    @DisplayName("access 타입이 아닌(refresh) 토큰이면 핸드셰이크를 거부한다")
+    void refreshTokenType_rejects() throws Exception {
+        when(jwtTokenProvider.validateToken("refresh")).thenReturn(true);
+        when(jwtTokenProvider.isAccessToken("refresh")).thenReturn(false);
+        // Stub the rest so that, WITHOUT an access-type check, the handshake would succeed —
+        // proving the rejection comes from the type check, not a missing user.
+        when(jwtTokenProvider.getUsernameFromToken("refresh")).thenReturn("bob");
+        User user = User.builder().id(7L).username("bob").build();
+        when(userRepository.findByUsername("bob")).thenReturn(Optional.of(user));
+
+        Map<String, Object> attributes = new HashMap<>();
+        boolean result =
+                interceptor.beforeHandshake(
+                        requestWithQuery("?token=refresh"), null, handler, attributes);
+
+        assertThat(result).isFalse();
+        assertThat(attributes).doesNotContainKey("userId");
+        verify(userRepository, never()).findByUsername(anyString());
     }
 
     @Test
