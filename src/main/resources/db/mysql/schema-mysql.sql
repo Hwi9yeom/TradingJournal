@@ -35,9 +35,9 @@
 --   * LocalDateTime -> DATETIME(6); LocalDate -> DATE.
 --   * Several numeric-looking columns are TEXT because they store encrypted
 --     ciphertext via @Convert (Account.name, Portfolio.*, Transaction price/qty/...).
---   * stress_scenario.sector_impacts uses JSON (the entity declares
---     columnDefinition="jsonb" which is Postgres-only; on MySQL the @JdbcTypeCode
---     SqlTypes.JSON maps to native JSON, which is what validate checks).
+--   * stress_scenario.sector_impacts is native MySQL JSON. The entity maps it with
+--     @JdbcTypeCode(SqlTypes.JSON) and NO columnDefinition, so the column type is
+--     dialect-driven (jsonb on PostgreSQL, json on MySQL/H2) and `validate` passes.
 --   * stress_test_result has NO JPA entity (native table from Flyway V4); it is
 --     created here manually and translated to MySQL 8.0 syntax.
 -- =============================================================================
