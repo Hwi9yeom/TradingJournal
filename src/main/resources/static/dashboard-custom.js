@@ -149,6 +149,11 @@ const WIDGET_LOADERS = {
 // ============================================================================
 
 $(document).ready(function() {
+    // Check authentication first
+    if (!checkAuth()) {
+        return; // Will be redirected to login
+    }
+
     init();
 });
 

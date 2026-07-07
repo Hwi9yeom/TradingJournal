@@ -216,10 +216,8 @@
     <script src="js/theme-toggle.js"></script>
     <script src="accounts.js"></script>
     <script>
-        // Initialize Glass Navigation
-        document.addEventListener('DOMContentLoaded', function() {
-            const nav = new GlassNavigation('glass-nav', 'accounts.html');
-        });
+        // Glass Navigation initializes itself when navigation-glass.js loads
+        // (GlassNavigation is a singleton object, not a constructor).
 
         // Close edit modal helper
         function closeEditModal() {

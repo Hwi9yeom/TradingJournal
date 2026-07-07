@@ -95,6 +95,11 @@ let selectedPair = { symbol1: null, symbol2: null };
  * 페이지 로드 시 초기화
  */
 $(document).ready(function() {
+    // Check authentication first
+    if (!checkAuth()) {
+        return; // Will be redirected to login
+    }
+
     initCharts();
     loadAllData();
 
@@ -279,7 +284,10 @@ function updateSummaryStats(data) {
  * @param {number[][]} data.matrix - 상관계수 매트릭스
  */
 function renderHeatmap(data) {
-    if (!data || !data.symbols || data.symbols.length === 0) {
+    // With fewer than two correlatable stocks the API returns symbols with an
+    // empty matrix; render that as the empty state instead of indexing into it.
+    if (!data || !data.symbols || data.symbols.length === 0
+            || !Array.isArray(data.matrix) || data.matrix.length < data.symbols.length) {
         showHeatmapEmpty();
         return;
     }

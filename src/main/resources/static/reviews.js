@@ -16,8 +16,10 @@
 /**
  * API base URL for review endpoints
  * @constant {string}
+ * Prefixed REVIEWS_ to avoid clashing with js/dashboard-glass.js' API_BASE_URL
+ * const: duplicate top-level lexical declarations abort this script at parse time.
  */
-const API_BASE_URL = '/api';
+const REVIEWS_API_BASE_URL = '/api';
 
 /**
  * Page size for review pagination
@@ -113,7 +115,7 @@ $(document).ready(function() {
  */
 function loadStrategies() {
     $.ajax({
-        url: `${API_BASE_URL}/reviews/strategies`,
+        url: `${REVIEWS_API_BASE_URL}/reviews/strategies`,
         method: 'GET',
         success: function(data) {
             reviewsState.strategies = data;
@@ -135,7 +137,7 @@ function loadStrategies() {
  */
 function loadEmotions() {
     $.ajax({
-        url: `${API_BASE_URL}/reviews/emotions`,
+        url: `${REVIEWS_API_BASE_URL}/reviews/emotions`,
         method: 'GET',
         success: function(data) {
             reviewsState.emotions = data;
@@ -155,7 +157,7 @@ function loadEmotions() {
  */
 function loadStatistics() {
     $.ajax({
-        url: `${API_BASE_URL}/reviews/statistics`,
+        url: `${REVIEWS_API_BASE_URL}/reviews/statistics`,
         method: 'GET',
         success: function(data) {
             updateStatisticsDisplay(data);
@@ -174,7 +176,7 @@ function loadReviews(page) {
     reviewsState.currentPage = page;
 
     $.ajax({
-        url: `${API_BASE_URL}/reviews`,
+        url: `${REVIEWS_API_BASE_URL}/reviews`,
         method: 'GET',
         data: { page: page, size: PAGE_SIZE },
         success: function(data) {
@@ -358,7 +360,7 @@ function openReviewModal(transactionId, reviewId) {
  */
 function loadReviewData(reviewId) {
     $.ajax({
-        url: `${API_BASE_URL}/reviews/${reviewId}`,
+        url: `${REVIEWS_API_BASE_URL}/reviews/${reviewId}`,
         method: 'GET',
         success: function(data) {
             // Display transaction info
@@ -394,7 +396,7 @@ function loadReviewData(reviewId) {
  */
 function loadTransactionInfo(transactionId) {
     $.ajax({
-        url: `${API_BASE_URL}/transactions/${transactionId}`,
+        url: `${REVIEWS_API_BASE_URL}/transactions/${transactionId}`,
         method: 'GET',
         success: function(data) {
             const profitPercent = calculateProfitPercent(data.realizedPnl, data.costBasis);
@@ -457,8 +459,8 @@ function saveReview() {
     const data = buildReviewData();
 
     const url = reviewId
-        ? `${API_BASE_URL}/reviews/${reviewId}`
-        : `${API_BASE_URL}/reviews/transaction/${transactionId}`;
+        ? `${REVIEWS_API_BASE_URL}/reviews/${reviewId}`
+        : `${REVIEWS_API_BASE_URL}/reviews/transaction/${transactionId}`;
     const method = reviewId ? 'PUT' : 'POST';
 
     $.ajax({

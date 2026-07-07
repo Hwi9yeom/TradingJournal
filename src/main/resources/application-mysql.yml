@@ -15,10 +15,23 @@
 # =============================================================================
 spring:
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/tradingjournal?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8}
+    # sslMode defaults to PREFERRED (encrypt when the server supports TLS — the
+    # mysql:8.0 image does by default), so traffic is NOT cleartext out of the box.
+    # allowPublicKeyRetrieval is intentionally NOT enabled (it allows an RSA-key
+    # MITM against caching_sha2_password over an unverified channel). For a
+    # hardened deployment set DB_SSL_MODE=VERIFY_IDENTITY (and provide a truststore).
+    url: ${DB_URL:jdbc:mysql://localhost:3306/tradingjournal?sslMode=${DB_SSL_MODE:PREFERRED}&serverTimezone=UTC&characterEncoding=utf8}
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${DB_USERNAME:tradingjournal}
     password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 300000
+      # Keep below the MySQL server wait_timeout so the pool never hands out a
+      # connection the server has already closed (avoids "communications link failure").
+      max-lifetime: 600000
 
   jpa:
     hibernate:

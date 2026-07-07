@@ -61,3 +61,6 @@ application-local.properties
 .env
 .env.local
 .env.*.local
+
+# Superpowers brainstorm sessions
+.superpowers/

@@ -107,6 +107,11 @@ const chatState = {
  * Sets up date inputs and starts health monitoring.
  */
 document.addEventListener('DOMContentLoaded', function() {
+    // Check authentication first
+    if (!checkAuth()) {
+        return; // Will be redirected to login
+    }
+
     initializeDateInputs();
     checkOllamaHealth();
 
@@ -149,7 +154,7 @@ async function checkOllamaHealth() {
     const statusText = document.getElementById('ollamaStatusText');
 
     try {
-        const response = await fetch(AI_API.HEALTH);
+        const response = await fetchWithAuth(AI_API.HEALTH);
         const data = await response.json();
 
         if (data.status === 'UP') {
@@ -194,7 +199,7 @@ async function analyzePerformance() {
 
     try {
         const url = `${AI_API.PERFORMANCE}?accountId=${CONFIG.DEFAULT_ACCOUNT_ID}&startDate=${startDate}&endDate=${endDate}`;
-        const response = await fetch(url);
+        const response = await fetchWithAuth(url);
         const data = await response.json();
 
         chatState.lastAnalysisResult = data;
@@ -213,7 +218,7 @@ async function analyzeRisk() {
     showAnalysisModal(ANALYSIS_TYPES.RISK.title);
 
     try {
-        const response = await fetch(`${AI_API.RISK}?accountId=${CONFIG.DEFAULT_ACCOUNT_ID}`);
+        const response = await fetchWithAuth(`${AI_API.RISK}?accountId=${CONFIG.DEFAULT_ACCOUNT_ID}`);
         const data = await response.json();
 
         chatState.lastAnalysisResult = data;
@@ -348,7 +353,7 @@ async function sendMessage() {
     const typingId = showTypingIndicator();
 
     try {
-        const response = await fetch(AI_API.CHAT, {
+        const response = await fetchWithAuth(AI_API.CHAT, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -553,7 +558,7 @@ function clearChat() {
     if (!confirm(UI_MESSAGES.CLEAR_CONFIRM)) return;
 
     // Delete server session
-    fetch(`${AI_API.CHAT}/${chatState.sessionId}`, { method: 'DELETE' });
+    fetchWithAuth(`${AI_API.CHAT}/${chatState.sessionId}`, { method: 'DELETE' });
 
     // Generate new session
     chatState.sessionId = generateSessionId();

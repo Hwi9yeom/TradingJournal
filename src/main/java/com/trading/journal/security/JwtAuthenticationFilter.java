@@ -8,9 +8,12 @@ import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -22,6 +25,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService userDetailsService;
+
+    // Async dispatches (Mono/Flux controllers) re-run authorization on a thread whose
+    // SecurityContextHolder is empty; persisting the context as a request attribute lets
+    // Spring Security restore it there instead of rejecting the dispatch with 401.
+    private final SecurityContextRepository securityContextRepository =
+            new RequestAttributeSecurityContextRepository();
 
     @Override
     protected void doFilterInternal(
@@ -36,7 +45,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 log.debug("Request URI: {}, JWT present: {}", uri, jwt != null);
             }
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+            // Only access tokens authenticate API requests; refresh tokens are rejected so a
+            // leaked/long-lived refresh token cannot be replayed against /api/**.
+            if (StringUtils.hasText(jwt)
+                    && tokenProvider.validateToken(jwt)
+                    && tokenProvider.isAccessToken(jwt)) {
                 String username = tokenProvider.getUsernameFromToken(jwt);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
@@ -46,7 +59,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request));
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                SecurityContext context = SecurityContextHolder.createEmptyContext();
+                context.setAuthentication(authentication);
+                SecurityContextHolder.setContext(context);
+                securityContextRepository.saveContext(context, request, response);
             }
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);

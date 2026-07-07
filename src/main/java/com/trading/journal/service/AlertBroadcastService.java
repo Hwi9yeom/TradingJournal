@@ -119,9 +119,6 @@ public class AlertBroadcastService {
         message.put("title", title);
         message.put("message", messageText);
 
-        // 활성 세션 수 포함
-        message.put("activeConnections", sessionRegistry.getActiveSessionCount());
-
         return message;
     }
 

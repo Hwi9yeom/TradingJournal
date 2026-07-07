@@ -5,11 +5,12 @@ services:
     environment:
       POSTGRES_DB: tradingjournal
       POSTGRES_USER: journal
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-journal123}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set (see .env.example)}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      # Bind to loopback only — never expose the DB on all host interfaces.
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U journal -d tradingjournal"]
       interval: 10s
@@ -28,16 +29,19 @@ services:
     environment:
       MYSQL_DATABASE: tradingjournal
       MYSQL_USER: ${MYSQL_USERNAME:-tradingjournal}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-journal123}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD must be set (see .env.example)}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set (see .env.example)}
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - mysql_data:/var/lib/mysql
       - ./src/main/resources/db/mysql/schema-mysql.sql:/docker-entrypoint-initdb.d/schema-mysql.sql:ro
     ports:
-      - "3306:3306"
+      # Bind to loopback only — never expose the DB on all host interfaces.
+      - "127.0.0.1:3306:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root123}"]
+      # Pass the root password via MYSQL_PWD (read from the container env) instead
+      # of on the command line, so it never appears in `docker inspect`/`ps`/argv.
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -u root --silent"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,7 +51,8 @@ services:
     image: redis:7-alpine
     container_name: tradingjournal-redis
     ports:
-      - "6379:6379"
+      # Bind to loopback only — never expose the cache on all host interfaces.
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
@@ -70,7 +75,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/tradingjournal
       DB_DRIVER: org.postgresql.Driver
       DB_USERNAME: journal
-      DB_PASSWORD: ${DB_PASSWORD:-journal123}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set (see .env.example)}
       REDIS_ENABLED: "true"
       REDIS_HOST: redis
       JWT_SECRET: ${JWT_SECRET}
@@ -91,7 +96,7 @@ services:
       DB_PORT: "5432"
       DB_NAME: tradingjournal
       DB_USER: journal
-      DB_PASSWORD: ${DB_PASSWORD:-journal123}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set (see .env.example)}
       BACKUP_DIR: /backups
       RETENTION_DAYS: "7"
     volumes:

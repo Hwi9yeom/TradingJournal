@@ -34,7 +34,9 @@ const STATUS_LABELS = {
 /**
  * CSS class names for styling
  */
-const CSS_CLASSES = {
+// Prefixed RISK_ to avoid clashing with utils.js' CSS_CLASSES const:
+// duplicate top-level lexical declarations abort this script at parse time.
+const RISK_CSS_CLASSES = {
     SUCCESS: 'text-success',
     DANGER: 'text-danger',
     WARNING: 'text-warning',
@@ -105,11 +107,11 @@ const state = {
  * @param {number} value - Value to compare
  */
 function applyValueClass($element, value) {
-    $element.removeClass(`${CSS_CLASSES.SUCCESS} ${CSS_CLASSES.DANGER}`);
+    $element.removeClass(`${RISK_CSS_CLASSES.SUCCESS} ${RISK_CSS_CLASSES.DANGER}`);
     if (value > 0) {
-        $element.addClass(CSS_CLASSES.SUCCESS);
+        $element.addClass(RISK_CSS_CLASSES.SUCCESS);
     } else if (value < 0) {
-        $element.addClass(CSS_CLASSES.DANGER);
+        $element.addClass(RISK_CSS_CLASSES.DANGER);
     }
 }
 
@@ -123,20 +125,20 @@ function getRiskStatus(isBreached, percentUsed) {
     if (isBreached) {
         return {
             label: STATUS_LABELS.BREACHED,
-            bgClass: CSS_CLASSES.BG_DANGER,
-            borderClass: CSS_CLASSES.BORDER_DANGER
+            bgClass: RISK_CSS_CLASSES.BG_DANGER,
+            borderClass: RISK_CSS_CLASSES.BORDER_DANGER
         };
     } else if (percentUsed > RISK_THRESHOLDS.WARNING_PERCENT) {
         return {
             label: STATUS_LABELS.WARNING,
-            bgClass: CSS_CLASSES.BG_WARNING,
-            borderClass: CSS_CLASSES.BORDER_WARNING
+            bgClass: RISK_CSS_CLASSES.BG_WARNING,
+            borderClass: RISK_CSS_CLASSES.BORDER_WARNING
         };
     }
     return {
         label: STATUS_LABELS.NORMAL,
-        bgClass: CSS_CLASSES.BG_SUCCESS,
-        borderClass: CSS_CLASSES.BORDER_SUCCESS
+        bgClass: RISK_CSS_CLASSES.BG_SUCCESS,
+        borderClass: RISK_CSS_CLASSES.BORDER_SUCCESS
     };
 }
 
@@ -149,8 +151,8 @@ function getRiskStatus(isBreached, percentUsed) {
  */
 function applyRiskStatusStyling($statusEl, $progressEl, $cardEl, status) {
     // Clear existing classes
-    $cardEl.removeClass(`${CSS_CLASSES.BORDER_SUCCESS} ${CSS_CLASSES.BORDER_WARNING} ${CSS_CLASSES.BORDER_DANGER}`);
-    $progressEl.removeClass(`${CSS_CLASSES.BG_SUCCESS} ${CSS_CLASSES.BG_WARNING} ${CSS_CLASSES.BG_DANGER}`);
+    $cardEl.removeClass(`${RISK_CSS_CLASSES.BORDER_SUCCESS} ${RISK_CSS_CLASSES.BORDER_WARNING} ${RISK_CSS_CLASSES.BORDER_DANGER}`);
+    $progressEl.removeClass(`${RISK_CSS_CLASSES.BG_SUCCESS} ${RISK_CSS_CLASSES.BG_WARNING} ${RISK_CSS_CLASSES.BG_DANGER}`);
     $statusEl.removeClass().addClass('badge');
 
     // Apply new classes
@@ -283,7 +285,7 @@ function updateLimitCard(type, status, pnl) {
 
     if (!status) {
         $pnlEl.text(formatCurrency(pnl || 0));
-        $statusEl.text(STATUS_LABELS.NONE).removeClass().addClass(`badge ${CSS_CLASSES.BG_SECONDARY}`);
+        $statusEl.text(STATUS_LABELS.NONE).removeClass().addClass(`badge ${RISK_CSS_CLASSES.BG_SECONDARY}`);
         return;
     }
 
@@ -312,7 +314,7 @@ function updatePositionCountCard(status) {
 
     if (!status) {
         $countEl.text('0 / -');
-        $statusEl.text(STATUS_LABELS.NONE).removeClass().addClass(`badge ${CSS_CLASSES.BG_SECONDARY}`);
+        $statusEl.text(STATUS_LABELS.NONE).removeClass().addClass(`badge ${RISK_CSS_CLASSES.BG_SECONDARY}`);
         return;
     }
 
@@ -442,7 +444,7 @@ function displayScenarios(scenarios) {
                 <td>${scenario.name}</td>
                 <td class="text-end">${formatNumber(scenario.quantity)}</td>
                 <td class="text-end">${formatCurrency(scenario.positionValue)}</td>
-                <td class="text-end ${CSS_CLASSES.DANGER}">${formatCurrency(scenario.potentialLoss)}</td>
+                <td class="text-end ${RISK_CSS_CLASSES.DANGER}">${formatCurrency(scenario.potentialLoss)}</td>
             </tr>
         `);
     });
@@ -562,7 +564,7 @@ function updateSectorDisplay(exposures) {
 function updateSectorList(exposures, colors) {
     let html = '';
     exposures.forEach((e, i) => {
-        const exceedClass = e.exceedsLimit ? `${CSS_CLASSES.DANGER} fw-bold` : '';
+        const exceedClass = e.exceedsLimit ? `${RISK_CSS_CLASSES.DANGER} fw-bold` : '';
         html += `
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <div>
@@ -623,8 +625,8 @@ function updatePositionRisksTable(positions) {
  * @returns {string} HTML string for table row
  */
 function buildPositionRow(pos) {
-    const pnlClass = (pos.unrealizedPnl || 0) >= 0 ? CSS_CLASSES.SUCCESS : CSS_CLASSES.DANGER;
-    const rClass = (pos.currentR || 0) >= 0 ? CSS_CLASSES.SUCCESS : CSS_CLASSES.DANGER;
+    const pnlClass = (pos.unrealizedPnl || 0) >= 0 ? RISK_CSS_CLASSES.SUCCESS : RISK_CSS_CLASSES.DANGER;
+    const rClass = (pos.currentR || 0) >= 0 ? RISK_CSS_CLASSES.SUCCESS : RISK_CSS_CLASSES.DANGER;
     const rDisplay = pos.currentR !== null
         ? (pos.currentR >= 0 ? '+' : '') + pos.currentR.toFixed(2) + 'R'
         : '-';
@@ -643,7 +645,7 @@ function buildPositionRow(pos) {
                 ${formatCurrency(pos.unrealizedPnl || 0)}
                 <small class="d-block">(${(pos.unrealizedPnlPercent || 0).toFixed(2)}%)</small>
             </td>
-            <td class="text-end ${CSS_CLASSES.DANGER}">${pos.riskAmount ? formatCurrency(pos.riskAmount) : '-'}</td>
+            <td class="text-end ${RISK_CSS_CLASSES.DANGER}">${pos.riskAmount ? formatCurrency(pos.riskAmount) : '-'}</td>
             <td class="text-end ${rClass}">${rDisplay}</td>
         </tr>
     `;

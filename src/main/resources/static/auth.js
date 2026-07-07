@@ -232,6 +232,12 @@ function setupAjaxAuth() {
     }
     authSetupDone = true;
 
+    // Fetch-only pages (no jQuery) still call checkAuth(); they authenticate
+    // requests through fetchWithAuth instead of the jQuery prefilter.
+    if (typeof $ === 'undefined') {
+        return;
+    }
+
     // Use ajaxPrefilter for reliable header injection
     $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
         // Skip auth header for login/refresh endpoints
@@ -333,6 +339,107 @@ function changePassword(currentPassword, newPassword) {
 }
 
 // ============================================================================
+// AUTHENTICATED FETCH
+// ============================================================================
+
+/**
+ * Send a fetch request with the Authorization header attached.
+ * Counterpart of the jQuery ajaxPrefilter for pages that use native fetch().
+ * On a 401 response (outside auth endpoints), clears tokens and redirects to login,
+ * mirroring the global ajaxError handler.
+ *
+ * @param {string} url - The request URL
+ * @param {Object} [options={}] - fetch options
+ * @returns {Promise<Response>} The fetch response
+ * @example
+ * const response = await fetchWithAuth('/api/statistics?startDate=...');
+ * if (response.ok) { const data = await response.json(); }
+ */
+function fetchWithAuth(url, options = {}) {
+    const headers = Object.assign({}, options.headers);
+    const token = getAccessToken();
+    if (token && !isAuthEndpoint(url)) {
+        headers['Authorization'] = BEARER_PREFIX + token;
+    }
+
+    return fetch(url, Object.assign({}, options, { headers: headers }))
+        .then(function(response) {
+            if (response.status === 401 && !isRedirecting && !isAuthEndpoint(url)) {
+                console.log('401 error detected, redirecting to login');
+                isRedirecting = true;
+                clearTokens();
+                redirectToLogin();
+            }
+            return response;
+        });
+}
+
+// ============================================================================
+// AUTHENTICATED FILE DOWNLOAD
+// ============================================================================
+
+/**
+ * Download a file from a protected API endpoint with the Authorization header attached.
+ * Browser navigation (window.location.href) cannot carry the JWT stored in localStorage,
+ * so protected downloads must go through fetch and a temporary object URL.
+ *
+ * @param {string} url - The file endpoint to download from
+ * @param {string} fallbackFilename - Filename to use when Content-Disposition has none
+ * @returns {Promise<void>} Promise that resolves once the download has been triggered
+ * @example
+ * downloadFileWithAuth('/api/data/template/csv', 'import_template.csv')
+ *     .catch(() => ToastNotification.error('다운로드에 실패했습니다.'));
+ */
+function downloadFileWithAuth(url, fallbackFilename) {
+    return fetchWithAuth(url)
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Download failed with status ' + response.status);
+            }
+            const filename = extractFilenameFromDisposition(
+                response.headers.get('Content-Disposition'),
+                fallbackFilename
+            );
+            return response.blob().then(function(blob) {
+                const objectUrl = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = objectUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(objectUrl);
+            });
+        });
+}
+
+/**
+ * Extract the filename from a Content-Disposition header value.
+ * Supports both the RFC 5987 `filename*=UTF-8''...` form and the plain `filename=` form.
+ *
+ * @param {string|null} disposition - The Content-Disposition header value
+ * @param {string} fallback - Filename to use when none can be extracted
+ * @returns {string} The extracted or fallback filename
+ * @private
+ */
+function extractFilenameFromDisposition(disposition, fallback) {
+    if (!disposition) {
+        return fallback;
+    }
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match) {
+        try {
+            return decodeURIComponent(utf8Match[1]);
+        } catch (e) {
+            // Malformed encoding - fall through to the plain filename form
+        }
+    }
+    const plainMatch = disposition.match(/filename=(?:"([^"]*)"|([^;]+))/i);
+    const filename = plainMatch && (plainMatch[1] || plainMatch[2]);
+    return filename ? filename.trim() : fallback;
+}
+
+// ============================================================================
 // EXPORT TO GLOBAL SCOPE
 // ============================================================================
 
@@ -366,4 +473,10 @@ if (typeof window !== 'undefined') {
     // User Operations
     window.getCurrentUser = getCurrentUser;
     window.changePassword = changePassword;
+
+    // Authenticated Fetch
+    window.fetchWithAuth = fetchWithAuth;
+
+    // File Download
+    window.downloadFileWithAuth = downloadFileWithAuth;
 }

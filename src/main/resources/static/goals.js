@@ -116,6 +116,11 @@ let currentGoalId = null;
  * Loads goals, summary, and sets default start date.
  */
 $(document).ready(function() {
+    // Check authentication first
+    if (!checkAuth()) {
+        return; // Will be redirected to login
+    }
+
     loadGoals();
     loadGoalSummary();
 

@@ -50,8 +50,9 @@ public class StressScenario extends BaseEntity {
     private BigDecimal marketShockPercent;
 
     /** 섹터별 영향도 (JSON) 예: {"TECH": -40, "FINANCE": -25, "HEALTHCARE": -10} */
+    // JSON mapping is dialect-driven: jsonb on PostgreSQL, native JSON on MySQL/H2.
+    // No columnDefinition override (the old "jsonb" was Postgres-only and broke MySQL validate).
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
     private Map<String, BigDecimal> sectorImpacts;
 
     /** 사전 정의된 시나리오 여부 true: 시스템 제공 시나리오, false: 사용자 정의 시나리오 */

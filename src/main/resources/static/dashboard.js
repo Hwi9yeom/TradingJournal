@@ -1,22 +1,9 @@
 const API_BASE_URL = '/api';
 
 // ==================== 상수 정의 ====================
-const CSS_CLASSES = {
-    SUCCESS: 'text-success',
-    DANGER: 'text-danger',
-    WARNING: 'text-warning',
-    MUTED: 'text-muted'
-};
-
-const PERIOD_MONTHS = {
-    '1M': 1,
-    '3M': 3,
-    '6M': 6,
-    '1Y': 12,
-    'ALL': null  // ALL은 2020년부터
-};
-
-const ALL_PERIOD_START_YEAR = 2020;
+// CSS_CLASSES, PERIOD_MONTHS, ALL_PERIOD_START_YEAR come from utils.js, which
+// dashboard-original.html loads before this file. Redeclaring them here would
+// abort this script at parse time (duplicate top-level lexical declaration).
 
 // ==================== 유틸리티 함수 ====================
 
@@ -1286,7 +1273,7 @@ function downloadPdfReport(url) {
     const originalText = $reportBtn.html();
     $reportBtn.html('<span class="spinner-border spinner-border-sm me-1"></span>생성 중...').prop('disabled', true);
 
-    fetch(url, {
+    fetchWithAuth(url, {
         method: 'GET',
         headers: {
             'Accept': 'application/pdf'

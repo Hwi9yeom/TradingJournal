@@ -576,14 +576,21 @@ function deleteTransaction(id) {
  * @param {string} format - Export format (csv, excel, etc.)
  */
 function exportData(format) {
-    window.location.href = `${ENDPOINTS.DATA.EXPORT}/${format}`;
+    const extension = format === 'excel' ? 'xlsx' : format;
+    downloadFileWithAuth(`${ENDPOINTS.DATA.EXPORT}/${format}`, `transactions.${extension}`)
+        .catch(function() {
+            ToastNotification.error('데이터 내보내기에 실패했습니다.');
+        });
 }
 
 /**
  * Downloads the import template
  */
 function downloadTemplate() {
-    window.location.href = ENDPOINTS.DATA.TEMPLATE;
+    downloadFileWithAuth(ENDPOINTS.DATA.TEMPLATE, 'import_template.csv')
+        .catch(function() {
+            ToastNotification.error('템플릿 다운로드에 실패했습니다.');
+        });
 }
 
 /**
