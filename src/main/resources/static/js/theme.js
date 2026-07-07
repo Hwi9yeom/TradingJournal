@@ -3,17 +3,27 @@
  * theme-toggle.js를 대체한다. localStorage 키/전역 API/이벤트는 기존과 호환.
  *
  * HTML <head>에는 FOUC 방지용 인라인 스니펫이 별도로 들어간다 (이 파일 참조 전 실행):
- * <script>(function(){var t=localStorage.getItem('trading-journal-theme');
+ * <script>(function(){var t=null;try{t=localStorage.getItem('trading-journal-theme')}catch(e){}
  *   if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}
  *   document.documentElement.setAttribute('data-theme',t);})();</script>
  */
 (function () {
     'use strict';
 
+    if (document.documentElement.hasAttribute('data-tj-theme-bound')) return;
+    document.documentElement.setAttribute('data-tj-theme-bound', '');
+
     const THEME_KEY = 'trading-journal-theme';
     const DARK = 'dark';
     const LIGHT = 'light';
     const themeChangeCallbacks = [];
+
+    function safeGetStoredTheme() {
+        try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; }
+    }
+    function safeStoreTheme(theme) {
+        try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* storage blocked */ }
+    }
 
     function currentTheme() {
         return document.documentElement.getAttribute('data-theme') || DARK;
@@ -25,7 +35,11 @@
 
     /** '#rrggbb' 또는 '#rgb' → 'rgba(r,g,b,a)' */
     function hexToRgba(hex, alpha) {
-        let h = hex.replace('#', '');
+        if (!/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex.trim())) {
+            console.warn('TJTheme.rgba: invalid hex', hex);
+            return hex;
+        }
+        let h = hex.trim().replace('#', '');
         if (h.length === 3) h = h.split('').map(c => c + c).join('');
         const int = parseInt(h, 16);
         return `rgba(${(int >> 16) & 255}, ${(int >> 8) & 255}, ${int & 255}, ${alpha})`;
@@ -51,7 +65,7 @@
 
     function toggleTheme() {
         const next = currentTheme() === DARK ? LIGHT : DARK;
-        localStorage.setItem(THEME_KEY, next);
+        safeStoreTheme(next);
         applyTheme(next);
     }
 
@@ -83,24 +97,26 @@
     });
 
     function init() {
+        // FOUC 인라인 스니펫이 누락된 페이지 방어: data-theme이 없으면 여기서 결정
+        if (!document.documentElement.hasAttribute('data-theme')) {
+            applyTheme(safeGetStoredTheme() ||
+                ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? LIGHT : DARK));
+        }
         // data-theme은 인라인 스니펫이 이미 설정; 아이콘/차트만 동기화
         updateToggleIcons(currentTheme());
         applyChartDefaults();
-        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
-            .addEventListener('change', e => {
-                if (!localStorage.getItem(THEME_KEY)) applyTheme(e.matches ? DARK : LIGHT);
-            });
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
+        try {
+            window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
+                .addEventListener('change', e => {
+                    if (!safeGetStoredTheme()) applyTheme(e.matches ? DARK : LIGHT);
+                });
+        } catch (e) { /* older Safari: MediaQueryList without addEventListener */ }
     }
 
-    // 기존 theme-toggle.js와 호환되는 전역 API
+    // 기존 theme-toggle.js와 호환되는 전역 API (init 이전에 노출)
     window.ThemeToggle = {
         toggle: toggleTheme,
-        setTheme: (t) => { if (t === DARK || t === LIGHT) { localStorage.setItem(THEME_KEY, t); applyTheme(t); } },
+        setTheme: (t) => { if (t === DARK || t === LIGHT) { safeStoreTheme(t); applyTheme(t); } },
         getTheme: currentTheme,
         isDark: () => currentTheme() === DARK
     };
@@ -114,4 +130,10 @@
         onThemeChange: (cb) => themeChangeCallbacks.push(cb),
         applyChartDefaults
     };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 })();
