@@ -108,6 +108,11 @@ const patternState = {
 // ============================================================================
 
 $(document).ready(function() {
+    // Check authentication first
+    if (!checkAuth()) {
+        return; // Will be redirected to login
+    }
+
     init();
 });
 

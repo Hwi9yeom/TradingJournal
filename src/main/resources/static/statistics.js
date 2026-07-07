@@ -74,6 +74,11 @@ const state = {
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Check authentication first
+    if (!checkAuth()) {
+        return; // Will be redirected to login
+    }
+
     initPeriodButtons();
     loadStatistics();
 });

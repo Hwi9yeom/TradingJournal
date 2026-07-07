@@ -43,6 +43,11 @@ const DEFAULT_BADGE_CLASS = 'bg-secondary';
 // ============================================================================
 
 $(document).ready(function() {
+    // Check authentication first
+    if (!checkAuth()) {
+        return; // Will be redirected to login
+    }
+
     loadAccounts();
     loadAccountsSummary();
     setupAccountEventHandlers();
@@ -85,10 +90,12 @@ function loadAccounts() {
 /**
  * Load account summary statistics from API
  * Updates total investment, current value, and profit rate displays
+ * Uses the portfolio summary endpoint: account totals are portfolio aggregates,
+ * and /api/accounts/summary does not exist (it would match /api/accounts/{id}).
  */
 function loadAccountsSummary() {
     $.ajax({
-        url: `${API_BASE_URL}/accounts/summary`,
+        url: `${API_BASE_URL}/portfolio/summary`,
         method: 'GET',
         success: function(summary) {
             $('#total-investment').text(formatCurrency(summary.totalInvestment || 0));
@@ -446,9 +453,9 @@ function getAccountTypeLabel(type) {
  * @param {string} message - Message to display
  */
 function showToast(type, message) {
-    // Use glass-utils.js showToast if available
-    if (typeof window.showToast === 'function') {
-        window.showToast(type, message);
+    // Use glass-utils.js showGlassToast if available (note the reversed argument order)
+    if (typeof window.showGlassToast === 'function') {
+        window.showGlassToast(message, type);
         return;
     }
 

@@ -835,19 +835,3 @@ function showToast(message, type) {
     }, 3000);
 }
 
-/**
- * 인증 토큰을 포함하여 fetch 요청을 보냅니다.
- * @param {string} url - 요청 URL
- * @param {Object} [options={}] - fetch 옵션
- * @returns {Promise<Response>} fetch 응답
- */
-function fetchWithAuth(url, options = {}) {
-    const token = localStorage.getItem('token');
-    const headers = options.headers || {};
-
-    if (token) {
-        headers['Authorization'] = 'Bearer ' + token;
-    }
-
-    return fetch(url, { ...options, headers });
-}

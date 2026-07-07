@@ -247,6 +247,11 @@
     <script>
         // 페이지 로드 시 기본 날짜 설정
         $(document).ready(function() {
+            // Check authentication first
+            if (!checkAuth()) {
+                return; // Will be redirected to login
+            }
+
             setDateRange('1y');
         });
 
@@ -314,26 +319,9 @@
             // 로딩 모달 표시
             openGlassModal('loadingModal');
 
-            // 파일 다운로드
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('다운로드 실패');
-                    }
-                    return response.blob();
-                })
-                .then(blob => {
-                    // Content-Disposition 헤더에서 파일명 추출
-                    const filename = getFilename(type, format);
-
-                    // 다운로드 링크 생성
-                    const link = document.createElement('a');
-                    link.href = window.URL.createObjectURL(blob);
-                    link.download = filename;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-
+            // 파일 다운로드 (auth.js의 인증 다운로드 헬퍼 사용)
+            downloadFileWithAuth(url, getFilename(type, format))
+                .then(() => {
                     closeGlassModal('loadingModal');
                     showGlassToast('파일이 다운로드되었습니다.', 'success');
                 })

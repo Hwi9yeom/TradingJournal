@@ -24,26 +24,32 @@ const CHART_THEME = {
     }
 };
 
-// Chart default options
-Chart.defaults.color = CHART_THEME.colors.textMuted;
-Chart.defaults.font.family = CHART_THEME.fonts.base;
-Chart.defaults.plugins.legend.labels.usePointStyle = true;
-Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(20, 20, 40, 0.95)';
-Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.1)';
-Chart.defaults.plugins.tooltip.borderWidth = 1;
-Chart.defaults.plugins.tooltip.padding = 12;
-Chart.defaults.plugins.tooltip.cornerRadius = 8;
-Chart.defaults.plugins.tooltip.titleFont = { weight: '600' };
+// Chart default options. This script is also loaded on chart-less pages
+// (journal.html, alerts.html) for its shared helpers; without this guard a
+// missing Chart.js would abort the whole script, dropping checkAuth() with it.
+if (typeof Chart !== 'undefined') {
+    Chart.defaults.color = CHART_THEME.colors.textMuted;
+    Chart.defaults.font.family = CHART_THEME.fonts.base;
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(20, 20, 40, 0.95)';
+    Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.1)';
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+    Chart.defaults.plugins.tooltip.padding = 12;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    Chart.defaults.plugins.tooltip.titleFont = { weight: '600' };
+}
 
 // ==================== Constants ====================
-const CSS_CLASSES = {
+// Prefixed GLASS_ to avoid clashing with utils.js' const of the same name:
+// duplicate top-level lexical declarations abort the second script at parse time.
+const GLASS_CSS_CLASSES = {
     POSITIVE: 'text-positive',
     NEGATIVE: 'text-negative',
     WARNING: 'text-warning',
     MUTED: 'text-muted'
 };
 
-const PERIOD_MONTHS = {
+const GLASS_PERIOD_MONTHS = {
     '1M': 1, '3M': 3, '6M': 6, '1Y': 12, 'ALL': null
 };
 
@@ -56,7 +62,7 @@ const PERIOD_LABELS = {
 function getPeriodDates(period) {
     const endDate = new Date();
     const startDate = new Date();
-    const months = PERIOD_MONTHS[period];
+    const months = GLASS_PERIOD_MONTHS[period];
 
     if (months !== null && months !== undefined) {
         startDate.setMonth(endDate.getMonth() - months);
@@ -88,13 +94,13 @@ function formatPercent(value) {
 }
 
 function applyValueClass($element, value) {
-    $element.removeClass(`${CSS_CLASSES.POSITIVE} ${CSS_CLASSES.NEGATIVE} ${CSS_CLASSES.MUTED}`);
+    $element.removeClass(`${GLASS_CSS_CLASSES.POSITIVE} ${GLASS_CSS_CLASSES.NEGATIVE} ${GLASS_CSS_CLASSES.MUTED}`);
     if (value > 0) {
-        $element.addClass(CSS_CLASSES.POSITIVE);
+        $element.addClass(GLASS_CSS_CLASSES.POSITIVE);
     } else if (value < 0) {
-        $element.addClass(CSS_CLASSES.NEGATIVE);
+        $element.addClass(GLASS_CSS_CLASSES.NEGATIVE);
     } else {
-        $element.addClass(CSS_CLASSES.MUTED);
+        $element.addClass(GLASS_CSS_CLASSES.MUTED);
     }
 }
 
@@ -170,6 +176,10 @@ let equityCurveChart, drawdownChart, benchmarkComparisonChart;
 // ==================== Initialization ====================
 $(document).ready(function() {
     if (!checkAuth()) return;
+
+    // Shared-helper pages (journal.html, alerts.html) load this script without
+    // the dashboard DOM; only initialize charts on the actual dashboard.
+    if (!document.getElementById('assetValueChart')) return;
 
     initializeCharts();
     loadDashboardData();
@@ -1253,7 +1263,7 @@ function downloadCustomReport() {
 function downloadPdfReport(url) {
     showToast('리포트 생성 중...', 'info');
 
-    fetch(url, { method: 'GET', headers: { 'Accept': 'application/pdf' } })
+    fetchWithAuth(url, { method: 'GET', headers: { 'Accept': 'application/pdf' } })
         .then(response => {
             if (!response.ok) throw new Error('리포트 생성 실패');
             const disposition = response.headers.get('Content-Disposition');
