@@ -50,8 +50,8 @@ public class SecurityConfig {
                                         .requestMatchers("/api/auth/**")
                                         .permitAll()
                                         // Static resources (HTML, CSS, JS) - auth checked via
-                                        // JavaScript
-                                        .requestMatchers("/*.html", "/*.css", "/*.js")
+                                        // JavaScript. "/" forwards to the index.html welcome page.
+                                        .requestMatchers("/", "/*.html", "/*.css", "/*.js")
                                         .permitAll()
                                         .requestMatchers(
                                                 "/css/**", "/js/**", "/images/**", "/favicon.ico")
