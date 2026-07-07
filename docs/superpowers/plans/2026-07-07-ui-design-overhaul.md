@@ -262,7 +262,7 @@ Run: `cp src/main/resources/static/css/dashboard-glass.css src/main/resources/st
     --chart-8: #6d4699;
 ```
 
-- [ ] **Step 4 (Edit C): 배경 오브 완화** — `.bg-orb {` 규칙 안에 `opacity: 0.6;` 한 줄 추가하고, `[data-theme="light"]` 블록 **뒤에** 다음 규칙 추가:
+- [ ] **Step 4 (Edit C): 배경 오브 완화** — `.bg-orb {` 규칙의 기존 `opacity: 0.4;` 선언을 `opacity: 0.25;`로 교체하고, `[data-theme="light"]` 블록 **뒤에** 다음 규칙 추가:
 
 ```css
 /* 라이트 테마: 오브 제거, 그라데이션 배경만 (스펙 3.1) */
@@ -434,15 +434,16 @@ Run: `cp src/main/resources/static/css/dashboard-glass.css src/main/resources/st
 }
 ```
 
+참고: `body::before`와 `.bg-orb`에 `z-index: -1;`을 추가하고 `.main-container`의 `z-index: 1`을 제거한다 (모달 스태킹 트랩 방지). 768px 블록의 `.main-container`에 `padding-top: calc(var(--space-4) + 44px + var(--space-2));` 추가. dropdown-menu/toast-glass 배경은 `var(--surface)`로.
+
 - [ ] **Step 6 (Edit E): `.main-container`에 사이드바 오프셋** — 기존 규칙을 다음으로 교체:
 
 ```css
 .main-container {
     position: relative;
-    z-index: 1;
     max-width: 1600px;
     margin: 0 auto;
-    margin-left: var(--sidebar-width);
+    margin-left: max(var(--sidebar-width), calc((100vw - 1600px + var(--sidebar-width)) / 2));
     padding: var(--space-8) var(--space-6);
 }
 
@@ -538,6 +539,46 @@ Run: `cp src/main/resources/static/css/dashboard-glass.css src/main/resources/st
     border-radius: 50%;
     display: inline-block;
     animation: spin 0.8s linear infinite;
+}
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+small { font-size: var(--font-size-xs); }
+.fw-bold { font-weight: 700 !important; }
+.d-block { display: block !important; }
+.row { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.row > [class*="col-"], .row > .col { flex: 1 1 0; min-width: 0; }
+.col-12, .col-md-12 { flex: 0 0 100%; }
+.col-6, .col-md-6 { flex: 1 1 calc(50% - var(--space-3)); }
+.col-4, .col-md-4 { flex: 1 1 calc(33.333% - var(--space-3)); }
+.col-md-3, .col-lg-3 { flex: 1 1 calc(25% - var(--space-3)); }
+.me-1 { margin-right: var(--space-1) !important; }
+.me-2 { margin-right: var(--space-2) !important; }
+.mt-3 { margin-top: var(--space-3) !important; }
+.mb-3 { margin-bottom: var(--space-3) !important; }
+.p-3 { padding: var(--space-3) !important; }
+.pt-3 { padding-top: var(--space-3) !important; }
+.border-top { border-top: 1px solid var(--surface-border) !important; }
+.badge { display: inline-block; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); font-size: var(--font-size-xs); font-weight: 600; background: var(--glass-bg-hover); color: var(--text-secondary); }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--surface-border); text-align: left; }
+.form-control, .form-select {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+}
+.form-control-sm, .form-select-sm { padding: var(--space-1) var(--space-2); font-size: var(--font-size-xs); }
+
+/* === 키보드 포커스 표시 (사이드바가 주 내비게이션) === */
+.nav-link:focus-visible,
+.sidebar-toggle-btn:focus-visible,
+.btn:focus-visible,
+.btn-glass:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
 }
 ```
 
