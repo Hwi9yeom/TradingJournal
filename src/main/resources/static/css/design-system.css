@@ -1180,7 +1180,7 @@ body::before {
 .modal-glass-content {
     width: 100%;
     max-width: 500px;
-    background: rgba(20, 20, 40, 0.98);
+    background: var(--surface);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--surface-border);
