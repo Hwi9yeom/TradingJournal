@@ -21,15 +21,15 @@ const API_BASE_URL = '/api/statistics';
  */
 const CHART_COLORS = {
     // Win rate colors
-    WIN_RATE_POSITIVE: 'rgba(40, 167, 69, 0.7)',
-    WIN_RATE_NEGATIVE: 'rgba(220, 53, 69, 0.7)',
+    WIN_RATE_POSITIVE: TJTheme.rgba('positive', 0.7),
+    WIN_RATE_NEGATIVE: TJTheme.rgba('negative', 0.7),
     // Time chart colors
-    TIME_WIN_POSITIVE: 'rgba(17, 153, 142, 0.7)',
-    TIME_WIN_NEGATIVE: 'rgba(245, 87, 108, 0.7)',
+    TIME_WIN_POSITIVE: TJTheme.rgba('positive', 0.7),
+    TIME_WIN_NEGATIVE: TJTheme.rgba('negative', 0.7),
     // Line colors
-    PROFIT_LINE: '#667eea',
+    PROFIT_LINE: TJTheme.cssVar('--chart-1'),
     PROFIT_FILL: 'rgba(102, 126, 234, 0.1)',
-    TRADE_COUNT_LINE: '#f5576c'
+    TRADE_COUNT_LINE: TJTheme.cssVar('--chart-7')
 };
 
 /**
