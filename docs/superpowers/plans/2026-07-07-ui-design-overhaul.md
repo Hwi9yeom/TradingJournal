@@ -575,6 +575,19 @@ small { font-size: var(--font-size-xs); }
     font-size: var(--font-size-sm);
 }
 .form-control-sm, .form-select-sm { padding: var(--space-1) var(--space-2); font-size: var(--font-size-xs); }
+.badge.bg-success { background: var(--color-positive) !important; color: var(--text-inverse); }
+.badge.bg-danger { background: var(--color-negative) !important; color: #fff; }
+.badge.bg-primary { background: var(--color-accent) !important; color: #fff; }
+.badge.bg-warning { background: var(--color-warning) !important; color: #1a1a2e; }
+.badge.bg-secondary { background: var(--glass-bg-hover) !important; color: var(--text-secondary); }
+.table-warning td { background: rgba(255, 217, 61, 0.08); }
+.btn-outline-primary, .btn-outline-secondary, .btn-outline-info {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    color: var(--text-secondary);
+}
+.btn-outline-primary:hover, .btn-outline-warning:hover { color: var(--text-primary); border-color: var(--glass-border-hover); }
+.btn-outline-warning { background: transparent; border: 1px solid var(--color-warning); color: var(--color-warning); }
 
 /* === 키보드 포커스 표시 (사이드바가 주 내비게이션) === */
 .nav-link:focus-visible,
