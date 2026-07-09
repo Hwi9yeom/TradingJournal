@@ -600,12 +600,13 @@ function showEmptySectorState() {
 // ============================================================================
 
 /**
- * Get an array of sector colors for chart visualization
+ * Get an array of sector colors for chart visualization.
+ * Cycles the palette when count exceeds its length (8-color palette, up to 12 sectors).
  * @param {number} count - Number of colors needed
  * @returns {string[]} Array of color hex codes
  */
 function getSectorColors(count) {
-    return SECTOR_CHART_COLORS.slice(0, count);
+    return Array.from({ length: count }, (_, i) => SECTOR_CHART_COLORS[i % SECTOR_CHART_COLORS.length]);
 }
 
 /**
