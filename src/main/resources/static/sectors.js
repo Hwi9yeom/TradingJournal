@@ -28,20 +28,7 @@ const API_BASE_URL = '/api';
  * Default chart colors for sector visualization
  * @constant {string[]}
  */
-const SECTOR_CHART_COLORS = [
-    '#3b82f6', // blue
-    '#22c55e', // green
-    '#f59e0b', // amber
-    '#ef4444', // red
-    '#8b5cf6', // violet
-    '#ec4899', // pink
-    '#14b8a6', // teal
-    '#f97316', // orange
-    '#6366f1', // indigo
-    '#84cc16', // lime
-    '#06b6d4', // cyan
-    '#a855f7'  // purple
-];
+const SECTOR_CHART_COLORS = TJTheme.chartPalette();
 
 /**
  * Mapping of sector codes to display colors
@@ -86,8 +73,8 @@ const SECTOR_LABEL_MAP = {
  * @constant {Object}
  */
 const PERFORMANCE_COLORS = {
-    POSITIVE: 'rgba(34, 197, 94, 0.8)',
-    NEGATIVE: 'rgba(239, 68, 68, 0.8)'
+    POSITIVE: TJTheme.rgba('positive', 0.8),
+    NEGATIVE: TJTheme.rgba('negative', 0.8)
 };
 
 /**
@@ -149,7 +136,7 @@ function getAllocationChartConfig() {
                 data: [],
                 backgroundColor: getSectorColors(12),
                 borderWidth: 2,
-                borderColor: '#fff'
+                borderColor: TJTheme.cssVar('--surface-border')
             }]
         },
         options: {
