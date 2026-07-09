@@ -1239,6 +1239,24 @@ git commit -m "test(ui): add frontend migration checker script"
 
 ---
 
+### Task 21.5: js/dashboard-glass.js 차트 색 테마링 (Task 5 품질 리뷰에서 발견된 플랜 갭)
+
+**Files:**
+- Modify: `src/main/resources/static/js/dashboard-glass.js`
+
+배경: dashboard/alerts/journal/reviews 4개 페이지가 로드하는 이 파일은 차트 색을 하드코딩한다. per-chart options가 Chart.defaults를 이기므로 theme.js가 못 고친다 — 라이트 테마에서 그리드 `rgba(255,255,255,0.05)`는 안 보이고 범례 `rgba(255,255,255,0.35)`는 판독 불가.
+
+- [ ] **Step 1: CHART_THEME 상수 교체** — 파일 상단 `CHART_THEME`(~9–25행)의 값들을 TJTheme 기반으로:
+  - grid 계열 `rgba(255,255,255,0.05)` → `TJTheme.cssVar('--surface-border')`
+  - 텍스트/범례 계열 `rgba(255,255,255,0.35)`·`rgba(255,255,255,0.6)` → `TJTheme.cssVar('--text-muted')`·`TJTheme.cssVar('--text-secondary')`
+  - primary/positive/negative 하드코딩 hex → `TJTheme.cssVar('--chart-1')`/`TJTheme.color('positive')`/`TJTheme.color('negative')`
+  - 주의: 이 파일은 theme.js보다 **먼저** 로드되므로 parse-time에 TJTheme가 없다. CHART_THEME를 즉시 평가 상수에서 **게터 함수 또는 지연 초기화**로 바꾸거나, 값 사용 시점(차트 생성은 DOMContentLoaded 후 = theme.js 로드 후)에 읽도록 할 것. `typeof TJTheme !== 'undefined'` 가드 + 기존 하드코딩 값 폴백 유지.
+- [ ] **Step 2: 그 외 하드코딩 다크 색** — d3 트리맵 툴팁/셀 텍스트, correlation heatmap 셀 텍스트 `rgba(255,255,255,0.9)` 등도 같은 방식으로 CSS 변수화 (grep으로 `rgba(255` / `#[0-9a-f]{6}` 전수 확인, 시맨틱 의미 유지)
+- [ ] **Step 3: 검증** — `node --check src/main/resources/static/js/dashboard-glass.js` → exit 0
+- [ ] **Step 4: Commit** — `git commit -m "fix(ui): theme dashboard-glass.js chart colors (light-theme readability)"`
+
+---
+
 ### Task 22: 구 파일 삭제 + 전체 검증
 
 **Files:**
