@@ -546,7 +546,7 @@ Run: `cp src/main/resources/static/css/dashboard-glass.css src/main/resources/st
     animation: spin 0.8s linear infinite;
 }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-small { font-size: var(--font-size-xs); }
+small, .small { font-size: var(--font-size-xs); }
 .fw-bold { font-weight: 700 !important; }
 .d-block { display: block !important; }
 .row { display: flex; flex-wrap: wrap; gap: var(--space-3); }
