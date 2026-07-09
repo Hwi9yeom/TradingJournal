@@ -420,9 +420,13 @@ Run: `cp src/main/resources/static/css/dashboard-glass.css src/main/resources/st
 @media (max-width: 1023px) {
     .sidebar-glass {
         transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform var(--transition-base), visibility 0s 0.25s;
     }
     .sidebar-glass.open {
         transform: translateX(0);
+        visibility: visible;
+        transition: transform var(--transition-base), visibility 0s;
         box-shadow: var(--glass-shadow);
     }
     .sidebar-toggle-btn {
@@ -672,9 +676,9 @@ git commit -m "feat(ui): add design-system.css (sidebar, data-first surfaces, pa
             </ul>`).join('');
 
         return `
-            <button class="sidebar-toggle-btn" aria-label="메뉴 열기"><i class="bi bi-list"></i></button>
+            <button class="sidebar-toggle-btn" aria-label="메뉴 열기" aria-expanded="false"><i class="bi bi-list"></i></button>
             <div class="sidebar-overlay"></div>
-            <aside class="sidebar-glass">
+            <nav class="sidebar-glass" aria-label="주 메뉴">
                 <a href="index.html" class="navbar-brand">
                     <span class="logo-icon"><i class="bi bi-graph-up-arrow"></i></span>
                     Trading Journal
@@ -690,7 +694,7 @@ git commit -m "feat(ui): add design-system.css (sidebar, data-first surfaces, pa
                         <i class="bi bi-box-arrow-right"></i> 로그아웃
                     </a>
                 </div>
-            </aside>`;
+            </nav>`;
     }
 
     function injectBackgroundOrbs() {
@@ -705,12 +709,22 @@ git commit -m "feat(ui): add design-system.css (sidebar, data-first surfaces, pa
         const overlay = document.querySelector('.sidebar-overlay');
         if (!sidebar || !toggle || !overlay) return;
 
-        const open = () => { sidebar.classList.add('open'); overlay.classList.add('active'); };
-        const close = () => { sidebar.classList.remove('open'); overlay.classList.remove('active'); };
+        const open = () => {
+            sidebar.classList.add('open');
+            overlay.classList.add('active');
+            toggle.setAttribute('aria-expanded', 'true');
+            document.body.style.overflow = 'hidden';
+        };
+        const close = () => {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            toggle.setAttribute('aria-expanded', 'false');
+            document.body.style.overflow = '';
+        };
 
-        toggle.addEventListener('click', open);
+        toggle.addEventListener('click', () => sidebar.classList.contains('open') ? close() : open());
         overlay.addEventListener('click', close);
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && sidebar.classList.contains('open')) close(); });
         sidebar.querySelectorAll('a.nav-link').forEach(a =>
             a.addEventListener('click', () => setTimeout(close, 100)));
     }
@@ -720,16 +734,6 @@ git commit -m "feat(ui): add design-system.css (sidebar, data-first surfaces, pa
         injectBackgroundOrbs();
         document.body.insertAdjacentHTML('afterbegin', buildSidebarHTML());
         setupDrawer();
-        // 테마 아이콘 상태 동기화 (theme.js가 먼저 로드된 경우)
-        if (window.ThemeToggle) {
-            const t = window.ThemeToggle.getTheme();
-            document.querySelectorAll('.theme-toggle-icon.sun').forEach(i => {
-                i.style.display = t === 'dark' ? 'inline' : 'none';
-            });
-            document.querySelectorAll('.theme-toggle-icon.moon').forEach(i => {
-                i.style.display = t === 'light' ? 'inline' : 'none';
-            });
-        }
     }
 
     if (document.readyState === 'loading') {

@@ -388,9 +388,13 @@ body::before {
 @media (max-width: 1023px) {
     .sidebar-glass {
         transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform var(--transition-base), visibility 0s 0.25s;
     }
     .sidebar-glass.open {
         transform: translateX(0);
+        visibility: visible;
+        transition: transform var(--transition-base), visibility 0s;
         box-shadow: var(--glass-shadow);
     }
     .sidebar-toggle-btn {

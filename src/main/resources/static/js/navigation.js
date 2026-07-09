@@ -64,9 +64,9 @@
             </ul>`).join('');
 
         return `
-            <button class="sidebar-toggle-btn" aria-label="메뉴 열기"><i class="bi bi-list"></i></button>
+            <button class="sidebar-toggle-btn" aria-label="메뉴 열기" aria-expanded="false"><i class="bi bi-list"></i></button>
             <div class="sidebar-overlay"></div>
-            <aside class="sidebar-glass">
+            <nav class="sidebar-glass" aria-label="주 메뉴">
                 <a href="index.html" class="navbar-brand">
                     <span class="logo-icon"><i class="bi bi-graph-up-arrow"></i></span>
                     Trading Journal
@@ -82,7 +82,7 @@
                         <i class="bi bi-box-arrow-right"></i> 로그아웃
                     </a>
                 </div>
-            </aside>`;
+            </nav>`;
     }
 
     function injectBackgroundOrbs() {
@@ -97,12 +97,22 @@
         const overlay = document.querySelector('.sidebar-overlay');
         if (!sidebar || !toggle || !overlay) return;
 
-        const open = () => { sidebar.classList.add('open'); overlay.classList.add('active'); };
-        const close = () => { sidebar.classList.remove('open'); overlay.classList.remove('active'); };
+        const open = () => {
+            sidebar.classList.add('open');
+            overlay.classList.add('active');
+            toggle.setAttribute('aria-expanded', 'true');
+            document.body.style.overflow = 'hidden';
+        };
+        const close = () => {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            toggle.setAttribute('aria-expanded', 'false');
+            document.body.style.overflow = '';
+        };
 
-        toggle.addEventListener('click', open);
+        toggle.addEventListener('click', () => sidebar.classList.contains('open') ? close() : open());
         overlay.addEventListener('click', close);
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && sidebar.classList.contains('open')) close(); });
         sidebar.querySelectorAll('a.nav-link').forEach(a =>
             a.addEventListener('click', () => setTimeout(close, 100)));
     }
@@ -112,16 +122,6 @@
         injectBackgroundOrbs();
         document.body.insertAdjacentHTML('afterbegin', buildSidebarHTML());
         setupDrawer();
-        // 테마 아이콘 상태 동기화 (theme.js가 먼저 로드된 경우)
-        if (window.ThemeToggle) {
-            const t = window.ThemeToggle.getTheme();
-            document.querySelectorAll('.theme-toggle-icon.sun').forEach(i => {
-                i.style.display = t === 'dark' ? 'inline' : 'none';
-            });
-            document.querySelectorAll('.theme-toggle-icon.moon').forEach(i => {
-                i.style.display = t === 'light' ? 'inline' : 'none';
-            });
-        }
     }
 
     if (document.readyState === 'loading') {
