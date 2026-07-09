@@ -1,5 +1,5 @@
 /**
- * Sidebar Navigation Module — navigation-glass.js를 대체.
+ * Sidebar Navigation Module — 구 navigation-glass 모듈을 대체.
  * 전체 페이지의 nav 구성이 이 파일 하나에만 존재한다 (스펙 4.2).
  * body 시작 부분에 사이드바 + 배경 오브 + 모바일 드로어 컨트롤을 주입한다.
  */

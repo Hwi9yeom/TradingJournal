@@ -52,7 +52,7 @@
 ```javascript
 /**
  * Theme Module — design-system의 테마 관리 + Chart.js 테마 연동
- * theme-toggle.js를 대체한다. localStorage 키/전역 API/이벤트는 기존과 호환.
+ * 구 theme-toggle 모듈을 대체한다. localStorage 키/전역 API/이벤트는 기존과 호환.
  *
  * HTML <head>에는 FOUC 방지용 인라인 스니펫이 별도로 들어간다 (이 파일 참조 전 실행):
  * <script>(function(){var t=null;try{t=localStorage.getItem('trading-journal-theme')}catch(e){}
@@ -165,7 +165,7 @@
         } catch (e) { /* older Safari: MediaQueryList without addEventListener */ }
     }
 
-    // 기존 theme-toggle.js와 호환되는 전역 API (init 이전에 노출)
+    // 구 theme-toggle 모듈과 호환되는 전역 API (init 이전에 노출)
     window.ThemeToggle = {
         toggle: toggleTheme,
         setTheme: (t) => { if (t === DARK || t === LIGHT) { safeStoreTheme(t); applyTheme(t); } },
@@ -611,7 +611,7 @@ git commit -m "feat(ui): add design-system.css (sidebar, data-first surfaces, pa
 
 ```javascript
 /**
- * Sidebar Navigation Module — navigation-glass.js를 대체.
+ * Sidebar Navigation Module — 구 navigation-glass 모듈을 대체.
  * 전체 페이지의 nav 구성이 이 파일 하나에만 존재한다 (스펙 4.2).
  * body 시작 부분에 사이드바 + 배경 오브 + 모바일 드로어 컨트롤을 주입한다.
  */
@@ -802,8 +802,12 @@ if [ "${1:-}" = "--all" ]; then
     for p in "${PAGES[@]}"; do check_page "$p"; done
     for d in "${DELETED[@]}"; do
         [ -e "$d" ] && err "$d: 삭제 대상 파일이 아직 존재"
-        # shellcheck disable=SC2038
-        refs=$(find . -name '*.html' -o -name '*.js' | xargs grep -l "$(basename "$d")" 2>/dev/null | grep -v check-frontend || true)
+        name=$(basename "$d")
+        esc=$(printf '%s' "$name" | sed 's/\./\\./g')
+        # src/href/문자열 참조만 잡고, style.cssText 같은 부분 일치는 배제
+        refs=$(find . \( -name '*.html' -o -name '*.js' \) -print0 \
+            | xargs -0 grep -lE "(^|[^[:alnum:]_.-])${esc}([^[:alnum:]_]|\$)" 2>/dev/null \
+            | grep -v check-frontend || true)
         [ -n "$refs" ] && err "$d 참조 잔존: $refs"
     done
 else

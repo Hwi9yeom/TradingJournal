@@ -34,8 +34,12 @@ if [ "${1:-}" = "--all" ]; then
     for p in "${PAGES[@]}"; do check_page "$p"; done
     for d in "${DELETED[@]}"; do
         [ -e "$d" ] && err "$d: 삭제 대상 파일이 아직 존재"
-        # shellcheck disable=SC2038
-        refs=$(find . -name '*.html' -o -name '*.js' | xargs grep -l "$(basename "$d")" 2>/dev/null | grep -v check-frontend || true)
+        name=$(basename "$d")
+        esc=$(printf '%s' "$name" | sed 's/\./\\./g')
+        # src/href/문자열 참조만 잡고, style.cssText 같은 부분 일치는 배제
+        refs=$(find . \( -name '*.html' -o -name '*.js' \) -print0 \
+            | xargs -0 grep -lE "(^|[^[:alnum:]_.-])${esc}([^[:alnum:]_]|\$)" 2>/dev/null \
+            | grep -v check-frontend || true)
         [ -n "$refs" ] && err "$d 참조 잔존: $refs"
     done
 else
