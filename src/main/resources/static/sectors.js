@@ -31,25 +31,6 @@ const API_BASE_URL = '/api';
 const SECTOR_CHART_COLORS = TJTheme.chartPalette();
 
 /**
- * Mapping of sector codes to display colors
- * @constant {Object<string, string>}
- */
-const SECTOR_COLOR_MAP = {
-    'TECH': '#3b82f6',
-    'HEALTH': '#22c55e',
-    'FINANCE': '#f59e0b',
-    'CONSUMER_DISC': '#ef4444',
-    'CONSUMER_STAP': '#8b5cf6',
-    'INDUSTRIAL': '#ec4899',
-    'ENERGY': '#14b8a6',
-    'MATERIALS': '#f97316',
-    'UTILITIES': '#6366f1',
-    'REAL_ESTATE': '#84cc16',
-    'COMMUNICATION': '#06b6d4',
-    'OTHER': '#9ca3af'
-};
-
-/**
  * Mapping of sector codes to Korean labels
  * @constant {Object<string, string>}
  */
@@ -67,6 +48,18 @@ const SECTOR_LABEL_MAP = {
     'COMMUNICATION': '통신',
     'OTHER': '기타'
 };
+
+/**
+ * Mapping of sector codes to display colors, derived from the theme palette
+ * in enum order (cycles when sectors outnumber palette colors) so table
+ * swatches/card headers match chart colors. Values are 6-digit hex —
+ * required because callers append a hex-alpha suffix (e.g. `${color}20`).
+ * @constant {Object<string, string>}
+ */
+const SECTOR_COLOR_MAP = Object.fromEntries(
+    Object.keys(SECTOR_LABEL_MAP).map((code, i) =>
+        [code, SECTOR_CHART_COLORS[i % SECTOR_CHART_COLORS.length]])
+);
 
 /**
  * CSS colors for positive/negative performance indicators

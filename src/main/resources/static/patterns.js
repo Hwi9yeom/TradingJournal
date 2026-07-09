@@ -16,8 +16,8 @@
  * @constant {Object}
  */
 const CHART_COLORS = {
-    PRIMARY: 'rgba(102, 126, 234, 0.7)',
-    PRIMARY_SOLID: '#667eea',
+    PRIMARY: TJTheme.rgbaVar('--chart-1', 0.7),
+    PRIMARY_SOLID: TJTheme.cssVar('--chart-1'),
     SECONDARY: 'rgba(108, 117, 125, 0.5)',
     SUCCESS: TJTheme.color('positive'),
     TRANSPARENT: 'transparent',

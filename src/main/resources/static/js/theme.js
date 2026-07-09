@@ -126,6 +126,7 @@
         cssVar,
         color: (name) => cssVar('--color-' + name),          // positive|negative|warning|info|accent
         rgba: (name, alpha) => hexToRgba(cssVar('--color-' + name), alpha),
+        rgbaVar: (varName, alpha) => hexToRgba(cssVar(varName), alpha),
         chartPalette: () => [1, 2, 3, 4, 5, 6, 7, 8].map(i => cssVar('--chart-' + i)),
         onThemeChange: (cb) => themeChangeCallbacks.push(cb),
         applyChartDefaults
