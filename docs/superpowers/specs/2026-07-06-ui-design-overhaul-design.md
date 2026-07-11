@@ -118,6 +118,7 @@ fade-in/stagger 진입 애니메이션은 유지하되, `prefers-reduced-motion:
 - `dashboard-new.html`, `dashboard-original.html`, `dashboard-custom.html`, `dashboard-custom.js` — 대시보드는 `dashboard.html`로 단일화. 커스텀 위젯 기능은 제거한다(YAGNI; 필요해지면 별도 스펙으로).
 - 마이그레이션 완료 후: `style.css`, `css/dashboard-glass.css`, `js/navigation-glass.js`, `js/theme-toggle.js`
 - Bootstrap/jQuery CDN 의존은 위 파일 삭제로 자연 해소된다 (남는 페이지 중 사용처 없음 확인 후 제거).
+  - 구현 결과: Bootstrap CSS/JS는 제거 완료. jQuery는 12개 페이지의 페이지 JS와 auth.js ajaxPrefilter가 실사용 중이라 **의도적으로 유지** — auth.js의 de-jQuery화가 선행되어야 제거 가능 (향후 과제, 누락 아님). statistics/ai-assistant는 미사용 확인 후 제거함.
 
 ### 5.3 페이지 마이그레이션
 
