@@ -16,8 +16,10 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="css/dashboard-glass.css">
+    <!-- Design System -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <!-- Theme init (FOUC 방지) -->
+    <script>(function(){var t=null;try{t=localStorage.getItem('trading-journal-theme')}catch(e){}if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
         .strategy-card {
             background: var(--glass-bg);
@@ -142,32 +144,7 @@
 </head>
 <body>
     <!-- Background Orbs -->
-    <div class="bg-orb bg-orb-1"></div>
-    <div class="bg-orb bg-orb-2"></div>
-    <div class="bg-orb bg-orb-3"></div>
 
-    <!-- Navigation -->
-    <nav class="navbar-glass">
-        <div class="container">
-            <a href="index.html" class="navbar-brand">
-                <span class="logo-icon"><i class="bi bi-graph-up-arrow"></i></span>
-                Trading Journal
-            </a>
-            <ul class="navbar-nav">
-                <li><a href="dashboard.html" class="nav-link"><i class="bi bi-speedometer2"></i> 대시보드</a></li>
-                <li><a href="patterns.html" class="nav-link"><i class="bi bi-diagram-3"></i> 패턴분석</a></li>
-                <li><a href="reviews.html" class="nav-link"><i class="bi bi-journal-text"></i> 거래복기</a></li>
-                <li><a href="risk.html" class="nav-link"><i class="bi bi-shield-check"></i> 리스크관리</a></li>
-                <li><a href="sectors.html" class="nav-link"><i class="bi bi-pie-chart"></i> 섹터분석</a></li>
-                <li><a href="correlation.html" class="nav-link"><i class="bi bi-diagram-2"></i> 상관관계</a></li>
-                <li><a href="backtest.html" class="nav-link active"><i class="bi bi-lightning-charge"></i> 백테스팅</a></li>
-                <li><a href="ai-assistant.html" class="nav-link"><i class="bi bi-robot"></i> AI</a></li>
-                <li><a href="index.html" class="nav-link"><i class="bi bi-list-ul"></i> 거래</a></li>
-                <li><a href="accounts.html" class="nav-link"><i class="bi bi-bank"></i> 계좌</a></li>
-                <li><a href="#" class="nav-link" onclick="logout()"><i class="bi bi-box-arrow-right"></i></a></li>
-            </ul>
-        </div>
-    </nav>
 
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay" style="display: none;">
@@ -698,6 +675,8 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="utils.js"></script>
     <script src="auth.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/navigation.js"></script>
     <script src="backtest.js"></script>
     <script>
         // Modal functions

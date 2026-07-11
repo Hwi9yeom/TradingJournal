@@ -8,13 +8,13 @@
 const API_BASE_URL = '/api';
 
 const CHART_COLORS = {
-    PRIMARY: '#0d6efd',
-    PRIMARY_BG: 'rgba(13, 110, 253, 0.1)',
-    SECONDARY: '#6c757d',
-    SUCCESS: 'rgba(34, 197, 94, 0.8)',
-    DANGER: 'rgba(239, 68, 68, 0.8)',
-    DANGER_BG: 'rgba(220, 53, 69, 0.3)',
-    DANGER_BORDER: '#dc3545'
+    PRIMARY: TJTheme.cssVar('--chart-1'),
+    PRIMARY_BG: TJTheme.rgbaVar('--chart-1', 0.1),
+    SECONDARY: TJTheme.cssVar('--text-muted'),
+    SUCCESS: TJTheme.rgba('positive', 0.8),
+    DANGER: TJTheme.rgba('negative', 0.8),
+    DANGER_BG: TJTheme.rgba('negative', 0.3),
+    DANGER_BORDER: TJTheme.color('negative')
 };
 
 const STRATEGY_ICONS = {
