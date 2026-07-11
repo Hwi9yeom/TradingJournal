@@ -86,4 +86,12 @@ class SecurityFilterChainIntegrationTest {
         mockMvc.perform(get("/api/data/template/csv").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @DisplayName("존재하지 않는 정적 리소스는 500이 아닌 404를 반환한다")
+    void missingStaticResourceReturns404() throws Exception {
+        // NoResourceFoundException이 catch-all(500)에 흡수되지 않아야 한다.
+        mockMvc.perform(get("/no-such-page.html")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/css/no-such-file.css")).andExpect(status().isNotFound());
+    }
 }

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 @Slf4j
@@ -75,6 +76,18 @@ public class GlobalExceptionHandler {
         log.warn("Account not found: {}", ex.getMessage());
         return buildErrorResponse(
                 HttpStatus.NOT_FOUND, "Account Not Found", ex.getMessage(), request);
+    }
+
+    /**
+     * 존재하지 않는 정적 리소스 요청(오타 URL 등). catch-all(500)에 흡수되면 단순 404가 서버 오류로 기록되고 클라이언트도 오도되므로 전용 핸들러로
+     * 404를 반환한다.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFoundException(
+            NoResourceFoundException ex, WebRequest request) {
+        log.debug("Static resource not found: {}", ex.getResourcePath());
+        return buildErrorResponse(
+                HttpStatus.NOT_FOUND, "Not Found", "요청한 리소스를 찾을 수 없습니다.", request);
     }
 
     @ExceptionHandler(UnauthorizedAccessException.class)
