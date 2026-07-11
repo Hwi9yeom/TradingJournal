@@ -44,36 +44,34 @@ public class SecurityConfig {
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(
-                        auth ->
-                                auth
-                                        // Public endpoints
-                                        .requestMatchers("/api/auth/**")
-                                        .permitAll()
-                                        // Static resources (HTML, CSS, JS) - auth checked via
-                                        // JavaScript. "/" forwards to the index.html welcome page.
-                                        .requestMatchers("/", "/*.html", "/*.css", "/*.js")
-                                        .permitAll()
-                                        .requestMatchers(
-                                                "/css/**", "/js/**", "/images/**", "/favicon.ico")
-                                        .permitAll()
-                                        .requestMatchers(
-                                                "/swagger-ui/**",
-                                                "/v3/api-docs/**",
-                                                "/swagger-ui.html")
-                                        .permitAll()
-                                        .requestMatchers("/error")
-                                        .permitAll()
-                                        // All API endpoints require authentication (except
-                                        // /api/auth/**)
-                                        .requestMatchers("/api/**")
-                                        .authenticated()
-                                        .anyRequest()
-                                        .authenticated())
+                        auth -> {
+                            // Public endpoints
+                            auth.requestMatchers("/api/auth/**")
+                                    .permitAll()
+                                    // Static resources (HTML, CSS, JS) - auth checked via
+                                    // JavaScript. "/" forwards to the index.html welcome page.
+                                    .requestMatchers("/", "/*.html", "/*.css", "/*.js")
+                                    .permitAll()
+                                    .requestMatchers(
+                                            "/css/**", "/js/**", "/images/**", "/favicon.ico")
+                                    .permitAll()
+                                    .requestMatchers(
+                                            "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html")
+                                    .permitAll()
+                                    .requestMatchers("/error")
+                                    .permitAll();
+                            // Conditional matchers must precede anyRequest(); registering one
+                            // afterwards throws IllegalStateException at startup.
+                            if (h2ConsoleEnabled) {
+                                auth.requestMatchers("/h2-console/**").permitAll();
+                            }
+                            // All API endpoints require authentication (except /api/auth/**)
+                            auth.requestMatchers("/api/**")
+                                    .authenticated()
+                                    .anyRequest()
+                                    .authenticated();
+                        })
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
-
-        if (h2ConsoleEnabled) {
-            http.authorizeHttpRequests(auth -> auth.requestMatchers("/h2-console/**").permitAll());
-        }
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
