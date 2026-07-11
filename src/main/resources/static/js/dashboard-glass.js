@@ -6,17 +6,42 @@
 const API_BASE_URL = '/api';
 
 // ==================== Theme Configuration ====================
+// This script loads BEFORE js/theme.js, so TJTheme is unavailable at parse
+// time. Colors are lazy getters: charts are created after DOMContentLoaded
+// (theme.js already loaded), so accesses resolve against the live CSS vars
+// and adapt to the active theme. Fallbacks cover the no-TJTheme case.
+const GLASS_FALLBACK_COLORS = {
+    primary: '#667eea',
+    secondary: '#764ba2',
+    positive: '#00f5a0',
+    negative: '#ff6b6b',
+    warning: '#ffd93d',
+    text: 'rgba(255, 255, 255, 0.95)',
+    textMuted: 'rgba(255, 255, 255, 0.35)',
+    grid: 'rgba(255, 255, 255, 0.05)',
+    gradient: ['#667eea', '#764ba2', '#f093fb']
+};
+
+function glassThemeColor(name, cssVarName) {
+    if (typeof TJTheme === 'undefined') return GLASS_FALLBACK_COLORS[name];
+    return TJTheme.cssVar(cssVarName) || GLASS_FALLBACK_COLORS[name];
+}
+
 const CHART_THEME = {
     colors: {
-        primary: '#667eea',
-        secondary: '#764ba2',
-        positive: '#00f5a0',
-        negative: '#ff6b6b',
-        warning: '#ffd93d',
-        text: 'rgba(255, 255, 255, 0.95)',
-        textMuted: 'rgba(255, 255, 255, 0.35)',
-        grid: 'rgba(255, 255, 255, 0.05)',
-        gradient: ['#667eea', '#764ba2', '#f093fb']
+        get primary() { return glassThemeColor('primary', '--chart-1'); },
+        get secondary() { return glassThemeColor('secondary', '--chart-8'); },
+        get positive() { return glassThemeColor('positive', '--color-positive'); },
+        get negative() { return glassThemeColor('negative', '--color-negative'); },
+        get warning() { return glassThemeColor('warning', '--color-warning'); },
+        get text() { return glassThemeColor('text', '--text-primary'); },
+        get textMuted() { return glassThemeColor('textMuted', '--text-muted'); },
+        get grid() { return glassThemeColor('grid', '--surface-border'); },
+        get gradient() {
+            if (typeof TJTheme === 'undefined') return GLASS_FALLBACK_COLORS.gradient;
+            return ['--chart-1', '--chart-8', '--chart-3'].map((v, i) =>
+                TJTheme.cssVar(v) || GLASS_FALLBACK_COLORS.gradient[i]);
+        }
     },
     fonts: {
         base: "'Outfit', sans-serif",
@@ -256,6 +281,11 @@ function updatePortfolioComposition(holdings) {
 }
 
 function generateGlassColors(count) {
+    if (typeof TJTheme !== 'undefined') {
+        const palette = TJTheme.chartPalette();
+        return Array.from({ length: count }, (_, i) =>
+            TJTheme.rgbaVar('--chart-' + ((i % palette.length) + 1), 0.7));
+    }
     const baseColors = [
         'rgba(102, 126, 234, 0.7)',
         'rgba(118, 75, 162, 0.7)',
@@ -268,7 +298,7 @@ function generateGlassColors(count) {
         'rgba(107, 202, 255, 0.7)',
         'rgba(255, 159, 64, 0.7)'
     ];
-    return baseColors.slice(0, count);
+    return Array.from({ length: count }, (_, i) => baseColors[i % baseColors.length]);
 }
 
 // ==================== Top Performers ====================
@@ -419,7 +449,9 @@ function initializeCharts() {
                     data: [],
                     backgroundColor: (ctx) => {
                         const value = ctx.parsed?.y || 0;
-                        return value >= 0 ? 'rgba(0, 245, 160, 0.7)' : 'rgba(255, 107, 107, 0.7)';
+                        return value >= 0
+                            ? (typeof TJTheme !== 'undefined' ? TJTheme.rgba('positive', 0.7) : 'rgba(0, 245, 160, 0.7)')
+                            : (typeof TJTheme !== 'undefined' ? TJTheme.rgba('negative', 0.7) : 'rgba(255, 107, 107, 0.7)');
                     },
                     borderColor: (ctx) => {
                         const value = ctx.parsed?.y || 0;
@@ -506,7 +538,9 @@ function initializeAdvancedCharts() {
                     label: 'Drawdown',
                     data: [],
                     borderColor: CHART_THEME.colors.negative,
-                    backgroundColor: createGradient(drawdownCtx, 'rgba(255, 107, 107, 0.3)', 'rgba(255, 107, 107, 0)'),
+                    backgroundColor: createGradient(drawdownCtx,
+                        typeof TJTheme !== 'undefined' ? TJTheme.rgba('negative', 0.3) : 'rgba(255, 107, 107, 0.3)',
+                        typeof TJTheme !== 'undefined' ? TJTheme.rgba('negative', 0) : 'rgba(255, 107, 107, 0)'),
                     borderWidth: 2,
                     tension: 0.3,
                     fill: true,
