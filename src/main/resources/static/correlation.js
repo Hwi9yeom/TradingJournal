@@ -49,9 +49,9 @@ const CORRELATION_THRESHOLDS = {
  */
 const DEFAULT_COLORS = {
     /** 데이터 없음 배경색 */
-    NULL_BACKGROUND: '#f8f9fa',
+    NULL_BACKGROUND: TJTheme.cssVar('--surface'),
     /** 데이터 없음 텍스트색 */
-    NULL_TEXT: '#6c757d'
+    NULL_TEXT: TJTheme.cssVar('--text-muted')
 };
 
 /**
@@ -60,10 +60,10 @@ const DEFAULT_COLORS = {
  */
 const CHART_CONFIG = {
     /** 차트 선 색상 */
-    ROLLING_LINE_COLOR: '#3b82f6',
-    ROLLING_FILL_COLOR: 'rgba(59, 130, 246, 0.1)',
-    COMPARISON_COLOR_1: '#22c55e',
-    COMPARISON_COLOR_2: '#ef4444',
+    ROLLING_LINE_COLOR: TJTheme.cssVar('--chart-4'),
+    ROLLING_FILL_COLOR: TJTheme.rgbaVar('--chart-4', 0.1),
+    COMPARISON_COLOR_1: TJTheme.color('positive'),
+    COMPARISON_COLOR_2: TJTheme.color('negative'),
     /** 선 곡선 정도 */
     LINE_TENSION: 0.4
 };
@@ -732,12 +732,4 @@ function updateComparisonChart(data) {
 // AUTHENTICATION
 // ============================================================================
 
-/**
- * 로그아웃
- */
-function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('username');
-    window.location.href = 'login.html';
-}
+
