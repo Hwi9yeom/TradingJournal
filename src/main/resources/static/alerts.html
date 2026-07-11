@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>알림 센터 - 투자 기록 서비스</title>
-    <link rel="stylesheet" href="css/dashboard-glass.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Design System -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <!-- Theme init (FOUC 방지) -->
+    <script>(function(){var t=null;try{t=localStorage.getItem('trading-journal-theme')}catch(e){}if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}document.documentElement.setAttribute('data-theme',t);})();</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -176,63 +179,7 @@
 </head>
 <body>
     <!-- Background Orbs -->
-    <div class="bg-orb bg-orb-1"></div>
-    <div class="bg-orb bg-orb-2"></div>
-    <div class="bg-orb bg-orb-3"></div>
 
-    <!-- Navigation -->
-    <nav class="navbar-glass">
-        <div class="container">
-            <a class="navbar-brand" href="index.html">
-                <div class="logo-icon">
-                    <i class="bi bi-graph-up"></i>
-                </div>
-                투자 기록 서비스
-            </a>
-            <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" style="display: none;">
-                <i class="bi bi-list"></i>
-            </button>
-            <ul class="navbar-nav" id="navbarNav">
-                <li class="nav-item">
-                    <a class="nav-link" href="dashboard.html">
-                        <i class="bi bi-speedometer2"></i>
-                        대시보드
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="patterns.html">
-                        <i class="bi bi-bar-chart"></i>
-                        패턴분석
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="goals.html">
-                        <i class="bi bi-bullseye"></i>
-                        목표관리
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link active" href="alerts.html" style="position: relative;">
-                        <i class="bi bi-bell"></i>
-                        알림
-                        <span class="notification-badge" id="nav-unread-count" style="display: none;">0</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="index.html">
-                        <i class="bi bi-clipboard-data"></i>
-                        거래관리
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#" onclick="logout()">
-                        <i class="bi bi-box-arrow-right"></i>
-                        로그아웃
-                    </a>
-                </li>
-            </ul>
-        </div>
-    </nav>
 
     <div class="main-container">
         <!-- 페이지 헤더 -->
@@ -382,13 +329,10 @@
     <script src="js/dashboard-glass.js"></script>
     <script src="utils.js"></script>
     <script src="auth.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/navigation.js"></script>
     <script src="alerts.js"></script>
     <script>
-        // Mobile menu toggle
-        function toggleMobileMenu() {
-            document.getElementById('navbarNav').classList.toggle('show');
-        }
-
         // Close modal helper
         function closeAlertModal() {
             document.getElementById('alertDetailModal').classList.remove('show');
@@ -404,18 +348,6 @@
             }
         }
 
-        // Show mobile menu toggle on small screens
-        function checkScreenSize() {
-            const toggle = document.querySelector('.mobile-menu-toggle');
-            if (window.innerWidth <= 768) {
-                toggle.style.display = 'flex';
-            } else {
-                toggle.style.display = 'none';
-                document.getElementById('navbarNav').classList.remove('show');
-            }
-        }
-        window.addEventListener('resize', checkScreenSize);
-        checkScreenSize();
     </script>
 </body>
 </html>
