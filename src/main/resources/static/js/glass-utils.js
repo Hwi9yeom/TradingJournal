@@ -392,7 +392,8 @@ function resetButtonLoading(button) {
  */
 function formatCurrency(value, currency = '₩') {
     if (value === null || value === undefined) return `${currency}0`;
-    return `${currency}${Math.abs(value).toLocaleString('ko-KR')}`;
+    const sign = value < 0 ? '-' : '';
+    return `${sign}${currency}${Math.abs(Math.round(value)).toLocaleString('ko-KR')}`;
 }
 
 /**

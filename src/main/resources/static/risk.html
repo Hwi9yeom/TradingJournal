@@ -17,15 +17,15 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
     <!-- Styles -->
-    <link rel="stylesheet" href="css/dashboard-glass.css">
+    <!-- Design System -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <!-- Theme init (FOUC 방지) -->
+    <script>(function(){var t=null;try{t=localStorage.getItem('trading-journal-theme')}catch(e){}if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}document.documentElement.setAttribute('data-theme',t);})();</script>
 </head>
 <body>
     <!-- Background Orbs -->
-    <div class="bg-orb bg-orb-1"></div>
-    <div class="bg-orb bg-orb-2"></div>
-    <div class="bg-orb bg-orb-3"></div>
 
-    <!-- Navigation will be injected by navigation-glass.js -->
+    <!-- Navigation injected by js/navigation.js -->
 
     <!-- Main Content -->
     <main class="main-container">
@@ -336,8 +336,8 @@
     <script src="utils.js"></script>
     <script src="auth.js"></script>
     <script src="js/glass-utils.js"></script>
-    <script src="js/navigation-glass.js"></script>
-    <script src="js/theme-toggle.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/navigation.js"></script>
     <script src="risk.js"></script>
 </body>
 </html>

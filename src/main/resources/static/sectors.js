@@ -28,39 +28,7 @@ const API_BASE_URL = '/api';
  * Default chart colors for sector visualization
  * @constant {string[]}
  */
-const SECTOR_CHART_COLORS = [
-    '#3b82f6', // blue
-    '#22c55e', // green
-    '#f59e0b', // amber
-    '#ef4444', // red
-    '#8b5cf6', // violet
-    '#ec4899', // pink
-    '#14b8a6', // teal
-    '#f97316', // orange
-    '#6366f1', // indigo
-    '#84cc16', // lime
-    '#06b6d4', // cyan
-    '#a855f7'  // purple
-];
-
-/**
- * Mapping of sector codes to display colors
- * @constant {Object<string, string>}
- */
-const SECTOR_COLOR_MAP = {
-    'TECH': '#3b82f6',
-    'HEALTH': '#22c55e',
-    'FINANCE': '#f59e0b',
-    'CONSUMER_DISC': '#ef4444',
-    'CONSUMER_STAP': '#8b5cf6',
-    'INDUSTRIAL': '#ec4899',
-    'ENERGY': '#14b8a6',
-    'MATERIALS': '#f97316',
-    'UTILITIES': '#6366f1',
-    'REAL_ESTATE': '#84cc16',
-    'COMMUNICATION': '#06b6d4',
-    'OTHER': '#9ca3af'
-};
+const SECTOR_CHART_COLORS = TJTheme.chartPalette();
 
 /**
  * Mapping of sector codes to Korean labels
@@ -82,12 +50,24 @@ const SECTOR_LABEL_MAP = {
 };
 
 /**
+ * Mapping of sector codes to display colors, derived from the theme palette
+ * in enum order (cycles when sectors outnumber palette colors) so table
+ * swatches/card headers match chart colors. Values are 6-digit hex —
+ * required because callers append a hex-alpha suffix (e.g. `${color}20`).
+ * @constant {Object<string, string>}
+ */
+const SECTOR_COLOR_MAP = Object.fromEntries(
+    Object.keys(SECTOR_LABEL_MAP).map((code, i) =>
+        [code, SECTOR_CHART_COLORS[i % SECTOR_CHART_COLORS.length]])
+);
+
+/**
  * CSS colors for positive/negative performance indicators
  * @constant {Object}
  */
 const PERFORMANCE_COLORS = {
-    POSITIVE: 'rgba(34, 197, 94, 0.8)',
-    NEGATIVE: 'rgba(239, 68, 68, 0.8)'
+    POSITIVE: TJTheme.rgba('positive', 0.8),
+    NEGATIVE: TJTheme.rgba('negative', 0.8)
 };
 
 /**
@@ -149,7 +129,7 @@ function getAllocationChartConfig() {
                 data: [],
                 backgroundColor: getSectorColors(12),
                 borderWidth: 2,
-                borderColor: '#fff'
+                borderColor: TJTheme.cssVar('--surface-border')
             }]
         },
         options: {
@@ -613,12 +593,13 @@ function showEmptySectorState() {
 // ============================================================================
 
 /**
- * Get an array of sector colors for chart visualization
+ * Get an array of sector colors for chart visualization.
+ * Cycles the palette when count exceeds its length (8-color palette, up to 12 sectors).
  * @param {number} count - Number of colors needed
  * @returns {string[]} Array of color hex codes
  */
 function getSectorColors(count) {
-    return SECTOR_CHART_COLORS.slice(0, count);
+    return Array.from({ length: count }, (_, i) => SECTOR_CHART_COLORS[i % SECTOR_CHART_COLORS.length]);
 }
 
 /**

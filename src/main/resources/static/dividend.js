@@ -22,8 +22,8 @@ const API_BASE_URL = '/api';
  * @constant {Object}
  */
 const CHART_COLORS = {
-    BACKGROUND: 'rgba(75, 192, 192, 0.8)',
-    BORDER: 'rgba(75, 192, 192, 1)',
+    BACKGROUND: TJTheme.rgba('info', 0.8),
+    BORDER: TJTheme.color('info'),
     BORDER_WIDTH: 1
 };
 

@@ -4,8 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>로그인 - 투자 기록 서비스</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="css/dashboard-glass.css">
+    <!-- Design System -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <!-- Theme init (FOUC 방지) -->
+    <script>(function(){var t=null;try{t=localStorage.getItem('trading-journal-theme')}catch(e){}if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
         body {
             display: flex;
@@ -69,9 +77,6 @@
 </head>
 <body>
     <!-- Background Orbs -->
-    <div class="bg-orb bg-orb-1"></div>
-    <div class="bg-orb bg-orb-2"></div>
-    <div class="bg-orb bg-orb-3"></div>
 
     <div class="login-container">
         <div class="glass-card login-card">
@@ -139,6 +144,7 @@
     <script src="js/glass-utils.js"></script>
     <script src="utils.js"></script>
     <script src="auth.js"></script>
+    <script src="js/theme.js"></script>
     <script>
         let loginPassword = ''; // Store for password change
 

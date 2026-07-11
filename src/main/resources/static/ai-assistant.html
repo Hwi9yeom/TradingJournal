@@ -4,8 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 어시스턴트 - 투자 기록 서비스</title>
-    <link rel="stylesheet" href="css/dashboard-glass.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Design System -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <!-- Theme init (FOUC 방지) -->
+    <script>(function(){var t=null;try{t=localStorage.getItem('trading-journal-theme')}catch(e){}if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
         .chat-container {
             height: calc(100vh - 350px);
@@ -149,30 +157,7 @@
 </head>
 <body>
     <!-- Background Orbs -->
-    <div class="bg-orb bg-orb-1"></div>
-    <div class="bg-orb bg-orb-2"></div>
-    <div class="bg-orb bg-orb-3"></div>
 
-    <!-- Navigation -->
-    <nav class="navbar-glass">
-        <div class="container">
-            <a class="navbar-brand" href="index.html">
-                <span class="logo-icon">💼</span>
-                투자 기록 서비스
-            </a>
-            <ul class="navbar-nav">
-                <li><a class="nav-link" href="dashboard.html"><i class="bi bi-speedometer2"></i> 대시보드</a></li>
-                <li><a class="nav-link" href="patterns.html"><i class="bi bi-graph-up"></i> 패턴분석</a></li>
-                <li><a class="nav-link" href="reviews.html"><i class="bi bi-journal-text"></i> 거래복기</a></li>
-                <li><a class="nav-link" href="risk.html"><i class="bi bi-shield-check"></i> 리스크관리</a></li>
-                <li><a class="nav-link" href="correlation.html"><i class="bi bi-diagram-3"></i> 상관관계분석</a></li>
-                <li><a class="nav-link" href="backtest.html"><i class="bi bi-clock-history"></i> 백테스팅</a></li>
-                <li><a class="nav-link active" href="ai-assistant.html"><i class="bi bi-robot"></i> AI어시스턴트</a></li>
-                <li><a class="nav-link" href="index.html"><i class="bi bi-wallet2"></i> 거래관리</a></li>
-                <li><a class="nav-link" href="accounts.html"><i class="bi bi-person-circle"></i> 계좌관리</a></li>
-            </ul>
-        </div>
-    </nav>
 
     <div class="main-container">
         <div class="page-header">
@@ -295,6 +280,8 @@
 
     <script src="utils.js"></script>
     <script src="auth.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/navigation.js"></script>
     <script src="ai-assistant.js"></script>
     <script>
         // Modal control functions

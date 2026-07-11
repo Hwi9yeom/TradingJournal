@@ -16,15 +16,12 @@
  * @constant {Object}
  */
 const CHART_COLORS = {
-    PRIMARY: 'rgba(102, 126, 234, 0.7)',
-    PRIMARY_SOLID: '#667eea',
+    PRIMARY: TJTheme.rgbaVar('--chart-1', 0.7),
+    PRIMARY_SOLID: TJTheme.cssVar('--chart-1'),
     SECONDARY: 'rgba(108, 117, 125, 0.5)',
-    SUCCESS: '#28a745',
+    SUCCESS: TJTheme.color('positive'),
     TRANSPARENT: 'transparent',
-    DOUGHNUT_PALETTE: [
-        '#667eea', '#764ba2', '#f093fb',
-        '#f5576c', '#4facfe', '#00f2fe'
-    ]
+    DOUGHNUT_PALETTE: TJTheme.chartPalette()
 };
 
 /**

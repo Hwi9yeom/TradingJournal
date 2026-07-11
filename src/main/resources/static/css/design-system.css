@@ -79,6 +79,24 @@
     --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* Data-first surfaces (카드/패널/모달 — 판독성 우선) */
+    --surface: rgba(26, 28, 52, 0.75);
+    --surface-hover: rgba(32, 35, 62, 0.85);
+    --surface-border: rgba(255, 255, 255, 0.14);
+
+    /* Layout */
+    --sidebar-width: 240px;
+
+    /* Categorical chart palette */
+    --chart-1: #667eea;
+    --chart-2: #a855f7;
+    --chart-3: #f093fb;
+    --chart-4: #6bcaff;
+    --chart-5: #00f5a0;
+    --chart-6: #ffd93d;
+    --chart-7: #ff6b6b;
+    --chart-8: #764ba2;
 }
 
 /* === Light Theme Variables === */
@@ -106,14 +124,33 @@
     --text-inverse: #ffffff;
 
     /* Semantic Colors - keep vibrant but adjust for visibility */
-    --color-positive: #00c781;
-    --color-positive-glow: rgba(0, 199, 129, 0.3);
-    --color-negative: #ff4757;
-    --color-negative-glow: rgba(255, 71, 87, 0.3);
+    --color-positive: #00915f;
+    --color-positive-glow: rgba(0, 145, 95, 0.25);
+    --color-negative: #e5484d;
+    --color-negative-glow: rgba(229, 72, 77, 0.25);
     --color-warning: #f39c12;
     --color-info: #3498db;
     --color-accent: #9333ea;
     --color-accent-glow: rgba(147, 51, 234, 0.3);
+
+    /* Data-first surfaces */
+    --surface: rgba(255, 255, 255, 0.9);
+    --surface-hover: rgba(255, 255, 255, 1);
+    --surface-border: rgba(0, 0, 0, 0.08);
+
+    --chart-1: #5b6ee0;
+    --chart-2: #9333ea;
+    --chart-3: #c65fd6;
+    --chart-4: #2f8fd6;
+    --chart-5: #00915f;
+    --chart-6: #d99a0b;
+    --chart-7: #e5484d;
+    --chart-8: #6d4699;
+}
+
+/* 라이트 테마: 오브 제거, 그라데이션 배경만 (스펙 3.1) */
+[data-theme="light"] .bg-orb {
+    display: none;
 }
 
 /* === Reset & Base === */
@@ -148,7 +185,7 @@ body::before {
     bottom: 0;
     background: var(--bg-mesh);
     pointer-events: none;
-    z-index: 0;
+    z-index: -1;
 }
 
 /* Animated Background Orbs */
@@ -156,10 +193,10 @@ body::before {
     position: fixed;
     border-radius: 50%;
     filter: blur(80px);
-    opacity: 0.4;
+    opacity: 0.25;
     animation: float 20s ease-in-out infinite;
     pointer-events: none;
-    z-index: 0;
+    z-index: -1;
 }
 
 .bg-orb-1 {
@@ -196,25 +233,28 @@ body::before {
     75% { transform: translate(20px, 30px) scale(1.02); }
 }
 
-/* === Navigation === */
-.navbar-glass {
-    position: sticky;
+/* === Sidebar Navigation === */
+.sidebar-glass {
+    position: fixed;
     top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
     z-index: 1000;
-    background: var(--glass-bg);
+    display: flex;
+    flex-direction: column;
+    background: rgba(20, 22, 45, 0.7);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border-bottom: 1px solid var(--glass-border);
-    padding: var(--space-3) 0;
+    border-right: 1px solid var(--glass-border);
+    overflow-y: auto;
+    padding: var(--space-5) var(--space-3);
+    transition: transform var(--transition-base);
 }
 
-.navbar-glass .container {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: 0 var(--space-6);
+[data-theme="light"] .sidebar-glass {
+    background: rgba(255, 255, 255, 0.78);
+    border-right-color: var(--surface-border);
 }
 
 .navbar-brand {
@@ -222,36 +262,47 @@ body::before {
     align-items: center;
     gap: var(--space-3);
     font-weight: 700;
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
     color: var(--text-primary);
     text-decoration: none;
     letter-spacing: -0.02em;
+    padding: 0 var(--space-2) var(--space-4);
 }
 
 .navbar-brand .logo-icon {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
     border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     box-shadow: 0 4px 15px var(--color-accent-glow);
+    flex-shrink: 0;
 }
 
-.navbar-nav {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
+.sidebar-group-label {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    padding: var(--space-4) var(--space-2) var(--space-1);
+}
+
+.sidebar-nav {
     list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .nav-link {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-4);
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
     color: var(--text-secondary);
     text-decoration: none;
     font-size: var(--font-size-sm);
@@ -259,6 +310,18 @@ body::before {
     border-radius: var(--radius-md);
     transition: var(--transition-base);
     position: relative;
+    background: none;
+    border: none;
+    width: 100%;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.nav-link i {
+    font-size: var(--font-size-base);
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
 }
 
 .nav-link:hover {
@@ -268,27 +331,82 @@ body::before {
 
 .nav-link.active {
     color: var(--text-primary);
-    background: var(--glass-bg-hover);
+    background: rgba(168, 85, 247, 0.22);
+    box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
-.nav-link.active::after {
-    content: '';
-    position: absolute;
-    bottom: -1px;
-    left: var(--space-4);
-    right: var(--space-4);
-    height: 2px;
-    background: linear-gradient(90deg, var(--gradient-start), var(--gradient-mid));
-    border-radius: var(--radius-full);
+[data-theme="light"] .nav-link.active {
+    color: var(--color-accent);
+    background: rgba(147, 51, 234, 0.1);
+}
+
+.sidebar-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--glass-border);
+    padding-top: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* 모바일 드로어 제어 (≤1023px) */
+.sidebar-toggle-btn {
+    display: none;
+    position: fixed;
+    top: var(--space-3);
+    left: var(--space-3);
+    z-index: 1100;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    border: 1px solid var(--surface-border);
+    color: var(--text-primary);
+    font-size: var(--font-size-xl);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: rgba(0, 0, 0, 0.5);
 }
 
 /* === Main Container === */
 .main-container {
     position: relative;
-    z-index: 1;
     max-width: 1600px;
     margin: 0 auto;
+    margin-left: max(var(--sidebar-width), calc((100vw - 1600px + var(--sidebar-width)) / 2));
     padding: var(--space-8) var(--space-6);
+}
+
+@media (max-width: 1023px) {
+    .sidebar-glass {
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform var(--transition-base), visibility 0s 0.25s;
+    }
+    .sidebar-glass.open {
+        transform: translateX(0);
+        visibility: visible;
+        transition: transform var(--transition-base), visibility 0s;
+        box-shadow: var(--glass-shadow);
+    }
+    .sidebar-toggle-btn {
+        display: flex;
+    }
+    .sidebar-overlay.active {
+        display: block;
+    }
+    .main-container {
+        margin-left: 0;
+        padding-top: calc(var(--space-8) + 44px); /* 햄버거 버튼 공간 */
+    }
 }
 
 /* === Page Header === */
@@ -309,10 +427,7 @@ body::before {
     font-size: var(--font-size-3xl);
     font-weight: 700;
     letter-spacing: -0.03em;
-    background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--text-primary);
 }
 
 .page-title .subtitle {
@@ -323,10 +438,10 @@ body::before {
 
 /* === Glass Card === */
 .glass-card {
-    background: var(--glass-bg);
+    background: var(--surface);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--surface-border);
     border-radius: var(--radius-xl);
     box-shadow: var(--glass-shadow);
     transition: var(--transition-base);
@@ -380,10 +495,10 @@ body::before {
 }
 
 .stat-card {
-    background: var(--glass-bg);
+    background: var(--surface);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--surface-border);
     border-radius: var(--radius-xl);
     padding: var(--space-6);
     position: relative;
@@ -894,10 +1009,10 @@ body::before {
     right: 0;
     margin-top: var(--space-2);
     min-width: 200px;
-    background: rgba(20, 20, 40, 0.95);
+    background: var(--surface);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--surface-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--glass-shadow);
     padding: var(--space-2);
@@ -1005,10 +1120,10 @@ body::before {
     align-items: center;
     gap: var(--space-4);
     padding: var(--space-4) var(--space-5);
-    background: rgba(20, 20, 40, 0.95);
+    background: var(--surface);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--surface-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--glass-shadow);
     min-width: 300px;
@@ -1064,10 +1179,10 @@ body::before {
 .modal-glass-content {
     width: 100%;
     max-width: 500px;
-    background: rgba(20, 20, 40, 0.98);
+    background: var(--surface);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--surface-border);
     border-radius: var(--radius-xl);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     transform: scale(0.95) translateY(20px);
@@ -1283,6 +1398,7 @@ body::before {
 
     .main-container {
         padding: var(--space-4);
+        padding-top: calc(var(--space-4) + 44px + var(--space-2));
     }
 
     .stats-grid {
@@ -1309,46 +1425,9 @@ body::before {
         grid-template-columns: 1fr;
     }
 
-    /* Mobile Navigation */
-    .navbar-glass .container {
-        padding: 0 var(--space-4);
-    }
-
-    .navbar-nav {
-        display: none;
-        position: fixed;
-        top: 60px;
-        left: 0;
-        right: 0;
-        background: rgba(20, 20, 40, 0.98);
-        backdrop-filter: var(--glass-blur);
-        -webkit-backdrop-filter: var(--glass-blur);
-        border-bottom: 1px solid var(--glass-border);
-        padding: var(--space-4);
-        flex-direction: column;
-        gap: var(--space-2);
-    }
-
-    .navbar-nav.show {
-        display: flex;
-    }
-
     .nav-link {
         padding: var(--space-3) var(--space-4);
         width: 100%;
-    }
-
-    .mobile-menu-toggle {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        background: var(--glass-bg);
-        border: 1px solid var(--glass-border);
-        border-radius: var(--radius-md);
-        color: var(--text-primary);
-        cursor: pointer;
     }
 
     .page-header {
@@ -1757,6 +1836,149 @@ body::before {
         height: 4px;
         bottom: var(--space-1);
     }
+}
+
+/* === Numeric Display (스펙 3.2) === */
+.num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+/* === 감사에서 확인된 버그픽스 === */
+/* utils.js가 empty-state-description을 생성 (CSS에는 -desc만 있었음) */
+.empty-state-description {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+/* risk.html이 stagger-5 사용 */
+.stagger-5 { animation-delay: 0.5s; }
+.stagger-6 { animation-delay: 0.6s; }
+
+/* === Bootstrap-emitting JS 호환 심 ===
+   공유 JS(utils.js, app.js, goals.js, sectors.js, backtest.js, plans.js,
+   dividend.js)가 Bootstrap 클래스를 생성하지만 글래스 페이지에는 Bootstrap이
+   없다. 최다 빈도 클래스만 글래스 스타일로 매핑한다. */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    background: var(--glass-bg-hover);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: var(--transition-base);
+}
+.btn:hover { border-color: var(--glass-border-hover); }
+.btn-primary {
+    background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
+    border: none;
+    color: #fff;
+}
+.btn-danger { background: var(--color-negative); border: none; color: #fff; }
+.btn-success { background: var(--color-positive); border: none; color: var(--text-inverse); }
+.btn-sm { padding: var(--space-1) var(--space-3); font-size: var(--font-size-xs); }
+.card {
+    background: var(--surface);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-lg);
+}
+.card-header { padding: var(--space-4); border-bottom: 1px solid var(--surface-border); }
+.card-body { padding: var(--space-4); }
+.text-end { text-align: right !important; }
+.text-danger { color: var(--color-negative) !important; }
+.text-success { color: var(--color-positive) !important; }
+.d-flex { display: flex !important; }
+.justify-content-between { justify-content: space-between !important; }
+.align-items-center { align-items: center !important; }
+.spinner-border {
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--glass-border);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    display: inline-block;
+    animation: spin 0.8s linear infinite;
+}
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+small, .small { font-size: var(--font-size-xs); }
+.fw-bold { font-weight: 700 !important; }
+.d-block { display: block !important; }
+.row { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.row > [class*="col-"], .row > .col { flex: 1 1 0; min-width: 0; }
+.col-12, .col-md-12 { flex: 0 0 100%; }
+.col-6, .col-md-6 { flex: 1 1 calc(50% - var(--space-3)); }
+.col-4, .col-md-4 { flex: 1 1 calc(33.333% - var(--space-3)); }
+.col-md-3, .col-lg-3 { flex: 1 1 calc(25% - var(--space-3)); }
+.me-1 { margin-right: var(--space-1) !important; }
+.me-2 { margin-right: var(--space-2) !important; }
+.mt-3 { margin-top: var(--space-3) !important; }
+.mb-3 { margin-bottom: var(--space-3) !important; }
+.p-3 { padding: var(--space-3) !important; }
+.pt-3 { padding-top: var(--space-3) !important; }
+.border-top { border-top: 1px solid var(--surface-border) !important; }
+.badge { display: inline-block; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); font-size: var(--font-size-xs); font-weight: 600; background: var(--glass-bg-hover); color: var(--text-secondary); }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--surface-border); text-align: left; }
+.form-control, .form-select {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+}
+.form-control-sm, .form-select-sm { padding: var(--space-1) var(--space-2); font-size: var(--font-size-xs); }
+.badge.bg-success { background: var(--color-positive) !important; color: var(--text-inverse); }
+.badge.bg-danger { background: var(--color-negative) !important; color: #1a1a2e; }
+.badge.bg-primary { background: var(--color-accent) !important; color: #fff; }
+.badge.bg-warning { background: var(--color-warning) !important; color: #1a1a2e; }
+.badge.bg-secondary { background: var(--glass-bg-hover) !important; color: var(--text-secondary); }
+.table-warning td { background: rgba(255, 217, 61, 0.08); }
+.btn-outline-primary, .btn-outline-secondary, .btn-outline-info {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    color: var(--text-secondary);
+}
+.btn-outline-primary:hover { color: var(--text-primary); border-color: var(--glass-border-hover); }
+.btn-outline-warning { background: transparent; border: 1px solid var(--color-warning); color: var(--color-warning); }
+.btn-outline-warning:hover { color: var(--color-warning); background: rgba(255, 217, 61, 0.12); }
+.progress {
+    height: 10px;
+    background: var(--glass-bg-hover);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+.progress-bar { height: 100%; background: var(--color-accent); transition: width var(--transition-base); }
+.progress-bar.bg-success { background: var(--color-positive); }
+.progress-bar.bg-danger { background: var(--color-negative); }
+.progress-bar.bg-warning { background: var(--color-warning); }
+.progress-bar.bg-info { background: var(--color-info); }
+/* 구 스타일시트 시절 변수를 쓰는 공유 JS(utils.js 토스트, goals.js 링)용 별칭 */
+:root, [data-theme="light"] {
+    --color-text-secondary: var(--text-secondary);
+    --bs-success: var(--color-positive);
+    --bs-danger: var(--color-negative);
+    --bs-warning: var(--color-warning);
+    --bs-info: var(--color-info);
+}
+
+/* === 키보드 포커스 표시 (사이드바가 주 내비게이션) === */
+.nav-link:focus-visible,
+.sidebar-toggle-btn:focus-visible,
+.btn:focus-visible,
+.btn-glass:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
 }
 
 /* === Reduced Motion Support === */

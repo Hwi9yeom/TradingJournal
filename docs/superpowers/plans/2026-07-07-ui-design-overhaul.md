@@ -52,20 +52,30 @@
 ```javascript
 /**
  * Theme Module — design-system의 테마 관리 + Chart.js 테마 연동
- * theme-toggle.js를 대체한다. localStorage 키/전역 API/이벤트는 기존과 호환.
+ * 구 theme-toggle 모듈을 대체한다. localStorage 키/전역 API/이벤트는 기존과 호환.
  *
  * HTML <head>에는 FOUC 방지용 인라인 스니펫이 별도로 들어간다 (이 파일 참조 전 실행):
- * <script>(function(){var t=localStorage.getItem('trading-journal-theme');
+ * <script>(function(){var t=null;try{t=localStorage.getItem('trading-journal-theme')}catch(e){}
  *   if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}
  *   document.documentElement.setAttribute('data-theme',t);})();</script>
  */
 (function () {
     'use strict';
 
+    if (document.documentElement.hasAttribute('data-tj-theme-bound')) return;
+    document.documentElement.setAttribute('data-tj-theme-bound', '');
+
     const THEME_KEY = 'trading-journal-theme';
     const DARK = 'dark';
     const LIGHT = 'light';
     const themeChangeCallbacks = [];
+
+    function safeGetStoredTheme() {
+        try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; }
+    }
+    function safeStoreTheme(theme) {
+        try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* storage blocked */ }
+    }
 
     function currentTheme() {
         return document.documentElement.getAttribute('data-theme') || DARK;
@@ -77,7 +87,11 @@
 
     /** '#rrggbb' 또는 '#rgb' → 'rgba(r,g,b,a)' */
     function hexToRgba(hex, alpha) {
-        let h = hex.replace('#', '');
+        if (!/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex.trim())) {
+            console.warn('TJTheme.rgba: invalid hex', hex);
+            return hex;
+        }
+        let h = hex.trim().replace('#', '');
         if (h.length === 3) h = h.split('').map(c => c + c).join('');
         const int = parseInt(h, 16);
         return `rgba(${(int >> 16) & 255}, ${(int >> 8) & 255}, ${int & 255}, ${alpha})`;
@@ -103,7 +117,7 @@
 
     function toggleTheme() {
         const next = currentTheme() === DARK ? LIGHT : DARK;
-        localStorage.setItem(THEME_KEY, next);
+        safeStoreTheme(next);
         applyTheme(next);
     }
 
@@ -135,24 +149,26 @@
     });
 
     function init() {
+        // FOUC 인라인 스니펫이 누락된 페이지 방어: data-theme이 없으면 여기서 결정
+        if (!document.documentElement.hasAttribute('data-theme')) {
+            applyTheme(safeGetStoredTheme() ||
+                ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? LIGHT : DARK));
+        }
         // data-theme은 인라인 스니펫이 이미 설정; 아이콘/차트만 동기화
         updateToggleIcons(currentTheme());
         applyChartDefaults();
-        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
-            .addEventListener('change', e => {
-                if (!localStorage.getItem(THEME_KEY)) applyTheme(e.matches ? DARK : LIGHT);
-            });
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
+        try {
+            window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
+                .addEventListener('change', e => {
+                    if (!safeGetStoredTheme()) applyTheme(e.matches ? DARK : LIGHT);
+                });
+        } catch (e) { /* older Safari: MediaQueryList without addEventListener */ }
     }
 
-    // 기존 theme-toggle.js와 호환되는 전역 API
+    // 구 theme-toggle 모듈과 호환되는 전역 API (init 이전에 노출)
     window.ThemeToggle = {
         toggle: toggleTheme,
-        setTheme: (t) => { if (t === DARK || t === LIGHT) { localStorage.setItem(THEME_KEY, t); applyTheme(t); } },
+        setTheme: (t) => { if (t === DARK || t === LIGHT) { safeStoreTheme(t); applyTheme(t); } },
         getTheme: currentTheme,
         isDark: () => currentTheme() === DARK
     };
@@ -162,10 +178,17 @@
         cssVar,
         color: (name) => cssVar('--color-' + name),          // positive|negative|warning|info|accent
         rgba: (name, alpha) => hexToRgba(cssVar('--color-' + name), alpha),
+        rgbaVar: (varName, alpha) => hexToRgba(cssVar(varName), alpha),
         chartPalette: () => [1, 2, 3, 4, 5, 6, 7, 8].map(i => cssVar('--chart-' + i)),
         onThemeChange: (cb) => themeChangeCallbacks.push(cb),
         applyChartDefaults
     };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 })();
 ```
 
@@ -240,7 +263,7 @@ Run: `cp src/main/resources/static/css/dashboard-glass.css src/main/resources/st
     --chart-8: #6d4699;
 ```
 
-- [ ] **Step 4 (Edit C): 배경 오브 완화** — `.bg-orb {` 규칙 안에 `opacity: 0.6;` 한 줄 추가하고, `[data-theme="light"]` 블록 **뒤에** 다음 규칙 추가:
+- [ ] **Step 4 (Edit C): 배경 오브 완화** — `.bg-orb {` 규칙의 기존 `opacity: 0.4;` 선언을 `opacity: 0.25;`로 교체하고, `[data-theme="light"]` 블록 **뒤에** 다음 규칙 추가:
 
 ```css
 /* 라이트 테마: 오브 제거, 그라데이션 배경만 (스펙 3.1) */
@@ -398,9 +421,13 @@ Run: `cp src/main/resources/static/css/dashboard-glass.css src/main/resources/st
 @media (max-width: 1023px) {
     .sidebar-glass {
         transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform var(--transition-base), visibility 0s 0.25s;
     }
     .sidebar-glass.open {
         transform: translateX(0);
+        visibility: visible;
+        transition: transform var(--transition-base), visibility 0s;
         box-shadow: var(--glass-shadow);
     }
     .sidebar-toggle-btn {
@@ -412,15 +439,16 @@ Run: `cp src/main/resources/static/css/dashboard-glass.css src/main/resources/st
 }
 ```
 
+참고: `body::before`와 `.bg-orb`에 `z-index: -1;`을 추가하고 `.main-container`의 `z-index: 1`을 제거한다 (모달 스태킹 트랩 방지). 768px 블록의 `.main-container`에 `padding-top: calc(var(--space-4) + 44px + var(--space-2));` 추가. dropdown-menu/toast-glass 배경은 `var(--surface)`로.
+
 - [ ] **Step 6 (Edit E): `.main-container`에 사이드바 오프셋** — 기존 규칙을 다음으로 교체:
 
 ```css
 .main-container {
     position: relative;
-    z-index: 1;
     max-width: 1600px;
     margin: 0 auto;
-    margin-left: var(--sidebar-width);
+    margin-left: max(var(--sidebar-width), calc((100vw - 1600px + var(--sidebar-width)) / 2));
     padding: var(--space-8) var(--space-6);
 }
 
@@ -517,6 +545,60 @@ Run: `cp src/main/resources/static/css/dashboard-glass.css src/main/resources/st
     display: inline-block;
     animation: spin 0.8s linear infinite;
 }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+small, .small { font-size: var(--font-size-xs); }
+.fw-bold { font-weight: 700 !important; }
+.d-block { display: block !important; }
+.row { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.row > [class*="col-"], .row > .col { flex: 1 1 0; min-width: 0; }
+.col-12, .col-md-12 { flex: 0 0 100%; }
+.col-6, .col-md-6 { flex: 1 1 calc(50% - var(--space-3)); }
+.col-4, .col-md-4 { flex: 1 1 calc(33.333% - var(--space-3)); }
+.col-md-3, .col-lg-3 { flex: 1 1 calc(25% - var(--space-3)); }
+.me-1 { margin-right: var(--space-1) !important; }
+.me-2 { margin-right: var(--space-2) !important; }
+.mt-3 { margin-top: var(--space-3) !important; }
+.mb-3 { margin-bottom: var(--space-3) !important; }
+.p-3 { padding: var(--space-3) !important; }
+.pt-3 { padding-top: var(--space-3) !important; }
+.border-top { border-top: 1px solid var(--surface-border) !important; }
+.badge { display: inline-block; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); font-size: var(--font-size-xs); font-weight: 600; background: var(--glass-bg-hover); color: var(--text-secondary); }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--surface-border); text-align: left; }
+.form-control, .form-select {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+}
+.form-control-sm, .form-select-sm { padding: var(--space-1) var(--space-2); font-size: var(--font-size-xs); }
+.badge.bg-success { background: var(--color-positive) !important; color: var(--text-inverse); }
+.badge.bg-danger { background: var(--color-negative) !important; color: #1a1a2e; }
+.badge.bg-primary { background: var(--color-accent) !important; color: #fff; }
+.badge.bg-warning { background: var(--color-warning) !important; color: #1a1a2e; }
+.badge.bg-secondary { background: var(--glass-bg-hover) !important; color: var(--text-secondary); }
+.table-warning td { background: rgba(255, 217, 61, 0.08); }
+.btn-outline-primary, .btn-outline-secondary, .btn-outline-info {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    color: var(--text-secondary);
+}
+.btn-outline-primary:hover { color: var(--text-primary); border-color: var(--glass-border-hover); }
+.btn-outline-warning { background: transparent; border: 1px solid var(--color-warning); color: var(--color-warning); }
+.btn-outline-warning:hover { color: var(--color-warning); background: rgba(255, 217, 61, 0.12); }
+
+/* === 키보드 포커스 표시 (사이드바가 주 내비게이션) === */
+.nav-link:focus-visible,
+.sidebar-toggle-btn:focus-visible,
+.btn:focus-visible,
+.btn-glass:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
 ```
 
 - [ ] **Step 10: 768px 미디어 블록의 navbar 잔재 제거** — `@media (max-width: 768px)` 블록(원본 1278행 상당) 안에서 `.navbar-nav`, `.mobile-menu-toggle`, `.navbar-glass` 관련 규칙을 삭제한다 (사이드바 미디어 규칙은 Step 5에서 이미 추가됨). 블록 내 다른 규칙(stats-grid 1열 등)은 유지.
@@ -544,7 +626,7 @@ git commit -m "feat(ui): add design-system.css (sidebar, data-first surfaces, pa
 
 ```javascript
 /**
- * Sidebar Navigation Module — navigation-glass.js를 대체.
+ * Sidebar Navigation Module — 구 navigation-glass 모듈을 대체.
  * 전체 페이지의 nav 구성이 이 파일 하나에만 존재한다 (스펙 4.2).
  * body 시작 부분에 사이드바 + 배경 오브 + 모바일 드로어 컨트롤을 주입한다.
  */
@@ -609,9 +691,9 @@ git commit -m "feat(ui): add design-system.css (sidebar, data-first surfaces, pa
             </ul>`).join('');
 
         return `
-            <button class="sidebar-toggle-btn" aria-label="메뉴 열기"><i class="bi bi-list"></i></button>
+            <button class="sidebar-toggle-btn" aria-label="메뉴 열기" aria-expanded="false"><i class="bi bi-list"></i></button>
             <div class="sidebar-overlay"></div>
-            <aside class="sidebar-glass">
+            <nav class="sidebar-glass" aria-label="주 메뉴">
                 <a href="index.html" class="navbar-brand">
                     <span class="logo-icon"><i class="bi bi-graph-up-arrow"></i></span>
                     Trading Journal
@@ -627,7 +709,7 @@ git commit -m "feat(ui): add design-system.css (sidebar, data-first surfaces, pa
                         <i class="bi bi-box-arrow-right"></i> 로그아웃
                     </a>
                 </div>
-            </aside>`;
+            </nav>`;
     }
 
     function injectBackgroundOrbs() {
@@ -642,12 +724,22 @@ git commit -m "feat(ui): add design-system.css (sidebar, data-first surfaces, pa
         const overlay = document.querySelector('.sidebar-overlay');
         if (!sidebar || !toggle || !overlay) return;
 
-        const open = () => { sidebar.classList.add('open'); overlay.classList.add('active'); };
-        const close = () => { sidebar.classList.remove('open'); overlay.classList.remove('active'); };
+        const open = () => {
+            sidebar.classList.add('open');
+            overlay.classList.add('active');
+            toggle.setAttribute('aria-expanded', 'true');
+            document.body.style.overflow = 'hidden';
+        };
+        const close = () => {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            toggle.setAttribute('aria-expanded', 'false');
+            document.body.style.overflow = '';
+        };
 
-        toggle.addEventListener('click', open);
+        toggle.addEventListener('click', () => sidebar.classList.contains('open') ? close() : open());
         overlay.addEventListener('click', close);
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && sidebar.classList.contains('open')) close(); });
         sidebar.querySelectorAll('a.nav-link').forEach(a =>
             a.addEventListener('click', () => setTimeout(close, 100)));
     }
@@ -657,16 +749,6 @@ git commit -m "feat(ui): add design-system.css (sidebar, data-first surfaces, pa
         injectBackgroundOrbs();
         document.body.insertAdjacentHTML('afterbegin', buildSidebarHTML());
         setupDrawer();
-        // 테마 아이콘 상태 동기화 (theme.js가 먼저 로드된 경우)
-        if (window.ThemeToggle) {
-            const t = window.ThemeToggle.getTheme();
-            document.querySelectorAll('.theme-toggle-icon.sun').forEach(i => {
-                i.style.display = t === 'dark' ? 'inline' : 'none';
-            });
-            document.querySelectorAll('.theme-toggle-icon.moon').forEach(i => {
-                i.style.display = t === 'light' ? 'inline' : 'none';
-            });
-        }
     }
 
     if (document.readyState === 'loading') {
@@ -704,6 +786,7 @@ git commit -m "feat(ui): add navigation.js (sidebar injection, single nav source
 # Usage: check-frontend.sh page.html [page2.html ...]   # 지정 페이지 검사
 #        check-frontend.sh --all                        # 전체 페이지 + 삭제 파일 참조 검사
 set -u
+[ $# -eq 0 ] && { echo "usage: $0 page.html ... | --all" >&2; exit 2; }
 cd "$(dirname "$0")/../src/main/resources/static" || exit 1
 
 PAGES=(accounts.html ai-assistant.html alerts.html backtest.html correlation.html
@@ -720,12 +803,12 @@ check_page() {
     local p="$1"
     [ -f "$p" ] || { err "$p: 파일 없음"; return; }
     grep -q 'css/design-system.css' "$p"       || err "$p: design-system.css 미포함"
-    grep -q 'trading-journal-theme' "$p"       || err "$p: 테마 FOUC 인라인 스니펫 없음"
+    grep -q "localStorage.getItem('trading-journal-theme')" "$p" || err "$p: 테마 FOUC 인라인 스니펫 없음"
     grep -q 'js/theme.js' "$p"                 || err "$p: js/theme.js 미포함"
     grep -q 'dashboard-glass.css' "$p"         && err "$p: 구 dashboard-glass.css 참조 잔존"
     grep -q 'navigation-glass.js\|theme-toggle.js' "$p" && err "$p: 구 nav/theme 스크립트 잔존"
-    grep -q '<nav class="navbar-glass"' "$p"   && err "$p: 하드코딩 navbar 잔존"
-    grep -q '<div class="bg-orb' "$p"          && err "$p: 하드코딩 배경 오브 잔존"
+    grep -q 'navbar-glass' "$p"                && err "$p: 하드코딩 navbar 잔존"
+    grep -q 'bg-orb' "$p"                      && err "$p: 하드코딩 배경 오브 잔존"
     if [ "$p" != "login.html" ]; then
         grep -q 'js/navigation.js' "$p"        || err "$p: js/navigation.js 미포함"
     fi
@@ -735,8 +818,12 @@ if [ "${1:-}" = "--all" ]; then
     for p in "${PAGES[@]}"; do check_page "$p"; done
     for d in "${DELETED[@]}"; do
         [ -e "$d" ] && err "$d: 삭제 대상 파일이 아직 존재"
-        # shellcheck disable=SC2038
-        refs=$(find . -name '*.html' -o -name '*.js' | xargs grep -l "$(basename "$d")" 2>/dev/null | grep -v check-frontend || true)
+        name=$(basename "$d")
+        esc=$(printf '%s' "$name" | sed 's/\./\\./g')
+        # src/href/문자열 참조만 잡고, style.cssText 같은 부분 일치는 배제
+        refs=$(find . \( -name '*.html' -o -name '*.js' -o -name '*.css' \) -print0 \
+            | xargs -0 grep -lE "(^|[^[:alnum:]_.-])${esc}([^[:alnum:]_]|\$)" 2>/dev/null \
+            | grep -v check-frontend | tr '\n' ' ' || true)
         [ -n "$refs" ] && err "$d 참조 잔존: $refs"
     done
 else
@@ -782,7 +869,7 @@ git commit -m "test(ui): add frontend migration checker script"
     <!-- Design System -->
     <link rel="stylesheet" href="css/design-system.css">
     <!-- Theme init (FOUC 방지) -->
-    <script>(function(){var t=localStorage.getItem('trading-journal-theme');if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}document.documentElement.setAttribute('data-theme',t);})();</script>
+    <script>(function(){var t=null;try{t=localStorage.getItem('trading-journal-theme')}catch(e){}if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}document.documentElement.setAttribute('data-theme',t);})();</script>
 ```
 
 ---
@@ -1164,6 +1251,24 @@ git commit -m "test(ui): add frontend migration checker script"
 
 - [ ] **Step 4: 그린** — `scripts/check-frontend.sh export.html login.html` → `OK`
 - [ ] **Step 5: Commit** — `git commit -m "feat(ui): migrate export.html and login.html"`
+
+---
+
+### Task 21.5: js/dashboard-glass.js 차트 색 테마링 (Task 5 품질 리뷰에서 발견된 플랜 갭)
+
+**Files:**
+- Modify: `src/main/resources/static/js/dashboard-glass.js`
+
+배경: dashboard/alerts/journal/reviews 4개 페이지가 로드하는 이 파일은 차트 색을 하드코딩한다. per-chart options가 Chart.defaults를 이기므로 theme.js가 못 고친다 — 라이트 테마에서 그리드 `rgba(255,255,255,0.05)`는 안 보이고 범례 `rgba(255,255,255,0.35)`는 판독 불가.
+
+- [ ] **Step 1: CHART_THEME 상수 교체** — 파일 상단 `CHART_THEME`(~9–25행)의 값들을 TJTheme 기반으로:
+  - grid 계열 `rgba(255,255,255,0.05)` → `TJTheme.cssVar('--surface-border')`
+  - 텍스트/범례 계열 `rgba(255,255,255,0.35)`·`rgba(255,255,255,0.6)` → `TJTheme.cssVar('--text-muted')`·`TJTheme.cssVar('--text-secondary')`
+  - primary/positive/negative 하드코딩 hex → `TJTheme.cssVar('--chart-1')`/`TJTheme.color('positive')`/`TJTheme.color('negative')`
+  - 주의: 이 파일은 theme.js보다 **먼저** 로드되므로 parse-time에 TJTheme가 없다. CHART_THEME를 즉시 평가 상수에서 **게터 함수 또는 지연 초기화**로 바꾸거나, 값 사용 시점(차트 생성은 DOMContentLoaded 후 = theme.js 로드 후)에 읽도록 할 것. `typeof TJTheme !== 'undefined'` 가드 + 기존 하드코딩 값 폴백 유지.
+- [ ] **Step 2: 그 외 하드코딩 다크 색** — d3 트리맵 툴팁/셀 텍스트, correlation heatmap 셀 텍스트 `rgba(255,255,255,0.9)` 등도 같은 방식으로 CSS 변수화 (grep으로 `rgba(255` / `#[0-9a-f]{6}` 전수 확인, 시맨틱 의미 유지)
+- [ ] **Step 3: 검증** — `node --check src/main/resources/static/js/dashboard-glass.js` → exit 0
+- [ ] **Step 4: Commit** — `git commit -m "fix(ui): theme dashboard-glass.js chart colors (light-theme readability)"`
 
 ---
 
