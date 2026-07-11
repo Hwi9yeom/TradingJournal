@@ -1,7 +1,7 @@
 # UI 디자인 전면 개선 (Design Overhaul) — 설계 문서
 
 - **날짜**: 2026-07-06
-- **상태**: 사용자 승인 대기
+- **상태**: 구현 완료 (2026-07-11, feature 브랜치 worktree-ui-design-overhaul)
 - **범위**: `src/main/resources/static/` 프론트엔드 전체 (백엔드 무변경)
 
 ## 1. 배경과 목표
