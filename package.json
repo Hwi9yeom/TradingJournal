@@ -1,0 +1,29 @@
+{
+  "name": "journal",
+  "version": "1.0.0",
+  "description": "Spring Boot 기반 트레이딩 저널/포트폴리오 관리 서비스입니다.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hwi9yeom/TradingJournal.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Hwi9yeom/TradingJournal/issues"
+  },
+  "homepage": "https://github.com/Hwi9yeom/TradingJournal#readme",
+  "devDependencies": {
+    "@astryxdesign/cli": "^0.2.0",
+    "@astryxdesign/core": "^0.2.0",
+    "@astryxdesign/theme-neutral": "^0.2.0"
+  }
+}

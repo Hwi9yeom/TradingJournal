@@ -97,6 +97,75 @@
     --chart-6: #ffd93d;
     --chart-7: #ff6b6b;
     --chart-8: #764ba2;
+
+    /* ---- 아래는 Astryx 토큰 체계를 참고해 보강한 계층 (추가 전용) ----
+       기존 변수는 이름/값 모두 그대로 두고, 비어 있던 축만 채운다. */
+
+    /* 네이티브 위젯(스크롤바·select·date picker)이 테마를 따르도록 */
+    color-scheme: dark;
+
+    /* Elevation — 기존엔 --glass-shadow 하나뿐이라 나머지는 하드코딩돼 있었다 */
+    --shadow-low: 0 1px 2px rgba(0, 0, 0, 0.20), 0 2px 8px rgba(0, 0, 0, 0.24);
+    --shadow-med: 0 2px 4px rgba(0, 0, 0, 0.24), 0 8px 24px rgba(0, 0, 0, 0.32);
+    --shadow-high: 0 4px 8px rgba(0, 0, 0, 0.28), 0 24px 48px rgba(0, 0, 0, 0.45);
+
+    /* 상태 링 — 포커스/선택/검증 피드백 */
+    --color-focus-ring: rgba(102, 126, 234, 0.2);
+    --shadow-focus: 0 0 0 3px var(--color-focus-ring);
+    --shadow-inset-hover: inset 0 0 0 2px rgba(255, 255, 255, 0.20);
+    --shadow-inset-selected: inset 0 0 0 2px var(--color-accent);
+    --shadow-inset-success: inset 0 0 0 2px var(--color-positive-glow);
+    --shadow-inset-error: inset 0 0 0 2px var(--color-negative-glow);
+
+    /* 컨트롤 높이 — 버튼/인풋 높이가 페이지마다 제각각이었다 */
+    --size-element-sm: 28px;
+    --size-element-md: 32px;
+    --size-element-lg: 36px;
+    --border-width: 1px;
+
+    /* Spacing — 기존 4px 배수 스케일에서 비어 있던 칸 */
+    --space-0: 0;
+    --space-0-5: 0.125rem;  /* 2px */
+    --space-1-5: 0.375rem;  /* 6px */
+    --space-7: 1.75rem;     /* 28px */
+    --space-9: 2.25rem;     /* 36px */
+    --space-11: 2.75rem;    /* 44px */
+
+    /* Motion */
+    --ease-standard: cubic-bezier(0.24, 1, 0.4, 1);
+
+    /* Font weight */
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    /* 의미 기반 타입 스케일 — 기존 16px 베이스 위에 매핑 (Astryx의 14px 베이스는 미채택:
+       20개 페이지가 전부 리플로우되므로) */
+    --text-display-size: var(--font-size-4xl);
+    --text-display-weight: var(--font-weight-bold);
+    --text-display-leading: 1.15;
+    --text-heading-1-size: var(--font-size-3xl);
+    --text-heading-1-weight: var(--font-weight-bold);
+    --text-heading-1-leading: 1.25;
+    --text-heading-2-size: var(--font-size-2xl);
+    --text-heading-2-weight: var(--font-weight-semibold);
+    --text-heading-2-leading: 1.3;
+    --text-heading-3-size: var(--font-size-xl);
+    --text-heading-3-weight: var(--font-weight-semibold);
+    --text-heading-3-leading: 1.35;
+    --text-heading-4-size: var(--font-size-lg);
+    --text-heading-4-weight: var(--font-weight-semibold);
+    --text-heading-4-leading: 1.4;
+    --text-body-size: var(--font-size-base);
+    --text-body-weight: var(--font-weight-normal);
+    --text-body-leading: 1.6;
+    --text-label-size: var(--font-size-sm);
+    --text-label-weight: var(--font-weight-medium);
+    --text-label-leading: 1.5;
+    --text-supporting-size: var(--font-size-xs);
+    --text-supporting-weight: var(--font-weight-normal);
+    --text-supporting-leading: 1.5;
 }
 
 /* === Light Theme Variables === */
@@ -146,6 +215,16 @@
     --chart-6: #d99a0b;
     --chart-7: #e5484d;
     --chart-8: #6d4699;
+
+    /* ---- 보강 계층의 라이트 테마 대응값 (테마 의존 토큰만 재정의) ---- */
+    color-scheme: light;
+
+    --shadow-low: 0 1px 2px rgba(5, 54, 89, 0.06), 0 2px 8px rgba(5, 54, 89, 0.08);
+    --shadow-med: 0 2px 4px rgba(5, 54, 89, 0.08), 0 8px 24px rgba(5, 54, 89, 0.10);
+    --shadow-high: 0 4px 8px rgba(5, 54, 89, 0.10), 0 24px 48px rgba(5, 54, 89, 0.14);
+
+    --color-focus-ring: rgba(91, 110, 224, 0.35);
+    --shadow-inset-hover: inset 0 0 0 2px rgba(5, 54, 89, 0.15);
 }
 
 /* 라이트 테마: 오브 제거, 그라데이션 배경만 (스펙 3.1) */
@@ -451,7 +530,7 @@ body::before {
 .glass-card:hover {
     border-color: var(--glass-border-hover);
     transform: translateY(-2px);
-    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+    box-shadow: var(--shadow-high);
 }
 
 .glass-card-header {
@@ -1184,7 +1263,7 @@ body::before {
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--surface-border);
     border-radius: var(--radius-xl);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-high);
     transform: scale(0.95) translateY(20px);
     transition: var(--transition-base);
 }
@@ -1268,7 +1347,7 @@ body::before {
 .form-input:focus {
     outline: none;
     border-color: var(--gradient-start);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    box-shadow: var(--shadow-focus);
 }
 
 .form-input::placeholder {
