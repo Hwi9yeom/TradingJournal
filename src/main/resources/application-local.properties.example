@@ -7,11 +7,17 @@
 # Usage: Run with -Dspring.profiles.active=local
 # ===========================================
 
-# JWT Configuration (REQUIRED)
+# Authentication Mode (Optional)
+# false = local single-user mode: no login page, no JWT, every request runs as
+# the admin user. ONLY for a machine-local personal setup - never expose such an
+# instance to a network. When false, admin.password may be left empty.
+#app.auth.enabled=false
+
+# JWT Configuration (REQUIRED when app.auth.enabled=true)
 # Generate a secure 256-bit key: openssl rand -base64 32
 jwt.secret=YOUR_SECURE_JWT_SECRET_HERE_MUST_BE_AT_LEAST_256_BITS
 
-# Admin User Configuration (REQUIRED)
+# Admin User Configuration (REQUIRED when app.auth.enabled=true)
 # Change these from defaults before first run!
 admin.username=admin
 admin.password=YOUR_SECURE_ADMIN_PASSWORD_HERE

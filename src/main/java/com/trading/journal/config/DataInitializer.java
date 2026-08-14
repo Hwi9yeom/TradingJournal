@@ -44,6 +44,9 @@ public class DataInitializer implements ApplicationRunner {
     @Value("${admin.force-password-change:true}")
     private boolean forcePasswordChange;
 
+    @Value("${app.auth.enabled:true}")
+    private boolean authEnabled;
+
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
@@ -64,6 +67,24 @@ public class DataInitializer implements ApplicationRunner {
 
     private void createAdminUserIfNotExists() {
         if (!userRepository.existsByUsername(adminUsername)) {
+            // 로컬 개인 사용 모드(app.auth.enabled=false)에서는 로그인이 없으므로 비밀번호를 입력받지 않는다.
+            // 사용자 레코드 자체는 데이터 소유자로 필요하므로 로그인 불가능한 난수 비밀번호로 생성한다.
+            if (!authEnabled && (adminPassword == null || adminPassword.isBlank())) {
+                User localUser =
+                        User.builder()
+                                .username(adminUsername)
+                                .password(
+                                        passwordEncoder.encode(
+                                                java.util.UUID.randomUUID().toString()))
+                                .role("ROLE_ADMIN")
+                                .enabled(true)
+                                .passwordChangeRequired(false)
+                                .build();
+                userRepository.save(localUser);
+                log.info("로컬 모드 관리자 사용자 생성 완료(로그인 비활성화): {}", adminUsername);
+                return;
+            }
+
             // SECURITY: Validate admin password is properly configured
             if (adminPassword == null || adminPassword.isBlank()) {
                 throw new IllegalStateException(

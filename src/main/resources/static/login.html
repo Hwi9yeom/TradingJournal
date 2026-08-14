@@ -155,6 +155,16 @@
                 return;
             }
 
+            // Local single-user mode: server does not require login at all.
+            // Cache the mode so checkAuth() on other pages skips the login redirect.
+            $.getJSON(AUTH_ENDPOINTS.CONFIG)
+                .done(function(config) {
+                    storeAuthMode(config.authEnabled);
+                    if (!config.authEnabled) {
+                        redirectToMain();
+                    }
+                });
+
             const passwordModalId = 'passwordChangeModal';
 
             $('#login-form').on('submit', function(e) {

@@ -22,6 +22,17 @@ Spring Boot 기반 트레이딩 저널/포트폴리오 관리 서비스입니다
 
 기본 포트는 `8080`입니다.
 
+### 로컬 개인 사용 모드 (로그인 없음)
+혼자 로컬에서만 쓸 때는 로그인 화면 없이 바로 대시보드로 진입할 수 있습니다.
+
+`application-local.properties`에 아래 한 줄만 추가하면 됩니다.
+```properties
+app.auth.enabled=false
+```
+- `JWT_SECRET`, `ADMIN_PASSWORD` 없이 부팅됩니다.
+- 모든 요청은 기본 관리자 사용자로 처리되며, 로그인 페이지 접속 시 자동으로 대시보드로 이동합니다.
+- **주의**: 인증이 완전히 꺼지므로 네트워크에 노출되는 배포에서는 절대 사용하지 마세요.
+
 ## Configuration
 
 ### 기본 정책
@@ -46,7 +57,7 @@ Spring Boot 기반 트레이딩 저널/포트폴리오 관리 서비스입니다
 `check`에는 아래가 포함됩니다.
 - 테스트 통과
 - Spotless 포맷 검증
-- JaCoCo 커버리지 검증(`LINE COVEREDRATIO >= 0.20`)
+- JaCoCo 커버리지 검증(`LINE COVEREDRATIO >= 0.30`)
 
 ## API 문서
 - Swagger UI: `/swagger-ui/index.html`

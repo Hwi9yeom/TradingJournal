@@ -80,11 +80,17 @@
                         <i class="bi bi-moon theme-toggle-icon moon"></i>
                         테마 변경
                     </button>
-                    <a href="#" class="nav-link" onclick="logout(); return false;">
-                        <i class="bi bi-box-arrow-right"></i> 로그아웃
-                    </a>
+                    ${logoutLink()}
                 </div>
             </nav>`;
+    }
+
+    // 로컬 개인 사용 모드(auth.js의 isAuthDisabled)에서는 로그인이 없으므로 로그아웃 링크를 숨긴다.
+    function logoutLink() {
+        if (typeof isAuthDisabled === 'function' && isAuthDisabled()) return '';
+        return `<a href="#" class="nav-link" onclick="logout(); return false;">
+                        <i class="bi bi-box-arrow-right"></i> 로그아웃
+                    </a>`;
     }
 
     function injectBackgroundOrbs() {
