@@ -448,10 +448,57 @@ create table goals (
     version bigint,
     description varchar(1000),
     notes varchar(2000),
+    commitment varchar(1000),
+    reward_plan varchar(1000),
+    post_achievement_plan varchar(1000),
     name varchar(255) not null,
     goal_type enum ('CUSTOM','DIVIDEND_INCOME','MAX_DRAWDOWN_LIMIT','RETURN_RATE','SAVINGS_AMOUNT','SHARPE_RATIO','TARGET_AMOUNT','TRADE_COUNT','WIN_RATE') not null,
+    horizon enum ('FIVE_YEAR','TEN_YEAR','THIS_YEAR','ULTIMATE') not null,
     status enum ('ACTIVE','CANCELLED','COMPLETED','FAILED','PAUSED') not null,
     primary key (id)
+) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_unicode_ci;
+
+create table monthly_budgets (
+    budget_month date not null,
+    account_id bigint,
+    created_at datetime(6) not null,
+    id bigint not null auto_increment,
+    updated_at datetime(6) not null,
+    actual_savings TEXT,
+    fixed_expense TEXT,
+    fixed_income TEXT,
+    net_worth TEXT,
+    planned_savings TEXT,
+    variable_expense TEXT,
+    variable_income TEXT,
+    notes varchar(2000),
+    primary key (id),
+    constraint uk_budget_account_month unique (account_id, budget_month)
+) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_unicode_ci;
+
+create table savings_records (
+    saved_date date not null,
+    account_id bigint,
+    created_at datetime(6) not null,
+    id bigint not null auto_increment,
+    updated_at datetime(6) not null,
+    amount TEXT not null,
+    institution varchar(100),
+    memo varchar(1000),
+    category enum ('DEBT_REPAYMENT','EMERGENCY_FUND','INVESTMENT_TRANSFER','OTHER','PENSION','REGULAR_SAVINGS') not null,
+    primary key (id)
+) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_unicode_ci;
+
+create table market_sentiments (
+    recorded_date date not null,
+    value decimal(19,4) not null,
+    created_at datetime(6) not null,
+    id bigint not null auto_increment,
+    updated_at datetime(6) not null,
+    notes varchar(1000),
+    indicator enum ('AAII_BEARISH','AAII_BULLISH','CRYPTO_FEAR_GREED','FEAR_GREED_INDEX','FUNDING_RATE','LONG_SHORT_RATIO','MVRV_Z_SCORE','NAAIM_EXPOSURE','PUELL_MULTIPLE','PUT_CALL_RATIO','RHODL_RATIO','SMART_DUMB_MONEY') not null,
+    primary key (id),
+    constraint uk_sentiment_indicator_date unique (indicator, recorded_date)
 ) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_unicode_ci;
 
 create table historical_prices (
@@ -723,6 +770,20 @@ create index idx_event_importance on economic_events (importance);
 create index idx_goal_type on goals (goal_type);
 create index idx_goal_status on goals (status);
 create index idx_goal_deadline on goals (deadline);
+create index idx_goal_horizon on goals (horizon);
+
+-- monthly_budgets
+create index idx_budget_month on monthly_budgets (budget_month);
+create index idx_budget_account on monthly_budgets (account_id);
+
+-- savings_records
+create index idx_savings_date on savings_records (saved_date);
+create index idx_savings_account on savings_records (account_id);
+create index idx_savings_category on savings_records (category);
+
+-- market_sentiments
+create index idx_sentiment_date on market_sentiments (recorded_date);
+create index idx_sentiment_indicator on market_sentiments (indicator);
 
 -- historical_prices
 create index idx_historical_symbol on historical_prices (symbol);
