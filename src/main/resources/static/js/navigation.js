@@ -31,6 +31,7 @@
                 { href: 'plans.html', icon: 'bi-journal-bookmark', label: '트레이드플랜' },
                 { href: 'reviews.html', icon: 'bi-journal-text', label: '거래복기' },
                 { href: 'goals.html', icon: 'bi-bullseye', label: '목표' },
+                { href: 'budget.html', icon: 'bi-piggy-bank', label: '가계·저축' },
                 { href: 'journal.html', icon: 'bi-pencil-square', label: '저널' },
             ],
         },
