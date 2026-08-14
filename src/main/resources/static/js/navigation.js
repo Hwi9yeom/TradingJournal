@@ -23,6 +23,7 @@
                 { href: 'sectors.html', icon: 'bi-pie-chart', label: '섹터' },
                 { href: 'correlation.html', icon: 'bi-grid-3x3', label: '상관관계' },
                 { href: 'backtest.html', icon: 'bi-clock-history', label: '백테스트' },
+                { href: 'sentiment.html', icon: 'bi-thermometer-half', label: '시장심리' },
             ],
         },
         {
