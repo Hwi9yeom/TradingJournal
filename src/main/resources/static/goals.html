@@ -92,6 +92,13 @@
                         <option value="WIN_RATE">목표 승률</option>
                         <option value="DIVIDEND_INCOME">배당 수익</option>
                     </select>
+                    <select class="select-glass" id="goalHorizonFilter" onchange="filterGoals()" style="min-width: 160px;">
+                        <option value="">모든 기간</option>
+                        <option value="THIS_YEAR">올해 목표</option>
+                        <option value="FIVE_YEAR">5년 뒤 목표</option>
+                        <option value="TEN_YEAR">10년 뒤 목표</option>
+                        <option value="ULTIMATE">최종 목표</option>
+                    </select>
                     <button class="btn-glass" onclick="refreshGoals()">
                         <i class="bi bi-arrow-clockwise"></i>새로고침
                     </button>
@@ -153,6 +160,17 @@
                             </div>
                         </div>
 
+                        <div class="form-group">
+                            <label for="goalHorizon" class="form-label">기간 지평 *</label>
+                            <select class="select-glass" id="goalHorizon">
+                                <option value="THIS_YEAR" selected>올해 목표</option>
+                                <option value="FIVE_YEAR">5년 뒤 목표</option>
+                                <option value="TEN_YEAR">10년 뒤 목표</option>
+                                <option value="ULTIMATE">최종 목표 (기한 없음)</option>
+                            </select>
+                            <small style="color: var(--text-muted); font-size: var(--font-size-xs); margin-top: var(--space-1); display: block;">마감일을 비워두면 기간 지평 기준으로 자동 설정됩니다 (최종 목표는 기한 없음)</small>
+                        </div>
+
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-bottom: var(--space-5);">
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label for="targetValue" class="form-label">목표 값 *</label>
@@ -212,6 +230,25 @@
                             <label for="goalNotes" class="form-label">메모</label>
                             <textarea class="form-input" id="goalNotes" rows="2"
                                       placeholder="추가 메모..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="goalCommitment" class="form-label">스스로에게 하는 약속</label>
+                            <textarea class="form-input" id="goalCommitment" rows="2"
+                                      placeholder="예: 매달 1일 자산 점검을 거르지 않는다"></textarea>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-bottom: var(--space-5);">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="goalRewardPlan" class="form-label">목표 달성한 날 할 일</label>
+                                <textarea class="form-input" id="goalRewardPlan" rows="2"
+                                          placeholder="예: 가족과 여행"></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="goalPostAchievementPlan" class="form-label">목표 달성 이후 계획</label>
+                                <textarea class="form-input" id="goalPostAchievementPlan" rows="2"
+                                          placeholder="예: 배당 포트폴리오로 전환"></textarea>
+                            </div>
                         </div>
                     </form>
                 </div>

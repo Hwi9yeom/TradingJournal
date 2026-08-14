@@ -10,6 +10,7 @@ import com.trading.journal.dto.GoalDto;
 import com.trading.journal.dto.GoalSummaryDto;
 import com.trading.journal.dto.PortfolioSummaryDto;
 import com.trading.journal.entity.Goal;
+import com.trading.journal.entity.GoalHorizon;
 import com.trading.journal.entity.GoalStatus;
 import com.trading.journal.entity.GoalType;
 import com.trading.journal.repository.GoalRepository;
@@ -38,6 +39,7 @@ class GoalServiceTest {
     @Mock private AnalysisService analysisService;
     @Mock private AlertService alertService;
     @Mock private DividendService dividendService;
+    @Mock private MonthlyBudgetService monthlyBudgetService;
 
     @InjectMocks private GoalService goalService;
 
@@ -494,6 +496,153 @@ class GoalServiceTest {
             GoalDto result = goalService.getGoal(1L);
 
             assertThat(result.getGoalTypeLabel()).isEqualTo("목표 수익률");
+        }
+    }
+
+    @Nested
+    @DisplayName("목표 기간 지평(horizon) 테스트")
+    class GoalHorizonTests {
+
+        @Test
+        @DisplayName("지평 미지정 목표는 올해 목표로 생성되고 연말이 기본 마감일이 된다")
+        void createGoal_DefaultsToThisYearWithYearEndDeadline() {
+            GoalDto dto =
+                    GoalDto.builder()
+                            .name("올해 목표")
+                            .goalType(GoalType.RETURN_RATE)
+                            .targetValue(new BigDecimal("20"))
+                            .startValue(BigDecimal.ZERO)
+                            .startDate(LocalDate.of(2026, 3, 15))
+                            .build();
+            when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            goalService.createGoal(dto);
+
+            ArgumentCaptor<Goal> captor = ArgumentCaptor.forClass(Goal.class);
+            verify(goalRepository).save(captor.capture());
+            Goal saved = captor.getValue();
+            assertThat(saved.getHorizon()).isEqualTo(GoalHorizon.THIS_YEAR);
+            assertThat(saved.getDeadline()).isEqualTo(LocalDate.of(2026, 12, 31));
+        }
+
+        @Test
+        @DisplayName("5년/10년 목표는 시작일 기준으로 마감일이 유도된다")
+        void createGoal_DerivesDeadlineFromLongHorizon() {
+            when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            goalService.createGoal(horizonDto(GoalHorizon.FIVE_YEAR));
+            goalService.createGoal(horizonDto(GoalHorizon.TEN_YEAR));
+
+            ArgumentCaptor<Goal> captor = ArgumentCaptor.forClass(Goal.class);
+            verify(goalRepository, times(2)).save(captor.capture());
+            assertThat(captor.getAllValues().get(0).getDeadline())
+                    .isEqualTo(LocalDate.of(2031, 3, 15));
+            assertThat(captor.getAllValues().get(1).getDeadline())
+                    .isEqualTo(LocalDate.of(2036, 3, 15));
+        }
+
+        @Test
+        @DisplayName("최종 목표는 마감일 없이 생성된다")
+        void createGoal_UltimateHasNoDeadline() {
+            when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            GoalDto result = goalService.createGoal(horizonDto(GoalHorizon.ULTIMATE));
+
+            assertThat(result.getDeadline()).isNull();
+            assertThat(result.getHorizonLabel()).isEqualTo("최종 목표");
+        }
+
+        @Test
+        @DisplayName("사용자가 지정한 마감일은 지평 기본값보다 우선한다")
+        void createGoal_ExplicitDeadlineWins() {
+            GoalDto dto = horizonDto(GoalHorizon.TEN_YEAR);
+            dto.setDeadline(LocalDate.of(2027, 1, 1));
+            when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            GoalDto result = goalService.createGoal(dto);
+
+            assertThat(result.getDeadline()).isEqualTo(LocalDate.of(2027, 1, 1));
+        }
+
+        @Test
+        @DisplayName("약속/보상/이후 계획이 저장되고 조회된다")
+        void createGoal_PersistsCommitments() {
+            GoalDto dto = horizonDto(GoalHorizon.THIS_YEAR);
+            dto.setCommitment("매달 1일 자산 점검을 거르지 않는다");
+            dto.setRewardPlan("가족과 여행");
+            dto.setPostAchievementPlan("배당 포트폴리오로 전환");
+            when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            GoalDto result = goalService.createGoal(dto);
+
+            assertThat(result.getCommitment()).isEqualTo("매달 1일 자산 점검을 거르지 않는다");
+            assertThat(result.getRewardPlan()).isEqualTo("가족과 여행");
+            assertThat(result.getPostAchievementPlan()).isEqualTo("배당 포트폴리오로 전환");
+        }
+
+        @Test
+        @DisplayName("지평이 없는 레거시 목표는 올해 목표로 노출된다")
+        void convertToDto_LegacyGoalFallsBackToThisYear() {
+            activeGoal.setHorizon(null);
+            when(goalRepository.findById(1L)).thenReturn(Optional.of(activeGoal));
+
+            GoalDto result = goalService.getGoal(1L);
+
+            assertThat(result.getHorizon()).isEqualTo(GoalHorizon.THIS_YEAR);
+            assertThat(result.getHorizonLabel()).isEqualTo("올해 목표");
+        }
+
+        @Test
+        @DisplayName("요약에 지평별 목표 수와 평균 진행률이 포함된다")
+        void getGoalSummary_AggregatesByHorizon() {
+            activeGoal.setHorizon(GoalHorizon.THIS_YEAR);
+            completedGoal.setHorizon(GoalHorizon.TEN_YEAR);
+            when(goalRepository.findAll()).thenReturn(Arrays.asList(activeGoal, completedGoal));
+            when(goalRepository.countByStatus(any())).thenReturn(1L);
+            when(goalRepository.findUpcomingDeadlines(any(), any()))
+                    .thenReturn(Collections.emptyList());
+            when(goalRepository.findOverdueGoals(any())).thenReturn(Collections.emptyList());
+
+            GoalSummaryDto summary = goalService.getGoalSummary();
+
+            assertThat(summary.getGoalsByHorizon())
+                    .containsEntry("THIS_YEAR", 1L)
+                    .containsEntry("TEN_YEAR", 1L);
+            // 평균 진행률은 ACTIVE 목표만 집계한다.
+            assertThat(summary.getAverageProgressByHorizon())
+                    .containsOnlyKeys("THIS_YEAR")
+                    .containsEntry("THIS_YEAR", new BigDecimal("50.0"));
+        }
+
+        @Test
+        @DisplayName("수정 시 지평을 바꾸고 마감일을 비우면 새 지평 기준으로 재계산된다")
+        void updateGoal_RederivesDeadlineOnHorizonChange() {
+            activeGoal.setHorizon(GoalHorizon.THIS_YEAR);
+            when(goalRepository.findById(1L)).thenReturn(Optional.of(activeGoal));
+            when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            GoalDto dto =
+                    GoalDto.builder()
+                            .name(activeGoal.getName())
+                            .targetValue(activeGoal.getTargetValue())
+                            .horizon(GoalHorizon.FIVE_YEAR)
+                            .build();
+
+            GoalDto result = goalService.updateGoal(1L, dto);
+
+            assertThat(result.getHorizon()).isEqualTo(GoalHorizon.FIVE_YEAR);
+            assertThat(result.getDeadline()).isEqualTo(LocalDate.of(2029, 1, 1));
+        }
+
+        private GoalDto horizonDto(GoalHorizon horizon) {
+            return GoalDto.builder()
+                    .name(horizon.name())
+                    .goalType(GoalType.TARGET_AMOUNT)
+                    .targetValue(new BigDecimal("100000000"))
+                    .startValue(BigDecimal.ZERO)
+                    .startDate(LocalDate.of(2026, 3, 15))
+                    .horizon(horizon)
+                    .build();
         }
     }
 }

@@ -13,7 +13,8 @@ import lombok.*;
         indexes = {
             @Index(name = "idx_goal_type", columnList = "goalType"),
             @Index(name = "idx_goal_status", columnList = "status"),
-            @Index(name = "idx_goal_deadline", columnList = "deadline")
+            @Index(name = "idx_goal_deadline", columnList = "deadline"),
+            @Index(name = "idx_goal_horizon", columnList = "horizon")
         })
 @Getter
 @Setter
@@ -37,6 +38,12 @@ public class Goal {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private GoalType goalType;
+
+    /** 목표 기간 지평 (올해 / 5년 / 10년 / 최종) */
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private GoalHorizon horizon = GoalHorizon.THIS_YEAR;
 
     /** 목표 값 (수익률 %, 금액 등) */
     @Column(nullable = false, precision = 19, scale = 4)
@@ -87,6 +94,18 @@ public class Goal {
     /** 메모 */
     @Column(length = 2000)
     private String notes;
+
+    /** 스스로에게 하는 약속 (목표를 지키기 위한 행동 규칙) */
+    @Column(length = 1000)
+    private String commitment;
+
+    /** 목표를 달성한 날 할 일 (보상 계획) */
+    @Column(length = 1000)
+    private String rewardPlan;
+
+    /** 목표 달성 이후 계획 (다음 단계) */
+    @Column(length = 1000)
+    private String postAchievementPlan;
 
     @Version private Long version;
 
