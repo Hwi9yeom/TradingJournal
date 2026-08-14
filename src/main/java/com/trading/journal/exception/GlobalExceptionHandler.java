@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -174,6 +175,17 @@ public class GlobalExceptionHandler {
                 "Backtest Execution Failed",
                 ex.getMessage(),
                 request);
+    }
+
+    // ==================== Authentication Exceptions (401) ====================
+
+    /** 인증 실패(잘못된 자격 증명 등). RuntimeException catch-all(500)에 흡수되면 클라이언트가 서버 오류로 오인하므로 401로 반환한다. */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthenticationException(
+            AuthenticationException ex, WebRequest request) {
+        log.warn("Authentication failed: {}", ex.getMessage());
+        return buildErrorResponse(
+                HttpStatus.UNAUTHORIZED, "Unauthorized", "아이디 또는 비밀번호가 올바르지 않습니다.", request);
     }
 
     // ==================== General Exceptions ====================
