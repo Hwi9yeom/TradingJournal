@@ -25,7 +25,10 @@ public class MonthlyBudgetDto {
     private BigDecimal fixedExpense;
     private BigDecimal variableExpense;
     private BigDecimal plannedSavings;
+
+    /** 직접 입력한 실제 저축액 (수정 폼 프리필용 원본값) */
     private BigDecimal actualSavings;
+
     private BigDecimal netWorth;
     private String notes;
 
@@ -46,8 +49,15 @@ public class MonthlyBudgetDto {
     /** 저축률 (%) */
     private BigDecimal savingsRatePercent;
 
-    /** 저축 계획 달성률 (%). 계획 금액이 없으면 null */
+    /** 저축 계획 달성률 (%). 계획 금액이 없으면 null. 유효 실제 저축액 기준. */
     private BigDecimal savingsAchievementPercent;
+
+    /**
+     * 유효 실제 저축액: 그 달에 저축 일지 기록이 있으면 기록 합계, 없으면 직접 입력값.
+     *
+     * <p>표시/집계는 항상 이 값을 쓴다. 저축 기록이 단일 원본이므로 기록을 추가/수정/삭제하면 조회 시점에 자동 반영된다.
+     */
+    private BigDecimal effectiveActualSavings;
 
     /** 표시용 월 라벨 (예: 2026-07) */
     private String monthLabel;

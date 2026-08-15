@@ -55,7 +55,7 @@ function bindFormEvents() {
         saveSavingsRecord();
     });
 
-    $('#savings-date').val(new Date().toISOString().split('T')[0]);
+    $('#savings-date').val(formatDateForApi(new Date()));
 }
 
 /** 입력 중인 값으로 저축 여력 미리보기 갱신 */
@@ -197,7 +197,7 @@ function rowHtml(r) {
             <td class="text-right" style="color: ${capacityColor};">${formatCurrency(capacity)}</td>
             <td class="text-right">${Number(r.savingsRatePercent || 0).toFixed(1)}%</td>
             <td class="text-right">${r.plannedSavings ? formatCurrency(r.plannedSavings) : '-'}</td>
-            <td class="text-right">${r.actualSavings ? formatCurrency(r.actualSavings) : '-'}</td>
+            <td class="text-right">${r.effectiveActualSavings ? formatCurrency(r.effectiveActualSavings) : '-'}</td>
             <td class="text-right">${achievement}</td>
             <td class="text-right">${r.netWorth ? formatCurrency(r.netWorth) : '-'}</td>
             <td>${escapeHtml(r.notes || '')}</td>
@@ -524,7 +524,7 @@ function resetSavingsForm() {
     editingSavingsId = null;
     $('#savings-form')[0].reset();
     $('#savings-id').val('');
-    $('#savings-date').val(new Date().toISOString().split('T')[0]);
+    $('#savings-date').val(formatDateForApi(new Date()));
     $('#savings-submit-btn').html('<i class="bi bi-plus-lg"></i>추가');
     $('#savings-cancel-btn').hide();
 }
