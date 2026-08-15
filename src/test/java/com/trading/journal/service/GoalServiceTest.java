@@ -500,6 +500,85 @@ class GoalServiceTest {
     }
 
     @Nested
+    @DisplayName("저축 목표(SAVINGS_AMOUNT) 측정 기준 테스트")
+    class SavingsGoalMeasurementTests {
+
+        private Goal savingsGoal() {
+            return Goal.builder()
+                    .id(9L)
+                    .name("저축 5천만")
+                    .goalType(GoalType.SAVINGS_AMOUNT)
+                    .targetValue(new BigDecimal("50000000"))
+                    .startValue(BigDecimal.ZERO)
+                    .currentValue(new BigDecimal("3000000"))
+                    .startDate(LocalDate.of(2026, 1, 1))
+                    .status(GoalStatus.ACTIVE)
+                    .milestoneInterval(25)
+                    .build();
+        }
+
+        @Test
+        @DisplayName("생성 시 시작값은 투자 원금이 아니라 누적 실제 저축액이다")
+        void createGoal_UsesCumulativeSavingsNotInvestment() {
+            lenient()
+                    .when(portfolioAnalysisService.getPortfolioSummary())
+                    .thenReturn(
+                            PortfolioSummaryDto.builder()
+                                    .totalInvestment(new BigDecimal("50000000"))
+                                    .build());
+            when(monthlyBudgetService.getCumulativeActualSavings())
+                    .thenReturn(Optional.of(new BigDecimal("1000000")));
+            when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            goalService.createGoal(
+                    GoalDto.builder()
+                            .name("저축 목표")
+                            .goalType(GoalType.SAVINGS_AMOUNT)
+                            .targetValue(new BigDecimal("50000000"))
+                            .build());
+
+            ArgumentCaptor<Goal> captor = ArgumentCaptor.forClass(Goal.class);
+            verify(goalRepository).save(captor.capture());
+            // 투자 원금(5천만)으로 시작했다면 첫 저축 기록 순간 진행률이 되돌아간다.
+            assertThat(captor.getValue().getStartValue()).isEqualByComparingTo("1000000");
+        }
+
+        @Test
+        @DisplayName("진행률 갱신 시 누적 저축액을 현재값으로 쓴다")
+        void updateProgress_UsesCumulativeSavings() {
+            Goal goal = savingsGoal();
+            when(goalRepository.findByStatusOrderByDeadlineAsc(GoalStatus.ACTIVE))
+                    .thenReturn(Collections.singletonList(goal));
+            when(monthlyBudgetService.getCumulativeActualSavings())
+                    .thenReturn(Optional.of(new BigDecimal("7000000")));
+            when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(goalRepository.findOverdueGoals(any())).thenReturn(Collections.emptyList());
+
+            goalService.updateAllGoalsProgress();
+
+            ArgumentCaptor<Goal> captor = ArgumentCaptor.forClass(Goal.class);
+            verify(goalRepository).save(captor.capture());
+            assertThat(captor.getValue().getCurrentValue()).isEqualByComparingTo("7000000");
+        }
+
+        @Test
+        @DisplayName("사용자 컨텍스트가 없으면(스케줄러) 기존 진행률을 유지하고 건너뛴다")
+        void updateProgress_SkipsWhenNoUserContext() {
+            Goal goal = savingsGoal();
+            when(goalRepository.findByStatusOrderByDeadlineAsc(GoalStatus.ACTIVE))
+                    .thenReturn(Collections.singletonList(goal));
+            when(monthlyBudgetService.getCumulativeActualSavings()).thenReturn(Optional.empty());
+            when(goalRepository.findOverdueGoals(any())).thenReturn(Collections.emptyList());
+
+            goalService.updateAllGoalsProgress();
+
+            // 현재값을 0으로 덮어쓰지 않고 저장 자체를 건너뛴다.
+            verify(goalRepository, never()).save(any());
+            assertThat(goal.getCurrentValue()).isEqualByComparingTo("3000000");
+        }
+    }
+
+    @Nested
     @DisplayName("목표 기간 지평(horizon) 테스트")
     class GoalHorizonTests {
 

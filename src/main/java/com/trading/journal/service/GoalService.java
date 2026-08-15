@@ -74,7 +74,8 @@ public class GoalService {
 
         // 시작값 자동 설정 (현재 포트폴리오 상태 기반)
         if (goal.getStartValue() == null) {
-            goal.setStartValue(getCurrentValueForGoalType(goal.getGoalType()));
+            BigDecimal current = getCurrentValueForGoalType(goal.getGoalType());
+            goal.setStartValue(current != null ? current : BigDecimal.ZERO);
         }
 
         // 현재값 설정 및 진행률 계산
@@ -321,6 +322,10 @@ public class GoalService {
         for (Goal goal : activeGoals) {
             try {
                 BigDecimal newValue = getCurrentValueForGoalType(goal.getGoalType());
+                if (newValue == null) {
+                    // 현재 컨텍스트에서 값을 결정할 수 없으면(예: 스케줄러의 저축 목표) 기존 값을 유지한다.
+                    continue;
+                }
                 goal.setCurrentValue(newValue);
                 goal.updateProgress();
 
@@ -361,7 +366,11 @@ public class GoalService {
         }
     }
 
-    /** 목표 유형에 따른 현재 값 조회 */
+    /**
+     * 목표 유형에 따른 현재 값 조회.
+     *
+     * @return 현재 값. 현재 컨텍스트에서 결정할 수 없으면 null (호출자는 갱신을 건너뛴다)
+     */
     private BigDecimal getCurrentValueForGoalType(GoalType goalType) {
         try {
             PortfolioSummaryDto portfolio = portfolioAnalysisService.getPortfolioSummary();
@@ -375,15 +384,11 @@ public class GoalService {
                         portfolio.getTotalCurrentValue() != null
                                 ? portfolio.getTotalCurrentValue()
                                 : BigDecimal.ZERO;
-                case SAVINGS_AMOUNT -> {
-                    // 월 가계 기록이 있으면 실제 저축 누계를 쓰고, 아직 없으면 투자 원금으로 대체한다.
-                    BigDecimal savedSoFar = monthlyBudgetService.getCumulativeActualSavings();
-                    yield savedSoFar.compareTo(BigDecimal.ZERO) > 0
-                            ? savedSoFar
-                            : (portfolio.getTotalInvestment() != null
-                                    ? portfolio.getTotalInvestment()
-                                    : BigDecimal.ZERO);
-                }
+                case SAVINGS_AMOUNT ->
+                        // 목표 생성부터 종료까지 측정 기준은 누적 실제 저축액 하나다. 투자 원금 대체 같은
+                        // 임시 기준을 쓰면 첫 저축 기록 순간 진행률이 되돌아간다. 사용자 컨텍스트가 없으면
+                        // null을 돌려줘 호출자가 갱신을 건너뛰게 한다.
+                        monthlyBudgetService.getCumulativeActualSavings().orElse(null);
                 case DIVIDEND_INCOME -> {
                     DividendSummaryDto dividendSummary = dividendService.getDividendSummary();
                     yield dividendSummary.getTotalDividends() != null
@@ -397,8 +402,9 @@ public class GoalService {
                 case CUSTOM -> BigDecimal.ZERO; // CUSTOM은 수동 관리
             };
         } catch (Exception e) {
+            // 조회 실패 시 0으로 덮어쓰면 진행률이 허위로 되돌아간다. null로 갱신을 건너뛴다.
             log.warn("현재 값 조회 실패 (goalType={}): {}", goalType, e.getMessage());
-            return BigDecimal.ZERO;
+            return null;
         }
     }
 

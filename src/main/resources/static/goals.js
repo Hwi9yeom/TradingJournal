@@ -124,9 +124,35 @@ $(document).ready(function() {
     loadGoals();
     loadGoalSummary();
 
-    // 시작일 기본값 설정
-    $('#startDate').val(new Date().toISOString().split('T')[0]);
+    // 시작일 기본값 설정 (로컬 타임존 기준 - toISOString은 UTC라 자정 무렵 전날로 밀린다)
+    $('#startDate').val(formatDateForApi(new Date()));
+
+    // 기간 지평을 바꾸면 마감일을 새 지평의 기본값으로 재계산한다.
+    // 이전 지평의 마감일이 폼에 남아 그대로 전송되면 5년/10년/최종 목표가 옛 마감일을 유지하기 때문.
+    $('#goalHorizon').on('change', function() {
+        $('#deadline').val(defaultDeadlineForHorizon($(this).val(), $('#startDate').val()));
+    });
 });
+
+/**
+ * 기간 지평별 기본 마감일 (백엔드 GoalService.defaultDeadlineFor와 동일 규칙).
+ * @param {string} horizon - 기간 지평 코드
+ * @param {string} startDateStr - 시작일 (YYYY-MM-DD)
+ * @returns {string} 기본 마감일(YYYY-MM-DD). ULTIMATE는 기한 없음('')
+ */
+function defaultDeadlineForHorizon(horizon, startDateStr) {
+    const start = startDateStr ? new Date(startDateStr + 'T00:00:00') : new Date();
+    switch (horizon) {
+        case 'THIS_YEAR':
+            return `${start.getFullYear()}-12-31`;
+        case 'FIVE_YEAR':
+            return formatDateForApi(new Date(start.getFullYear() + 5, start.getMonth(), start.getDate()));
+        case 'TEN_YEAR':
+            return formatDateForApi(new Date(start.getFullYear() + 10, start.getMonth(), start.getDate()));
+        default: // ULTIMATE
+            return '';
+    }
+}
 
 // =============================================================================
 // DATA LOADING
@@ -478,7 +504,7 @@ function openCreateModal() {
     $('#goalModalLabel').html('<i class="bi bi-bullseye me-2"></i>새 목표 설정');
     $('#goalForm')[0].reset();
     $('#goalId').val('');
-    $('#startDate').val(new Date().toISOString().split('T')[0]);
+    $('#startDate').val(formatDateForApi(new Date()));
     updateTargetPlaceholder();
     document.getElementById('goalModal').classList.add('show');
 }
