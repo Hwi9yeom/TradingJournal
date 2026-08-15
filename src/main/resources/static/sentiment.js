@@ -27,7 +27,10 @@ const ZONE_COLORS = {
 // =============================================================================
 
 $(document).ready(function() {
-    $('#sentiment-date').val(new Date().toISOString().split('T')[0]);
+    // 로컬 타임존 기준 오늘 날짜 (toISOString은 UTC라 자정 무렵 전날로 밀린다)
+    $('#sentiment-date').val(formatDateForApi(new Date()));
+    // 미래 날짜 기록은 서버가 거부하므로 입력 단계에서도 막는다.
+    $('#sentiment-date').attr('max', formatDateForApi(new Date()));
 
     $('#sentiment-form').on('submit', function(e) {
         e.preventDefault();

@@ -113,6 +113,37 @@ class MarketSentimentServiceTest {
         }
 
         @Test
+        @DisplayName("미래 날짜로는 기록할 수 없다")
+        void record_RejectsFutureDate() {
+            assertThatThrownBy(
+                            () ->
+                                    marketSentimentService.record(
+                                            MarketSentimentDto.builder()
+                                                    .indicator(SentimentIndicator.FEAR_GREED_INDEX)
+                                                    .recordedDate(LocalDate.now().plusDays(1))
+                                                    .value(new BigDecimal("50"))
+                                                    .build()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("미래");
+            verify(marketSentimentRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("범위 밖 지표 값은 저장 전에 거부된다")
+        void record_RejectsOutOfRangeValue() {
+            assertThatThrownBy(
+                            () ->
+                                    marketSentimentService.record(
+                                            MarketSentimentDto.builder()
+                                                    .indicator(SentimentIndicator.FEAR_GREED_INDEX)
+                                                    .value(new BigDecimal("900"))
+                                                    .build()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("범위");
+            verify(marketSentimentRepository, never()).save(any());
+        }
+
+        @Test
         @DisplayName("없는 기록 삭제 시 예외")
         void delete_NotFound() {
             when(marketSentimentRepository.existsById(1L)).thenReturn(false);
@@ -242,6 +273,28 @@ class MarketSentimentServiceTest {
 
             assertThat(dashboard.getStaleIndicators()).isEmpty();
             assertThat(dashboard.getLatestByIndicator()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("미래 날짜 행은 최신값 선택과 stale 검사에서 제외된다")
+        void dashboard_IgnoresFutureDatedRows() {
+            LocalDate today = LocalDate.now();
+            when(marketSentimentRepository.findAllByOrderByRecordedDateDesc())
+                    .thenReturn(
+                            List.of(
+                                    // 직접 족인 등으로 들어온 미래 행: 무시되어야 한다
+                                    sentiment(
+                                            SentimentIndicator.FEAR_GREED_INDEX,
+                                            "10",
+                                            today.plusDays(30)),
+                                    sentiment(SentimentIndicator.FEAR_GREED_INDEX, "90", today)));
+
+            SentimentDashboardDto dashboard = marketSentimentService.getDashboard();
+
+            assertThat(dashboard.getLatestByIndicator()).hasSize(1);
+            assertThat(dashboard.getLatestByIndicator().get(0).getValue())
+                    .isEqualByComparingTo("90");
+            assertThat(dashboard.getOverallZone()).isEqualTo(SentimentZone.EXTREME_GREED);
         }
 
         @Test

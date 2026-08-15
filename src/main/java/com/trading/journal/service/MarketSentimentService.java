@@ -50,8 +50,13 @@ public class MarketSentimentService {
         if (dto.getValue() == null) {
             throw new IllegalArgumentException("지표 값(value)은 필수입니다");
         }
+        // 범위 밖 값(예: 0-100 지표에 900)은 저장 전에 거부한다.
+        SentimentEvaluator.validateRange(dto.getIndicator(), dto.getValue());
 
         LocalDate date = dto.getRecordedDate() != null ? dto.getRecordedDate() : LocalDate.now();
+        if (date.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("기록일(recordedDate)은 미래일 수 없습니다: " + date);
+        }
 
         MarketSentiment entity =
                 marketSentimentRepository
@@ -201,12 +206,21 @@ public class MarketSentimentService {
                 .build();
     }
 
-    /** 지표별 가장 최근 기록 */
+    /**
+     * 지표별 가장 최근 기록.
+     *
+     * <p>미래 날짜 행은 제외한다. record()가 미래 입력을 막지만, 기존 데이터나 직접 족인 행이 최신값으로 선택되어 stale 검사까지 통과하는 것을 막는
+     * 방어선이다.
+     */
     private Map<SentimentIndicator, MarketSentiment> latestPerIndicator() {
         Map<SentimentIndicator, MarketSentiment> latest = new EnumMap<>(SentimentIndicator.class);
+        LocalDate today = LocalDate.now();
 
         for (MarketSentiment record :
                 marketSentimentRepository.findAllByOrderByRecordedDateDesc()) {
+            if (record.getRecordedDate() != null && record.getRecordedDate().isAfter(today)) {
+                continue;
+            }
             latest.merge(
                     record.getIndicator(),
                     record,

@@ -47,7 +47,7 @@ public enum SentimentIndicator {
             SentimentMarket.US_STOCK,
             "-100~100",
             "https://sentimentrader.com/",
-            "양수가 클수록 개인 과열(고점 경계), 음수가 클수록 기관 매집(저점 가능성)"),
+            "양수(스마트머니 우위)가 클수록 개인 비관·저점 가능성, 음수(개인 우위)가 클수록 개인 과열(고점 경계)"),
 
     CRYPTO_FEAR_GREED(
             "암호화폐 공포·탐욕 지수",

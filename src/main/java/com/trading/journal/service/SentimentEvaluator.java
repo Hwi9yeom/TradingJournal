@@ -32,6 +32,8 @@ public final class SentimentEvaluator {
             throw new IllegalArgumentException("지표 값(value)은 필수입니다");
         }
 
+        validateRange(indicator, value);
+
         double v = value.doubleValue();
 
         return switch (indicator) {
@@ -46,6 +48,59 @@ public final class SentimentEvaluator {
             case MVRV_Z_SCORE -> mvrvZScore(v);
             case PUELL_MULTIPLE -> puellMultiple(v);
         };
+    }
+
+    /**
+     * 지표별 허용 범위 검증. 범위 밖 값(예: 0-100 지표에 900)은 입력 오류이므로 저장 전에 거부한다.
+     *
+     * @throws IllegalArgumentException 값이 지표의 허용 범위를 벗어난 경우
+     */
+    public static void validateRange(SentimentIndicator indicator, BigDecimal value) {
+        double v = value.doubleValue();
+        double min;
+        double max;
+        switch (indicator) {
+            case FEAR_GREED_INDEX,
+                    CRYPTO_FEAR_GREED,
+                    RHODL_RATIO,
+                    NAAIM_EXPOSURE,
+                    AAII_BULLISH,
+                    AAII_BEARISH -> {
+                min = 0;
+                max = 100;
+            }
+            case SMART_DUMB_MONEY -> {
+                min = -100;
+                max = 100;
+            }
+            case PUT_CALL_RATIO -> {
+                min = 0;
+                max = 5;
+            }
+            case LONG_SHORT_RATIO -> {
+                min = 0;
+                max = 10;
+            }
+            case FUNDING_RATE -> {
+                min = -5;
+                max = 5;
+            }
+            case MVRV_Z_SCORE -> {
+                min = -10;
+                max = 20;
+            }
+            case PUELL_MULTIPLE -> {
+                min = 0;
+                max = 20;
+            }
+            default -> throw new IllegalArgumentException("알 수 없는 지표: " + indicator);
+        }
+        if (v < min || v > max) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "%s 값이 허용 범위(%s~%s)를 벗어났습니다: %s",
+                            indicator.getLabel(), min, max, value));
+        }
     }
 
     /** 0-100 스케일 지표 (공포·탐욕 지수, RHODL 밴드 위치): 낮을수록 공포. */
@@ -133,21 +188,26 @@ public final class SentimentEvaluator {
         return SentimentZone.EXTREME_GREED;
     }
 
-    /** 스마트머니-개인 스프레드: 양수가 클수록 개인 과열(고점 경계). */
+    /**
+     * 스마트머니-개인 스프레드(Smart minus Dumb).
+     *
+     * <p>양수 = 스마트머니가 개인보다 강세 = 개인은 비관적 → 역발상 저점 신호(공포 구간). 음수 = 개인이 스마트머니보다 강세 = 개인 과열 → 고점 경계(탐욕
+     * 구간).
+     */
     private static SentimentZone smartDumbSpread(double v) {
         if (v >= 30) {
-            return SentimentZone.EXTREME_GREED;
+            return SentimentZone.EXTREME_FEAR;
         }
         if (v >= 10) {
-            return SentimentZone.GREED;
+            return SentimentZone.FEAR;
         }
         if (v > -10) {
             return SentimentZone.NEUTRAL;
         }
         if (v > -30) {
-            return SentimentZone.FEAR;
+            return SentimentZone.GREED;
         }
-        return SentimentZone.EXTREME_FEAR;
+        return SentimentZone.EXTREME_GREED;
     }
 
     /** 펀딩 비율(%): 기준 펀딩비 0.01%를 중립으로 본다. 양(+)이 높으면 롱 과열, 음(-)이 크면 숏 과열(반등 가능성). */

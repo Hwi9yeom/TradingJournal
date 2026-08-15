@@ -131,17 +131,21 @@ class SentimentEvaluatorTest {
                     .isEqualTo(SentimentZone.EXTREME_FEAR);
         }
 
+        /**
+         * 값 = Smart minus Dumb. 양수(스마트머니 우위)는 개인 비관 = 역발상 저점 신호(공포 구간), 음수(개인 우위)는 개인 과열 = 고점 경계(탐욕
+         * 구간)다.
+         */
         @ParameterizedTest(name = "스마트머니 스프레드 {0} → {1}")
         @CsvSource({
-            "40, EXTREME_GREED",
-            "30, EXTREME_GREED",
-            "29, GREED",
-            "10, GREED",
+            "40, EXTREME_FEAR",
+            "30, EXTREME_FEAR",
+            "29, FEAR",
+            "10, FEAR",
             "9, NEUTRAL",
             "-9, NEUTRAL",
-            "-10, FEAR",
-            "-29, FEAR",
-            "-30, EXTREME_FEAR"
+            "-10, GREED",
+            "-29, GREED",
+            "-30, EXTREME_GREED"
         })
         void smartDumbMoney_Boundaries(String value, SentimentZone expected) {
             assertThat(eval(SentimentIndicator.SMART_DUMB_MONEY, value)).isEqualTo(expected);
@@ -263,6 +267,39 @@ class SentimentEvaluatorTest {
         })
         void fromScore_Boundaries(double score, SentimentZone expected) {
             assertThat(SentimentZone.fromScore(score)).isEqualTo(expected);
+        }
+
+        @ParameterizedTest(name = "{0} 범위 밖 값 {1}은 거부한다")
+        @CsvSource({
+            "FEAR_GREED_INDEX, 900",
+            "FEAR_GREED_INDEX, -1",
+            "CRYPTO_FEAR_GREED, 101",
+            "NAAIM_EXPOSURE, 150",
+            "AAII_BULLISH, 101",
+            "AAII_BEARISH, -0.1",
+            "SMART_DUMB_MONEY, 101",
+            "SMART_DUMB_MONEY, -101",
+            "PUT_CALL_RATIO, -0.1",
+            "PUT_CALL_RATIO, 6",
+            "LONG_SHORT_RATIO, 11",
+            "FUNDING_RATE, 6",
+            "MVRV_Z_SCORE, 21",
+            "PUELL_MULTIPLE, -1",
+            "RHODL_RATIO, 900"
+        })
+        void evaluate_RejectsOutOfRangeValues(SentimentIndicator indicator, String value) {
+            assertThatThrownBy(() -> SentimentEvaluator.evaluate(indicator, new BigDecimal(value)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("범위");
+        }
+
+        @Test
+        @DisplayName("경계값(0, 100, -100)은 허용한다")
+        void evaluate_AcceptsBoundaryValues() {
+            assertThat(eval(SentimentIndicator.FEAR_GREED_INDEX, "0")).isNotNull();
+            assertThat(eval(SentimentIndicator.FEAR_GREED_INDEX, "100")).isNotNull();
+            assertThat(eval(SentimentIndicator.SMART_DUMB_MONEY, "-100")).isNotNull();
+            assertThat(eval(SentimentIndicator.SMART_DUMB_MONEY, "100")).isNotNull();
         }
 
         @Test
