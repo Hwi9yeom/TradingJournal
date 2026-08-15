@@ -44,6 +44,12 @@ public class GoalSummaryDto {
     /** 유형별 평균 진행률 */
     private Map<String, BigDecimal> averageProgressByType;
 
+    /** 기간 지평별 목표 수 (THIS_YEAR / FIVE_YEAR / TEN_YEAR / ULTIMATE) */
+    private Map<String, Long> goalsByHorizon;
+
+    /** 기간 지평별 평균 진행률 */
+    private Map<String, BigDecimal> averageProgressByHorizon;
+
     /** 최근 달성한 목표 목록 */
     private List<GoalDto> recentlyCompleted;
 

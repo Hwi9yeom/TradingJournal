@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가계·저축 점검 - Trading Journal</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- Design System -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <!-- Theme init (FOUC 방지) -->
+    <script>(function(){var t=null;try{t=localStorage.getItem('trading-journal-theme')}catch(e){}if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}document.documentElement.setAttribute('data-theme',t);})();</script>
+</head>
+<body>
+    <!-- Background Orbs -->
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Page Header -->
+        <header class="page-header fade-in">
+            <div class="page-title">
+                <h1><i class="bi bi-piggy-bank"></i> 가계·저축 점검</h1>
+                <span class="subtitle">월 고정 소득과 소비를 점검하고 투자에 넣을 수 있는 여력을 추적합니다</span>
+            </div>
+        </header>
+
+        <!-- Summary Cards -->
+        <section class="stats-row glass-card mb-8 fade-in stagger-1">
+            <div class="stats-row-item">
+                <label>월평균 소득</label>
+                <div class="value" id="avg-income">₩0</div>
+            </div>
+            <div class="stats-row-item">
+                <label>월평균 지출</label>
+                <div class="value" id="avg-expense">₩0</div>
+            </div>
+            <div class="stats-row-item">
+                <label>월 저축 가능 금액</label>
+                <div class="value" id="avg-capacity">₩0</div>
+            </div>
+            <div class="stats-row-item">
+                <label>평균 저축률</label>
+                <div class="value" id="avg-rate">0%</div>
+            </div>
+            <div class="stats-row-item">
+                <label>총자산 변화</label>
+                <div class="value" id="net-worth-change">-</div>
+            </div>
+        </section>
+
+        <!-- Input Form -->
+        <section class="glass-card mb-8 fade-in stagger-2">
+            <div class="glass-card-header">
+                <h3><i class="bi bi-pencil-square"></i> 월 기록 입력</h3>
+                <span class="subtitle" style="font-size: var(--font-size-xs); color: var(--text-muted);">같은 월을 다시 저장하면 덮어씁니다</span>
+            </div>
+            <div class="glass-card-body">
+                <form id="budget-form">
+                    <input type="hidden" id="budget-id">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); margin-bottom: var(--space-4);">
+                        <div class="form-group">
+                            <label class="form-label" for="budget-month">대상 월 *</label>
+                            <input type="month" class="form-input" id="budget-month" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="fixed-income">월 고정 소득</label>
+                            <input type="number" class="form-input" id="fixed-income" step="1" placeholder="예: 4000000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="variable-income">변동 소득</label>
+                            <input type="number" class="form-input" id="variable-income" step="1" placeholder="상여·부수입">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="net-worth">총 자산 스냅샷</label>
+                            <input type="number" class="form-input" id="net-worth" step="1" placeholder="월말 기준 총 자산">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); margin-bottom: var(--space-4);">
+                        <div class="form-group">
+                            <label class="form-label" for="fixed-expense">고정 지출</label>
+                            <input type="number" class="form-input" id="fixed-expense" step="1" placeholder="주거·보험 등">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="variable-expense">변동 지출</label>
+                            <input type="number" class="form-input" id="variable-expense" step="1" placeholder="생활비 등">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="planned-savings">계획 저축</label>
+                            <input type="number" class="form-input" id="planned-savings" step="1" placeholder="이번 달 목표 저축액">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="actual-savings">실제 저축</label>
+                            <input type="number" class="form-input" id="actual-savings" step="1" placeholder="실제로 넣은 금액">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 3fr 1fr; gap: var(--space-4); align-items: end;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" for="budget-notes">메모</label>
+                            <input type="text" class="form-input" id="budget-notes" placeholder="이번 달 소비 점검 메모">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <button type="submit" class="btn-glass primary" style="width: 100%;">
+                                <i class="bi bi-check-lg"></i>저장
+                            </button>
+                        </div>
+                    </div>
+                    <div id="capacity-preview" class="mt-4" style="color: var(--text-secondary); font-size: var(--font-size-sm);"></div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Trend Chart -->
+        <section class="glass-card mb-8 fade-in stagger-3">
+            <div class="glass-card-header">
+                <h3><i class="bi bi-graph-up"></i> 소득 · 지출 · 저축 추이</h3>
+            </div>
+            <div class="glass-card-body">
+                <div style="height: 320px;">
+                    <canvas id="budget-trend-chart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Records Table -->
+        <section class="glass-card fade-in stagger-4">
+            <div class="glass-card-header">
+                <h3><i class="bi bi-table"></i> 월별 기록</h3>
+            </div>
+            <div class="glass-card-body">
+                <div class="table-responsive">
+                    <table class="glass-table">
+                        <thead>
+                            <tr>
+                                <th>월</th>
+                                <th class="text-right">총 소득</th>
+                                <th class="text-right">총 지출</th>
+                                <th class="text-right">저축 가능</th>
+                                <th class="text-right">저축률</th>
+                                <th class="text-right">계획 저축</th>
+                                <th class="text-right">실제 저축</th>
+                                <th class="text-right">달성률</th>
+                                <th class="text-right">총 자산</th>
+                                <th>메모</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="budget-list">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Savings Journal -->
+        <section class="glass-card mt-8 fade-in stagger-4">
+            <div class="glass-card-header">
+                <h3><i class="bi bi-journal-plus"></i> 저축 일지</h3>
+                <span class="subtitle" style="font-size: var(--font-size-xs); color: var(--text-muted);">건별로 남기면 해당 월의 실제 저축액이 자동 집계됩니다</span>
+            </div>
+            <div class="glass-card-body">
+                <form id="savings-form">
+                    <input type="hidden" id="savings-id">
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: var(--space-4); align-items: end; margin-bottom: var(--space-4);">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" for="savings-date">저축일 *</label>
+                            <input type="date" class="form-input" id="savings-date" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" for="savings-amount">금액 *</label>
+                            <input type="number" class="form-input" id="savings-amount" step="1" min="1" required placeholder="예: 1000000">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" for="savings-category">분류</label>
+                            <select class="form-input" id="savings-category">
+                                <option value="REGULAR_SAVINGS">정기 저축</option>
+                                <option value="EMERGENCY_FUND">비상금</option>
+                                <option value="INVESTMENT_TRANSFER">투자 이체</option>
+                                <option value="PENSION">연금</option>
+                                <option value="DEBT_REPAYMENT">부채 상환</option>
+                                <option value="OTHER">기타</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" for="savings-institution">저축처</label>
+                            <input type="text" class="form-input" id="savings-institution" placeholder="은행/증권사/상품명">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" for="savings-memo">메모</label>
+                            <input type="text" class="form-input" id="savings-memo" placeholder="메모">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <button type="submit" class="btn-glass primary" id="savings-submit-btn">
+                                <i class="bi bi-plus-lg"></i>추가
+                            </button>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-glass" id="savings-cancel-btn" style="display: none;" onclick="resetSavingsForm()">
+                        <i class="bi bi-x-lg"></i>수정 취소
+                    </button>
+                </form>
+
+                <div class="table-responsive mt-4">
+                    <table class="glass-table">
+                        <thead>
+                            <tr>
+                                <th>저축일</th>
+                                <th class="text-right">금액</th>
+                                <th>분류</th>
+                                <th>저축처</th>
+                                <th>메모</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="savings-list">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <script src="auth.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/navigation.js"></script>
+    <script src="budget.js"></script>
+</body>
+</html>

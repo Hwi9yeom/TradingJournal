@@ -5,6 +5,7 @@ import com.trading.journal.dto.GoalDto;
 import com.trading.journal.dto.GoalSummaryDto;
 import com.trading.journal.dto.PortfolioSummaryDto;
 import com.trading.journal.entity.Goal;
+import com.trading.journal.entity.GoalHorizon;
 import com.trading.journal.entity.GoalStatus;
 import com.trading.journal.entity.GoalType;
 import com.trading.journal.repository.GoalRepository;
@@ -32,11 +33,19 @@ public class GoalService {
     private final AnalysisService analysisService;
     private final AlertService alertService;
     private final DividendService dividendService;
+    private final MonthlyBudgetService monthlyBudgetService;
 
     /** 새 목표 생성 */
     @Transactional
     @org.springframework.cache.annotation.CacheEvict(value = "goalSummary", allEntries = true)
     public GoalDto createGoal(GoalDto dto) {
+        GoalHorizon horizon = dto.getHorizon() != null ? dto.getHorizon() : GoalHorizon.THIS_YEAR;
+        LocalDate startDate = dto.getStartDate() != null ? dto.getStartDate() : LocalDate.now();
+        LocalDate deadline =
+                dto.getDeadline() != null
+                        ? dto.getDeadline()
+                        : defaultDeadlineFor(horizon, startDate);
+
         Goal goal =
                 Goal.builder()
                         .name(dto.getName())
@@ -44,9 +53,8 @@ public class GoalService {
                         .goalType(dto.getGoalType())
                         .targetValue(dto.getTargetValue())
                         .startValue(dto.getStartValue())
-                        .startDate(
-                                dto.getStartDate() != null ? dto.getStartDate() : LocalDate.now())
-                        .deadline(dto.getDeadline())
+                        .startDate(startDate)
+                        .deadline(deadline)
                         .status(GoalStatus.ACTIVE)
                         .notificationEnabled(
                                 dto.getNotificationEnabled() != null
@@ -58,11 +66,16 @@ public class GoalService {
                                         : 25)
                         .accountId(dto.getAccountId())
                         .notes(dto.getNotes())
+                        .commitment(dto.getCommitment())
+                        .rewardPlan(dto.getRewardPlan())
+                        .postAchievementPlan(dto.getPostAchievementPlan())
+                        .horizon(horizon)
                         .build();
 
         // 시작값 자동 설정 (현재 포트폴리오 상태 기반)
         if (goal.getStartValue() == null) {
-            goal.setStartValue(getCurrentValueForGoalType(goal.getGoalType()));
+            BigDecimal current = getCurrentValueForGoalType(goal.getGoalType());
+            goal.setStartValue(current != null ? current : BigDecimal.ZERO);
         }
 
         // 현재값 설정 및 진행률 계산
@@ -87,10 +100,21 @@ public class GoalService {
         goal.setName(dto.getName());
         goal.setDescription(dto.getDescription());
         goal.setTargetValue(dto.getTargetValue());
-        goal.setDeadline(dto.getDeadline());
         goal.setNotificationEnabled(dto.getNotificationEnabled());
         goal.setMilestoneInterval(dto.getMilestoneInterval());
         goal.setNotes(dto.getNotes());
+        goal.setCommitment(dto.getCommitment());
+        goal.setRewardPlan(dto.getRewardPlan());
+        goal.setPostAchievementPlan(dto.getPostAchievementPlan());
+        if (dto.getHorizon() != null) {
+            goal.setHorizon(dto.getHorizon());
+        }
+
+        // 마감일 미지정 시 기간 지평 기준 기본값을 다시 유도한다 (지평 변경 반영).
+        goal.setDeadline(
+                dto.getDeadline() != null
+                        ? dto.getDeadline()
+                        : defaultDeadlineFor(horizonOf(goal), goal.getStartDate()));
 
         if (dto.getStatus() != null) {
             goal.setStatus(dto.getStatus());
@@ -217,6 +241,31 @@ public class GoalService {
                                                                 .setScale(
                                                                         1, RoundingMode.HALF_UP))));
 
+        // 기간 지평별 통계
+        Map<String, Long> goalsByHorizon =
+                allGoals.stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        g -> horizonOf(g).name(), Collectors.counting()));
+
+        Map<String, BigDecimal> avgProgressByHorizon =
+                allGoals.stream()
+                        .filter(g -> g.getStatus() == GoalStatus.ACTIVE)
+                        .collect(
+                                Collectors.groupingBy(
+                                        g -> horizonOf(g).name(),
+                                        Collectors.collectingAndThen(
+                                                Collectors.averagingDouble(
+                                                        g ->
+                                                                g.getProgressPercent() != null
+                                                                        ? g.getProgressPercent()
+                                                                                .doubleValue()
+                                                                        : 0),
+                                                avg ->
+                                                        BigDecimal.valueOf(avg)
+                                                                .setScale(
+                                                                        1, RoundingMode.HALF_UP))));
+
         // 최근 달성 목표
         List<GoalDto> recentlyCompleted =
                 allGoals.stream()
@@ -255,6 +304,8 @@ public class GoalService {
                 .overdueGoals(overdue.size())
                 .goalsByType(goalsByType)
                 .averageProgressByType(avgProgressByType)
+                .goalsByHorizon(goalsByHorizon)
+                .averageProgressByHorizon(avgProgressByHorizon)
                 .recentlyCompleted(recentlyCompleted)
                 .priorityGoals(priorityGoals)
                 .build();
@@ -271,6 +322,10 @@ public class GoalService {
         for (Goal goal : activeGoals) {
             try {
                 BigDecimal newValue = getCurrentValueForGoalType(goal.getGoalType());
+                if (newValue == null) {
+                    // 현재 컨텍스트에서 값을 결정할 수 없으면(예: 스케줄러의 저축 목표) 기존 값을 유지한다.
+                    continue;
+                }
                 goal.setCurrentValue(newValue);
                 goal.updateProgress();
 
@@ -311,7 +366,11 @@ public class GoalService {
         }
     }
 
-    /** 목표 유형에 따른 현재 값 조회 */
+    /**
+     * 목표 유형에 따른 현재 값 조회.
+     *
+     * @return 현재 값. 현재 컨텍스트에서 결정할 수 없으면 null (호출자는 갱신을 건너뛴다)
+     */
     private BigDecimal getCurrentValueForGoalType(GoalType goalType) {
         try {
             PortfolioSummaryDto portfolio = portfolioAnalysisService.getPortfolioSummary();
@@ -326,9 +385,10 @@ public class GoalService {
                                 ? portfolio.getTotalCurrentValue()
                                 : BigDecimal.ZERO;
                 case SAVINGS_AMOUNT ->
-                        portfolio.getTotalInvestment() != null
-                                ? portfolio.getTotalInvestment()
-                                : BigDecimal.ZERO;
+                        // 목표 생성부터 종료까지 측정 기준은 누적 실제 저축액 하나다. 투자 원금 대체 같은
+                        // 임시 기준을 쓰면 첫 저축 기록 순간 진행률이 되돌아간다. 사용자 컨텍스트가 없으면
+                        // null을 돌려줘 호출자가 갱신을 건너뛰게 한다.
+                        monthlyBudgetService.getCumulativeActualSavings().orElse(null);
                 case DIVIDEND_INCOME -> {
                     DividendSummaryDto dividendSummary = dividendService.getDividendSummary();
                     yield dividendSummary.getTotalDividends() != null
@@ -342,8 +402,9 @@ public class GoalService {
                 case CUSTOM -> BigDecimal.ZERO; // CUSTOM은 수동 관리
             };
         } catch (Exception e) {
+            // 조회 실패 시 0으로 덮어쓰면 진행률이 허위로 되돌아간다. null로 갱신을 건너뛴다.
             log.warn("현재 값 조회 실패 (goalType={}): {}", goalType, e.getMessage());
-            return BigDecimal.ZERO;
+            return null;
         }
     }
 
@@ -435,6 +496,10 @@ public class GoalService {
                 .lastMilestone(goal.getLastMilestone())
                 .accountId(goal.getAccountId())
                 .notes(goal.getNotes())
+                .commitment(goal.getCommitment())
+                .rewardPlan(goal.getRewardPlan())
+                .postAchievementPlan(goal.getPostAchievementPlan())
+                .horizon(horizonOf(goal))
                 .createdAt(goal.getCreatedAt())
                 .updatedAt(goal.getUpdatedAt())
                 .daysRemaining(daysRemaining)
@@ -442,6 +507,7 @@ public class GoalService {
                 .isOverdue(isOverdue)
                 .statusLabel(getStatusLabel(goal.getStatus()))
                 .goalTypeLabel(getGoalTypeLabel(goal.getGoalType()))
+                .horizonLabel(getHorizonLabel(horizonOf(goal)))
                 .estimatedCompletionDate(estimatedCompletionDate)
                 .estimatedCompletionMessage(estimatedCompletionMessage)
                 .build();
@@ -468,6 +534,33 @@ public class GoalService {
             case MAX_DRAWDOWN_LIMIT -> "최대 낙폭 제한";
             case SHARPE_RATIO -> "샤프 비율";
             case CUSTOM -> "사용자 정의";
+        };
+    }
+
+    private String getHorizonLabel(GoalHorizon horizon) {
+        return switch (horizon) {
+            case THIS_YEAR -> "올해 목표";
+            case FIVE_YEAR -> "5년 뒤 목표";
+            case TEN_YEAR -> "10년 뒤 목표";
+            case ULTIMATE -> "최종 목표";
+        };
+    }
+
+    /** 레거시 데이터(horizon 미설정)를 올해 목표로 간주한다. */
+    private static GoalHorizon horizonOf(Goal goal) {
+        return goal.getHorizon() != null ? goal.getHorizon() : GoalHorizon.THIS_YEAR;
+    }
+
+    /**
+     * 기간 지평에 따른 기본 마감일. 사용자가 마감일을 지정하지 않았을 때만 적용된다. 최종 목표(ULTIMATE)는 기한을 두지 않으므로 {@code null}을
+     * 돌려준다.
+     */
+    private static LocalDate defaultDeadlineFor(GoalHorizon horizon, LocalDate startDate) {
+        return switch (horizon) {
+            case THIS_YEAR -> startDate.withMonth(12).withDayOfMonth(31);
+            case FIVE_YEAR -> startDate.plusYears(5);
+            case TEN_YEAR -> startDate.plusYears(10);
+            case ULTIMATE -> null;
         };
     }
 }

@@ -72,6 +72,17 @@ class SecurityFilterChainIntegrationTest {
     }
 
     @Test
+    @DisplayName("인증 활성화 모드에서 /api/auth/config는 공개되며 authEnabled=true를 반환한다")
+    void authConfigIsPublicAndReportsEnabled() throws Exception {
+        mockMvc.perform(get("/api/auth/config"))
+                .andExpect(status().isOk())
+                .andExpect(
+                        org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                                        "$.authEnabled")
+                                .value(true));
+    }
+
+    @Test
     @DisplayName("보호된 API는 토큰 없이 401을 반환한다")
     void protectedApiRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/api/accounts")).andExpect(status().isUnauthorized());

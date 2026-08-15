@@ -525,6 +525,8 @@ function formatDateTime(dateString) {
 
 /**
  * Format a Date object to YYYY-MM-DD string for API calls.
+ * Uses the LOCAL timezone: toISOString() is UTC-based, so around midnight KST
+ * it returns the previous day (e.g. 00:30 KST -> 15:30 UTC of yesterday).
  * @param {Date} date - The date to format
  * @returns {string} Date string in YYYY-MM-DD format
  */
@@ -532,7 +534,10 @@ function formatDateForApi(date) {
     if (!(date instanceof Date) || isNaN(date.getTime())) {
         return '';
     }
-    return date.toISOString().split('T')[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
 // ============================================================================

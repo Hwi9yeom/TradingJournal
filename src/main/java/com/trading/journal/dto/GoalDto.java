@@ -1,5 +1,6 @@
 package com.trading.journal.dto;
 
+import com.trading.journal.entity.GoalHorizon;
 import com.trading.journal.entity.GoalStatus;
 import com.trading.journal.entity.GoalType;
 import java.math.BigDecimal;
@@ -20,6 +21,7 @@ public class GoalDto {
     private String name;
     private String description;
     private GoalType goalType;
+    private GoalHorizon horizon;
     private BigDecimal targetValue;
     private BigDecimal currentValue;
     private BigDecimal startValue;
@@ -33,6 +35,9 @@ public class GoalDto {
     private Integer lastMilestone;
     private Long accountId;
     private String notes;
+    private String commitment;
+    private String rewardPlan;
+    private String postAchievementPlan;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -42,6 +47,7 @@ public class GoalDto {
     private Boolean isOverdue;
     private String statusLabel;
     private String goalTypeLabel;
+    private String horizonLabel;
     private LocalDate estimatedCompletionDate; // 예상 달성일
     private String estimatedCompletionMessage; // 예상 달성일 메시지
 }

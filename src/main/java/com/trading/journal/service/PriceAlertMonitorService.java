@@ -23,13 +23,29 @@ public class PriceAlertMonitorService {
     private final AlertBroadcastService alertBroadcastService;
 
     /**
-     * 가격 알림 모니터링 (1분마다 실행)
+     * 모니터링 활성화 여부.
+     *
+     * <p>가격 소스가 죽었거나 레이트 리밋에 걸린 동안 폴링을 멈추기 위한 스위치다. 끄지 못하면 실패한 조회가 리밋을 계속 갱신해 회복 자체를 막는다.
+     */
+    @org.springframework.beans.factory.annotation.Value("${price-alert.monitor.enabled:true}")
+    private boolean monitoringEnabled;
+
+    /**
+     * 가격 알림 모니터링.
      *
      * <p>활성 상태인 모든 가격 알림을 조회하여 현재 가격과 비교하고, 조건이 충족되면 알림을 트리거하고 브로드캐스트합니다.
+     *
+     * <p>주기는 {@code price-alert.monitor.interval-ms}로 조정한다. 알림 1건당 시세 조회 1회가 나가므로, 주기를 짧게 잡으면 알림
+     * 개수만큼 외부 API 호출이 배로 늘어 레이트 리밋(HTTP 429)을 자초한다. 기본값 5분은 알림 지연과 호출량의 절충값이다.
      */
-    @Scheduled(fixedRate = 60000) // 1분 = 60,000ms
+    @Scheduled(fixedRateString = "${price-alert.monitor.interval-ms:300000}")
     @Transactional
     public void monitorPriceAlerts() {
+        if (!monitoringEnabled) {
+            log.debug("Price alert monitoring is disabled");
+            return;
+        }
+
         log.debug("Starting price alert monitoring cycle...");
 
         try {

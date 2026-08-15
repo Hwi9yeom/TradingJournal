@@ -23,6 +23,7 @@
                 { href: 'sectors.html', icon: 'bi-pie-chart', label: '섹터' },
                 { href: 'correlation.html', icon: 'bi-grid-3x3', label: '상관관계' },
                 { href: 'backtest.html', icon: 'bi-clock-history', label: '백테스트' },
+                { href: 'sentiment.html', icon: 'bi-thermometer-half', label: '시장심리' },
             ],
         },
         {
@@ -31,6 +32,7 @@
                 { href: 'plans.html', icon: 'bi-journal-bookmark', label: '트레이드플랜' },
                 { href: 'reviews.html', icon: 'bi-journal-text', label: '거래복기' },
                 { href: 'goals.html', icon: 'bi-bullseye', label: '목표' },
+                { href: 'budget.html', icon: 'bi-piggy-bank', label: '가계·저축' },
                 { href: 'journal.html', icon: 'bi-pencil-square', label: '저널' },
             ],
         },
@@ -78,11 +80,17 @@
                         <i class="bi bi-moon theme-toggle-icon moon"></i>
                         테마 변경
                     </button>
-                    <a href="#" class="nav-link" onclick="logout(); return false;">
-                        <i class="bi bi-box-arrow-right"></i> 로그아웃
-                    </a>
+                    ${logoutLink()}
                 </div>
             </nav>`;
+    }
+
+    // 로컬 개인 사용 모드(auth.js의 isAuthDisabled)에서는 로그인이 없으므로 로그아웃 링크를 숨긴다.
+    function logoutLink() {
+        if (typeof isAuthDisabled === 'function' && isAuthDisabled()) return '';
+        return `<a href="#" class="nav-link" onclick="logout(); return false;">
+                        <i class="bi bi-box-arrow-right"></i> 로그아웃
+                    </a>`;
     }
 
     function injectBackgroundOrbs() {

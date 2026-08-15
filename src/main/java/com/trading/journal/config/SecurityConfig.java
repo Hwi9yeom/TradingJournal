@@ -1,7 +1,9 @@
 package com.trading.journal.config;
 
+import com.trading.journal.security.CustomUserDetailsService;
 import com.trading.journal.security.JwtAuthenticationEntryPoint;
 import com.trading.journal.security.JwtAuthenticationFilter;
+import com.trading.journal.security.LocalUserAuthenticationFilter;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -30,12 +32,26 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final CustomUserDetailsService customUserDetailsService;
 
     @Value("${spring.h2.console.enabled:false}")
     private boolean h2ConsoleEnabled;
 
+    /**
+     * 인증 활성화 여부. false면 로그인/JWT 없이 모든 요청을 허용하고, 요청마다 기본 관리자 사용자를 SecurityContext에 주입한다(로컬 개인 사용
+     * 모드). 네트워크에 노출되는 배포에서는 반드시 true여야 한다.
+     */
+    @Value("${app.auth.enabled:true}")
+    private boolean authEnabled;
+
+    @Value("${admin.username:admin}")
+    private String adminUsername;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        if (!authEnabled) {
+            return localSecurityFilterChain(http);
+        }
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .exceptionHandling(
@@ -74,6 +90,22 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    /** 로컬 개인 사용 모드: 인가 없이 전부 허용, 기본 관리자 사용자를 항상 인증 컨텍스트에 주입. */
+    private SecurityFilterChain localSecurityFilterChain(HttpSecurity http) throws Exception {
+        http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(
+                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+
+        http.addFilterBefore(
+                new LocalUserAuthenticationFilter(customUserDetailsService, adminUsername),
+                UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

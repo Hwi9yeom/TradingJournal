@@ -124,9 +124,35 @@ $(document).ready(function() {
     loadGoals();
     loadGoalSummary();
 
-    // 시작일 기본값 설정
-    $('#startDate').val(new Date().toISOString().split('T')[0]);
+    // 시작일 기본값 설정 (로컬 타임존 기준 - toISOString은 UTC라 자정 무렵 전날로 밀린다)
+    $('#startDate').val(formatDateForApi(new Date()));
+
+    // 기간 지평을 바꾸면 마감일을 새 지평의 기본값으로 재계산한다.
+    // 이전 지평의 마감일이 폼에 남아 그대로 전송되면 5년/10년/최종 목표가 옛 마감일을 유지하기 때문.
+    $('#goalHorizon').on('change', function() {
+        $('#deadline').val(defaultDeadlineForHorizon($(this).val(), $('#startDate').val()));
+    });
 });
+
+/**
+ * 기간 지평별 기본 마감일 (백엔드 GoalService.defaultDeadlineFor와 동일 규칙).
+ * @param {string} horizon - 기간 지평 코드
+ * @param {string} startDateStr - 시작일 (YYYY-MM-DD)
+ * @returns {string} 기본 마감일(YYYY-MM-DD). ULTIMATE는 기한 없음('')
+ */
+function defaultDeadlineForHorizon(horizon, startDateStr) {
+    const start = startDateStr ? new Date(startDateStr + 'T00:00:00') : new Date();
+    switch (horizon) {
+        case 'THIS_YEAR':
+            return `${start.getFullYear()}-12-31`;
+        case 'FIVE_YEAR':
+            return formatDateForApi(new Date(start.getFullYear() + 5, start.getMonth(), start.getDate()));
+        case 'TEN_YEAR':
+            return formatDateForApi(new Date(start.getFullYear() + 10, start.getMonth(), start.getDate()));
+        default: // ULTIMATE
+            return '';
+    }
+}
 
 // =============================================================================
 // DATA LOADING
@@ -221,12 +247,17 @@ function filterGoals(status) {
         $(`.btn-group .btn[onclick*="${currentFilter}"]`).addClass('active');
     }
 
-    // 유형 필터 적용
+    // 유형 / 기간 지평 필터 적용
     const typeFilter = $('#goalTypeFilter').val();
+    const horizonFilter = $('#goalHorizonFilter').val();
     let filtered = filterGoalsByStatus(currentFilter);
 
     if (typeFilter) {
         filtered = filtered.filter(g => g.goalType === typeFilter);
+    }
+
+    if (horizonFilter) {
+        filtered = filtered.filter(g => (g.horizon || 'THIS_YEAR') === horizonFilter);
     }
 
     renderGoals(filtered);
@@ -303,6 +334,7 @@ function createGoalCard(goal) {
 
                         <p class="text-muted small mb-2">
                             <i class="bi bi-tag me-1"></i>${goal.goalTypeLabel || goal.goalType}
+                            <span class="ms-2"><i class="bi bi-hourglass-split me-1"></i>${goal.horizonLabel || ''}</span>
                         </p>
 
                         <div class="mb-3">
@@ -472,7 +504,7 @@ function openCreateModal() {
     $('#goalModalLabel').html('<i class="bi bi-bullseye me-2"></i>새 목표 설정');
     $('#goalForm')[0].reset();
     $('#goalId').val('');
-    $('#startDate').val(new Date().toISOString().split('T')[0]);
+    $('#startDate').val(formatDateForApi(new Date()));
     updateTargetPlaceholder();
     document.getElementById('goalModal').classList.add('show');
 }
@@ -498,6 +530,7 @@ function saveGoal() {
     const goalData = {
         name: $('#goalName').val(),
         goalType: $('#goalType').val(),
+        horizon: $('#goalHorizon').val() || 'THIS_YEAR',
         targetValue: parseFloat($('#targetValue').val()),
         startValue: $('#startValue').val() ? parseFloat($('#startValue').val()) : null,
         startDate: $('#startDate').val(),
@@ -505,7 +538,10 @@ function saveGoal() {
         description: $('#goalDescription').val(),
         milestoneInterval: parseInt($('#milestoneInterval').val()),
         notificationEnabled: $('#notificationEnabled').is(':checked'),
-        notes: $('#goalNotes').val()
+        notes: $('#goalNotes').val(),
+        commitment: $('#goalCommitment').val(),
+        rewardPlan: $('#goalRewardPlan').val(),
+        postAchievementPlan: $('#goalPostAchievementPlan').val()
     };
 
     // 유효성 검사
@@ -547,6 +583,7 @@ function openEditModal(goal) {
     $('#goalId').val(goal.id);
     $('#goalName').val(goal.name);
     $('#goalType').val(goal.goalType);
+    $('#goalHorizon').val(goal.horizon || 'THIS_YEAR');
     updateTargetPlaceholder();
     $('#targetValue').val(goal.targetValue);
     $('#startValue').val(goal.startValue);
@@ -556,6 +593,9 @@ function openEditModal(goal) {
     $('#milestoneInterval').val(goal.milestoneInterval || 25);
     $('#notificationEnabled').prop('checked', goal.notificationEnabled !== false);
     $('#goalNotes').val(goal.notes || '');
+    $('#goalCommitment').val(goal.commitment || '');
+    $('#goalRewardPlan').val(goal.rewardPlan || '');
+    $('#goalPostAchievementPlan').val(goal.postAchievementPlan || '');
 
     document.getElementById('goalModal').classList.add('show');
 }
@@ -616,6 +656,10 @@ function renderGoalDetail(goal) {
                         <p class="mb-0 fw-bold">${goal.goalTypeLabel}</p>
                     </div>
                     <div class="col-6">
+                        <label class="text-muted small">기간 지평</label>
+                        <p class="mb-0 fw-bold">${goal.horizonLabel || '-'}</p>
+                    </div>
+                    <div class="col-6">
                         <label class="text-muted small">상태</label>
                         <p class="mb-0">${getStatusBadge(goal.status)}</p>
                     </div>
@@ -650,6 +694,27 @@ function renderGoalDetail(goal) {
         <div class="mt-3 pt-3 border-top">
             <label class="text-muted small">메모</label>
             <p class="mb-0">${escapeHtml(goal.notes)}</p>
+        </div>
+        ` : ''}
+
+        ${goal.commitment ? `
+        <div class="mt-3 pt-3 border-top">
+            <label class="text-muted small">스스로에게 하는 약속</label>
+            <p class="mb-0">${escapeHtml(goal.commitment)}</p>
+        </div>
+        ` : ''}
+
+        ${goal.rewardPlan ? `
+        <div class="mt-3 pt-3 border-top">
+            <label class="text-muted small">목표 달성한 날 할 일</label>
+            <p class="mb-0">${escapeHtml(goal.rewardPlan)}</p>
+        </div>
+        ` : ''}
+
+        ${goal.postAchievementPlan ? `
+        <div class="mt-3 pt-3 border-top">
+            <label class="text-muted small">목표 달성 이후 계획</label>
+            <p class="mb-0">${escapeHtml(goal.postAchievementPlan)}</p>
         </div>
         ` : ''}
 

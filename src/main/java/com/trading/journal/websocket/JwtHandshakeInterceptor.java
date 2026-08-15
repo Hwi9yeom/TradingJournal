@@ -21,12 +21,37 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
 
+    // 필드 초기값 true: Spring 밖에서 생성되더라도(유닛 테스트 등) 인증이 조용히 꺼지지 않도록 한다.
+    @org.springframework.beans.factory.annotation.Value("${app.auth.enabled:true}")
+    private boolean authEnabled = true;
+
+    @org.springframework.beans.factory.annotation.Value("${admin.username:admin}")
+    private String adminUsername = "admin";
+
     @Override
     public boolean beforeHandshake(
             ServerHttpRequest request,
             ServerHttpResponse response,
             WebSocketHandler wsHandler,
             Map<String, Object> attributes) {
+
+        // 로컬 개인 사용 모드: 토큰 없이 기본 관리자로 바인딩한다(HTTP 체인의 LocalUserAuthenticationFilter와 동일 정책).
+        if (!authEnabled) {
+            return userRepository
+                    .findByUsername(adminUsername)
+                    .map(
+                            user -> {
+                                attributes.put("userId", user.getId());
+                                return true;
+                            })
+                    .orElseGet(
+                            () -> {
+                                log.warn(
+                                        "WebSocket handshake rejected: local user not found: {}",
+                                        adminUsername);
+                                return false;
+                            });
+        }
 
         String token =
                 UriComponentsBuilder.fromUri(request.getURI())
