@@ -19,6 +19,18 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @org.springframework.beans.factory.annotation.Value("${app.auth.enabled:true}")
+    private boolean authEnabled;
+
+    @Operation(
+            summary = "Auth Config",
+            description = "Public endpoint exposing whether login is required")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Auth mode returned")})
+    @GetMapping("/config")
+    public ResponseEntity<AuthConfigDto> getAuthConfig() {
+        return ResponseEntity.ok(new AuthConfigDto(authEnabled));
+    }
+
     @Operation(summary = "Login", description = "Authenticate user and return JWT tokens")
     @ApiResponses(
             value = {

@@ -25,6 +25,9 @@ public class JwtTokenProvider {
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
 
+    @Value("${app.auth.enabled:true}")
+    private boolean authEnabled;
+
     private static final int MIN_SECRET_LENGTH = 32; // 256 bits for HMAC-SHA256
 
     /** Custom claim distinguishing access tokens from refresh tokens. */
@@ -35,6 +38,15 @@ public class JwtTokenProvider {
 
     @PostConstruct
     public void validateConfiguration() {
+        // 로컬 개인 사용 모드에서는 토큰을 발급/검증할 일이 없다. 설정 강제 대신 무작위 시크릿을 생성해
+        // 빈을 유효하게 유지한다(서명 불가능한 토큰만 만들어질 뿐).
+        if (!authEnabled && (jwtSecret == null || jwtSecret.length() < MIN_SECRET_LENGTH)) {
+            jwtSecret =
+                    java.util.UUID.randomUUID().toString() + java.util.UUID.randomUUID().toString();
+            log.info("Auth disabled: generated ephemeral JWT secret");
+            return;
+        }
+
         // SECURITY: Validate JWT secret is properly configured
         if (jwtSecret == null || jwtSecret.isBlank()) {
             throw new IllegalStateException(

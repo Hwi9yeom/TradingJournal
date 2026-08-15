@@ -30,7 +30,8 @@ const AUTH_ENDPOINTS = {
     LOGIN: `${AUTH_API_URL}/login`,
     REFRESH: `${AUTH_API_URL}/refresh`,
     ME: `${AUTH_API_URL}/me`,
-    PASSWORD: `${AUTH_API_URL}/password`
+    PASSWORD: `${AUTH_API_URL}/password`,
+    CONFIG: `${AUTH_API_URL}/config`
 };
 
 /**
@@ -41,6 +42,17 @@ const TOKEN_KEYS = {
     ACCESS: 'jwt_access_token',
     REFRESH: 'jwt_refresh_token'
 };
+
+/**
+ * LocalStorage key caching the server auth mode.
+ * Value 'disabled' means the server runs in local single-user mode
+ * (app.auth.enabled=false) and no login/token is required.
+ * The cache is written by login.html after querying AUTH_ENDPOINTS.CONFIG and
+ * cleared with the tokens, so a server that re-enables auth self-heals via the
+ * 401 -> login page -> config refetch path.
+ * @constant {string}
+ */
+const AUTH_MODE_KEY = 'auth_mode';
 
 /**
  * Page URLs for navigation
@@ -105,6 +117,28 @@ function storeTokens(accessToken, refreshToken) {
 function clearTokens() {
     localStorage.removeItem(TOKEN_KEYS.ACCESS);
     localStorage.removeItem(TOKEN_KEYS.REFRESH);
+    localStorage.removeItem(AUTH_MODE_KEY);
+}
+
+/**
+ * Check whether the server is known to run without authentication
+ * (local single-user mode). Based on the cached auth mode.
+ * @returns {boolean} True if login is not required
+ */
+function isAuthDisabled() {
+    return localStorage.getItem(AUTH_MODE_KEY) === 'disabled';
+}
+
+/**
+ * Cache the server auth mode fetched from AUTH_ENDPOINTS.CONFIG.
+ * @param {boolean} authEnabled - Whether the server requires login
+ */
+function storeAuthMode(authEnabled) {
+    if (authEnabled) {
+        localStorage.removeItem(AUTH_MODE_KEY);
+    } else {
+        localStorage.setItem(AUTH_MODE_KEY, 'disabled');
+    }
 }
 
 // ============================================================================
@@ -285,6 +319,11 @@ function setupAjaxAuth() {
  */
 function checkAuth() {
     if (!isAuthenticated()) {
+        // Local single-user mode: server accepts requests without a token.
+        if (isAuthDisabled()) {
+            setupAjaxAuth();
+            return true;
+        }
         redirectToLogin();
         return false;
     }
@@ -452,6 +491,8 @@ if (typeof window !== 'undefined') {
 
     // Token Management
     window.isAuthenticated = isAuthenticated;
+    window.isAuthDisabled = isAuthDisabled;
+    window.storeAuthMode = storeAuthMode;
     window.getAccessToken = getAccessToken;
     window.getRefreshToken = getRefreshToken;
     window.storeTokens = storeTokens;

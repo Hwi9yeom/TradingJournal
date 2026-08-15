@@ -98,6 +98,39 @@ class JwtHandshakeInterceptorTest {
     }
 
     @Test
+    @DisplayName("로컬 모드(authEnabled=false)에서는 토큰 없이 기본 관리자로 바인딩한다")
+    void localMode_bindsAdminWithoutToken() throws Exception {
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                interceptor, "authEnabled", false);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                interceptor, "adminUsername", "admin");
+        User admin = User.builder().id(1L).username("admin").build();
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+
+        Map<String, Object> attributes = new HashMap<>();
+        boolean result =
+                interceptor.beforeHandshake(requestWithQuery(""), null, handler, attributes);
+
+        assertThat(result).isTrue();
+        assertThat(attributes.get("userId")).isEqualTo(1L);
+        verifyNoInteractions(jwtTokenProvider);
+    }
+
+    @Test
+    @DisplayName("로컬 모드에서 기본 관리자가 없으면 핸드셰이크를 거부한다")
+    void localMode_userMissing_rejects() throws Exception {
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                interceptor, "authEnabled", false);
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.empty());
+
+        Map<String, Object> attributes = new HashMap<>();
+        boolean result =
+                interceptor.beforeHandshake(requestWithQuery(""), null, handler, attributes);
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
     @DisplayName("유저를 찾을 수 없으면 핸드셰이크를 거부한다")
     void userNotFound_rejects() throws Exception {
         when(jwtTokenProvider.validateToken("good")).thenReturn(true);
