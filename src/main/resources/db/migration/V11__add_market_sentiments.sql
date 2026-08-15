@@ -7,10 +7,11 @@
 -- schema in db/mysql/schema-mysql.sql).
 
 CREATE TABLE IF NOT EXISTS market_sentiments (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     indicator VARCHAR(30) NOT NULL,
     recorded_date DATE NOT NULL,
-    value DECIMAL(19,4) NOT NULL,
+    -- "value"는 H2 예약어라 컴럼명을 indicator_value로 둠
+    indicator_value DECIMAL(19,4) NOT NULL,
     notes VARCHAR(1000),
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,

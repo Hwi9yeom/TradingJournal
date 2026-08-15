@@ -460,6 +460,7 @@ create table goals (
 
 create table monthly_budgets (
     budget_month date not null,
+    user_id bigint,
     account_id bigint,
     created_at datetime(6) not null,
     id bigint not null auto_increment,
@@ -473,11 +474,12 @@ create table monthly_budgets (
     variable_income TEXT,
     notes varchar(2000),
     primary key (id),
-    constraint uk_budget_account_month unique (account_id, budget_month)
+    constraint uk_budget_user_account_month unique (user_id, account_id, budget_month)
 ) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_unicode_ci;
 
 create table savings_records (
     saved_date date not null,
+    user_id bigint,
     account_id bigint,
     created_at datetime(6) not null,
     id bigint not null auto_increment,
@@ -491,7 +493,7 @@ create table savings_records (
 
 create table market_sentiments (
     recorded_date date not null,
-    value decimal(19,4) not null,
+    indicator_value decimal(19,4) not null,
     created_at datetime(6) not null,
     id bigint not null auto_increment,
     updated_at datetime(6) not null,
@@ -775,11 +777,13 @@ create index idx_goal_horizon on goals (horizon);
 -- monthly_budgets
 create index idx_budget_month on monthly_budgets (budget_month);
 create index idx_budget_account on monthly_budgets (account_id);
+create index idx_budget_user on monthly_budgets (user_id);
 
 -- savings_records
 create index idx_savings_date on savings_records (saved_date);
 create index idx_savings_account on savings_records (account_id);
 create index idx_savings_category on savings_records (category);
+create index idx_savings_user on savings_records (user_id);
 
 -- market_sentiments
 create index idx_sentiment_date on market_sentiments (recorded_date);

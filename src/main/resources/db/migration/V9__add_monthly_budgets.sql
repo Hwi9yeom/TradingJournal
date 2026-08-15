@@ -10,7 +10,8 @@
 -- Consequence: no DB-level SUM/AVG on these columns.
 
 CREATE TABLE IF NOT EXISTS monthly_budgets (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT,
     account_id BIGINT,
     budget_month DATE NOT NULL,
     fixed_income TEXT,
@@ -23,8 +24,9 @@ CREATE TABLE IF NOT EXISTS monthly_budgets (
     notes VARCHAR(2000),
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
-    CONSTRAINT uk_budget_account_month UNIQUE (account_id, budget_month)
+    CONSTRAINT uk_budget_user_account_month UNIQUE (user_id, account_id, budget_month)
 );
 
 CREATE INDEX IF NOT EXISTS idx_budget_month ON monthly_budgets(budget_month);
 CREATE INDEX IF NOT EXISTS idx_budget_account ON monthly_budgets(account_id);
+CREATE INDEX IF NOT EXISTS idx_budget_user ON monthly_budgets(user_id);

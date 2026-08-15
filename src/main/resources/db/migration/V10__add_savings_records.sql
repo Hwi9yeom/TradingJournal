@@ -8,7 +8,8 @@
 -- amount is TEXT because it is stored encrypted via EncryptedBigDecimalConverter.
 
 CREATE TABLE IF NOT EXISTS savings_records (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT,
     account_id BIGINT,
     saved_date DATE NOT NULL,
     amount TEXT NOT NULL,
@@ -22,3 +23,4 @@ CREATE TABLE IF NOT EXISTS savings_records (
 CREATE INDEX IF NOT EXISTS idx_savings_date ON savings_records(saved_date);
 CREATE INDEX IF NOT EXISTS idx_savings_account ON savings_records(account_id);
 CREATE INDEX IF NOT EXISTS idx_savings_category ON savings_records(category);
+CREATE INDEX IF NOT EXISTS idx_savings_user ON savings_records(user_id);

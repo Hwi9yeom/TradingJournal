@@ -21,7 +21,8 @@ import lombok.*;
         indexes = {
             @Index(name = "idx_savings_date", columnList = "saved_date"),
             @Index(name = "idx_savings_account", columnList = "account_id"),
-            @Index(name = "idx_savings_category", columnList = "category")
+            @Index(name = "idx_savings_category", columnList = "category"),
+            @Index(name = "idx_savings_user", columnList = "user_id")
         })
 @Data
 @NoArgsConstructor
@@ -32,6 +33,10 @@ public class SavingsRecord {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** 소유 사용자 ID. 모든 조회/수정은 이 값으로 격리된다. */
+    @Column(name = "user_id")
+    private Long userId;
 
     /** 계좌 ID (null이면 전체 가계) */
     @Column(name = "account_id")

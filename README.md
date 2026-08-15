@@ -47,8 +47,17 @@ app.auth.enabled=false
 - 로컬 템플릿: `src/main/resources/application-local.properties.example`
 
 ## Database Migration
-- 마이그레이션 파일 위치: `src/main/resources/db/migration`
+- 마이그레이션 파일 위치: `src/main/resources/db/migration` (H2/PostgreSQL, Flyway)
 - 신규 스키마 변경 시 Flyway 스크립트를 추가하고 애플리케이션 시작으로 반영
+
+### MySQL 프로필 업그레이드
+`mysql` 프로필은 Flyway가 꺼져 있고 `db/mysql/schema-mysql.sql`은 빈 볼륨 최초 생성 때만 실행됩니다.
+**기존 MySQL DB**는 스키마 변경이 추가된 버전으로 올릴 때 `src/main/resources/db/mysql/upgrade/`의
+업그레이드 스크립트를 순서대로 한 번씩 실행해야 합니다. 실행하지 않으면 `ddl-auto=validate`가 부팅 시점에 실패합니다.
+```bash
+mysql -u tradingjournal -p tradingjournal \
+  < src/main/resources/db/mysql/upgrade/upgrade-001-goals-budget-sentiment.sql
+```
 
 ## Testing & Quality Gate
 - 테스트 실행: `./gradlew test`

@@ -20,10 +20,12 @@ import lombok.*;
 @Entity
 @Table(
         name = "monthly_budgets",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"account_id", "budget_month"}),
+        uniqueConstraints =
+                @UniqueConstraint(columnNames = {"user_id", "account_id", "budget_month"}),
         indexes = {
             @Index(name = "idx_budget_month", columnList = "budget_month"),
-            @Index(name = "idx_budget_account", columnList = "account_id")
+            @Index(name = "idx_budget_account", columnList = "account_id"),
+            @Index(name = "idx_budget_user", columnList = "user_id")
         })
 @Data
 @NoArgsConstructor
@@ -34,6 +36,10 @@ public class MonthlyBudget {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** 소유 사용자 ID. 모든 조회/수정은 이 값으로 격리된다. */
+    @Column(name = "user_id")
+    private Long userId;
 
     /** 계좌 ID (null이면 전체 계좌 통합 가계) */
     @Column(name = "account_id")

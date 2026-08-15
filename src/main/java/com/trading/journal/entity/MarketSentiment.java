@@ -41,8 +41,8 @@ public class MarketSentiment {
     @Column(name = "recorded_date", nullable = false)
     private LocalDate recordedDate;
 
-    /** 지표 값 (스케일은 지표마다 다르다) */
-    @Column(nullable = false, precision = 19, scale = 4)
+    /** 지표 값 (스케일은 지표마다 다르다). "value"는 H2 예약어라 컴럼명을 indicator_value로 둔다. */
+    @Column(name = "indicator_value", nullable = false, precision = 19, scale = 4)
     private BigDecimal value;
 
     /** 메모 (관찰 맥락, 예외 상황 등) */
